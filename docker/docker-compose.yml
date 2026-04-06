@@ -1,0 +1,171 @@
+# ============================================================
+# DOCKER COMPOSE - CƠ SỞ DỮ LIỆU PHÂN TÁN
+# Đề tài: Hệ thống đăng ký học phần nhiều cơ sở
+# Mô tả: 3 Site PostgreSQL + Redis + Elasticsearch + Kibana
+# ============================================================
+
+version: '3.8'
+
+services:
+  # ============================================================
+  # SITE HADONG (Hà Nội)
+  # ============================================================
+  postgres_hadong:
+    image: postgres:15-alpine
+    container_name: csdlpt_hadong
+    environment:
+      POSTGRES_DB: ${HADONG_DB:-csdlpt_hadong}
+      POSTGRES_USER: ${HADONG_USER:-csdlpt_user}
+      POSTGRES_PASSWORD: ${HADONG_PASSWORD:-csdlpt_pass}
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+    ports:
+      - "${HADONG_PORT:-5432}:5432"
+    volumes:
+      - postgres_hadong_data:/var/lib/postgresql/data
+      - ./db/common:/docker-entrypoint-initdb.d/00_common:ro
+      - ./db/site_hadong/init:/docker-entrypoint-initdb.d/01_site:ro
+    networks:
+      - csdlpt_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${HADONG_USER:-csdlpt_user} -d ${HADONG_DB:-csdlpt_hadong}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ============================================================
+  # SITE NGOCTRUC (Ngọc Trục)
+  # ============================================================
+  postgres_ngoctruc:
+    image: postgres:15-alpine
+    container_name: csdlpt_ngoctruc
+    environment:
+      POSTGRES_DB: ${NGOCTRUC_DB:-csdlpt_ngoctruc}
+      POSTGRES_USER: ${NGOCTRUC_USER:-csdlpt_user}
+      POSTGRES_PASSWORD: ${NGOCTRUC_PASSWORD:-csdlpt_pass}
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+    ports:
+      - "${NGOCTRUC_PORT:-5433}:5432"
+    volumes:
+      - postgres_ngoctruc_data:/var/lib/postgresql/data
+      - ./db/common:/docker-entrypoint-initdb.d/00_common:ro
+      - ./db/site_ngoctruc/init:/docker-entrypoint-initdb.d/01_site:ro
+    networks:
+      - csdlpt_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${NGOCTRUC_USER:-csdlpt_user} -d ${NGOCTRUC_DB:-csdlpt_ngoctruc}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ============================================================
+  # SITE HOALAC (Hòa Lạc)
+  # ============================================================
+  postgres_hoalac:
+    image: postgres:15-alpine
+    container_name: csdlpt_hoalac
+    environment:
+      POSTGRES_DB: ${HOALAC_DB:-csdlpt_hoalac}
+      POSTGRES_USER: ${HOALAC_USER:-csdlpt_user}
+      POSTGRES_PASSWORD: ${HOALAC_PASSWORD:-csdlpt_pass}
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+    ports:
+      - "${HOALAC_PORT:-5434}:5432"
+    volumes:
+      - postgres_hoalac_data:/var/lib/postgresql/data
+      - ./db/common:/docker-entrypoint-initdb.d/00_common:ro
+      - ./db/site_hoalac/init:/docker-entrypoint-initdb.d/01_site:ro
+    networks:
+      - csdlpt_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${HOALAC_USER:-csdlpt_user} -d ${HOALAC_DB:-csdlpt_hoalac}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ============================================================
+  # REDIS - Cache Layer
+  # ============================================================
+  redis:
+    image: redis:7-alpine
+    container_name: csdlpt_redis
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - csdlpt_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ============================================================
+  # ELASTICSEARCH - Search Engine
+  # ============================================================
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: csdlpt_elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - cluster.name=csdlpt-cluster
+      - bootstrap.memory_lock=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "${ES_PORT:-9200}:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - csdlpt_network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  # ============================================================
+  # KIBANA - Dashboard & Visualization
+  # ============================================================
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: csdlpt_kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - SERVER_NAME=csdlpt-kibana
+      - SERVER_HOST=0.0.0.0
+    ports:
+      - "${KIBANA_PORT:-5601}:5601"
+    networks:
+      - csdlpt_network
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    restart: unless-stopped
+
+# ============================================================
+# NETWORKS
+# ============================================================
+networks:
+  csdlpt_network:
+    driver: bridge
+
+# ============================================================
+# VOLUMES
+# ============================================================
+volumes:
+  postgres_hadong_data:
+  postgres_ngoctruc_data:
+  postgres_hoalac_data:
+  redis_data:
+  elasticsearch_data:
