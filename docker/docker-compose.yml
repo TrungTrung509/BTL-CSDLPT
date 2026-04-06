@@ -22,8 +22,8 @@ services:
       - "${HADONG_PORT:-5432}:5432"
     volumes:
       - postgres_hadong_data:/var/lib/postgresql/data
-      - ./db/common:/docker-entrypoint-initdb.d/00_common:ro
-      - ./db/site_hadong/init:/docker-entrypoint-initdb.d/01_site:ro
+      - ../db/common/01_common_tables.sql:/docker-entrypoint-initdb.d/01_common_tables.sql:ro
+      - ../db/site_hadong/init/01_local_tables.sql:/docker-entrypoint-initdb.d/02_local_tables.sql:ro
     networks:
       - csdlpt_network
     healthcheck:
@@ -48,8 +48,8 @@ services:
       - "${NGOCTRUC_PORT:-5433}:5432"
     volumes:
       - postgres_ngoctruc_data:/var/lib/postgresql/data
-      - ./db/common:/docker-entrypoint-initdb.d/00_common:ro
-      - ./db/site_ngoctruc/init:/docker-entrypoint-initdb.d/01_site:ro
+      - ../db/common/01_common_tables.sql:/docker-entrypoint-initdb.d/01_common_tables.sql:ro
+      - ../db/site_ngoctruc/init/01_local_tables.sql:/docker-entrypoint-initdb.d/02_local_tables.sql:ro
     networks:
       - csdlpt_network
     healthcheck:
@@ -74,8 +74,8 @@ services:
       - "${HOALAC_PORT:-5434}:5432"
     volumes:
       - postgres_hoalac_data:/var/lib/postgresql/data
-      - ./db/common:/docker-entrypoint-initdb.d/00_common:ro
-      - ./db/site_hoalac/init:/docker-entrypoint-initdb.d/01_site:ro
+      - ../db/common/01_common_tables.sql:/docker-entrypoint-initdb.d/01_common_tables.sql:ro
+      - ../db/site_hoalac/init/01_local_tables.sql:/docker-entrypoint-initdb.d/02_local_tables.sql:ro
     networks:
       - csdlpt_network
     healthcheck:
