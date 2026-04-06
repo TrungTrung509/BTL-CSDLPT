@@ -102,21 +102,21 @@ SMALL_CLASS_SIZES = [10, 12, 15]
 
 ### Import vào HADONG
 
-```bash
+```powershell
 # 1. Schema common
-docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong < db/common/01_common_tables.sql
+Get-Content db/common/01_common_tables.sql | docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong
 
 # 2. Data common
-docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong < seeds/output/common/001_common_data.sql
+Get-Content seeds/output/common/001_common_data.sql | docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong
 
 # 3. Schema local
-docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong < db/site_hadong/init/01_local_tables.sql
+Get-Content db/site_hadong/init/01_local_tables.sql | docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong
 
 # 4. Data local
-docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong < seeds/output/site_hadong/001_site_data.sql
+Get-Content seeds/output/site_hadong/001_site_data.sql | docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong
 
 # 5. Indexes
-docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong < sql/indexes.sql
+Get-Content sql/indexes.sql | docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong
 ```
 
 ### Import vào NGOCTRUC và HOALAC
@@ -125,13 +125,13 @@ Tương tự, thay `hadong` bằng `ngoctruc` hoặc `hoalac`.
 
 ### Import nhanh bằng script
 
-```bash
+```powershell
 # Chạy tất cả cho một site
-docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong < db/common/01_common_tables.sql
-docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong < seeds/output/common/001_common_data.sql
-docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong < db/site_hadong/init/01_local_tables.sql
-docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong < seeds/output/site_hadong/001_site_data.sql
-docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong < sql/indexes.sql
+Get-Content db/common/01_common_tables.sql | docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong
+Get-Content seeds/output/common/001_common_data.sql | docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong
+Get-Content db/site_hadong/init/01_local_tables.sql | docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong
+Get-Content seeds/output/site_hadong/001_site_data.sql | docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong
+Get-Content sql/indexes.sql | docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong
 ```
 
 ## Kiểm tra sau khi import

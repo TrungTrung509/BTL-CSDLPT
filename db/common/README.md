@@ -43,15 +43,15 @@ Thứ tự khởi tạo:
 
 ## Cách nạp thủ công
 
-```bash
+```powershell
 # Nạp bảng common vào site HADONG
-docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong < db/common/01_common_tables.sql
+Get-Content db/common/01_common_tables.sql | docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong
 
 # Nạp bảng common vào site NGOCTRUC
-docker exec -i csdlpt_ngoctruc psql -U csdlpt_user -d csdlpt_ngoctruc < db/common/01_common_tables.sql
+Get-Content db/common/01_common_tables.sql | docker exec -i csdlpt_ngoctruc psql -U csdlpt_user -d csdlpt_ngoctruc
 
 # Nạp bảng common vào site HOALAC
-docker exec -i csdlpt_hoalac psql -U csdlpt_user -d csdlpt_hoalac < db/common/01_common_tables.sql
+Get-Content db/common/01_common_tables.sql | docker exec -i csdlpt_hoalac psql -U csdlpt_user -d csdlpt_hoalac
 ```
 
 ## Cách kiểm tra bảng đã tạo

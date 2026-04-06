@@ -32,9 +32,9 @@ Thư mục `site_hoalac/` chứa SQL tạo **bảng cục bộ** của site Hòa
 
 ## Cách nạp thủ công
 
-```bash
+```powershell
 # Nạp bảng cục bộ vào site HOALAC
-docker exec -i csdlpt_hoalac psql -U csdlpt_user -d csdlpt_hoalac < db/site_hoalac/init/01_local_tables.sql
+Get-Content db/site_hoalac/init/01_local_tables.sql | docker exec -i csdlpt_hoalac psql -U csdlpt_user -d csdlpt_hoalac
 ```
 
 ## Cách kiểm tra

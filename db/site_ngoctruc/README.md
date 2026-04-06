@@ -32,9 +32,9 @@ Thư mục `site_ngoctruc/` chứa SQL tạo **bảng cục bộ** của site Ng
 
 ## Cách nạp thủ công
 
-```bash
+```powershell
 # Nạp bảng cục bộ vào site NGOCTRUC
-docker exec -i csdlpt_ngoctruc psql -U csdlpt_user -d csdlpt_ngoctruc < db/site_ngoctruc/init/01_local_tables.sql
+Get-Content db/site_ngoctruc/init/01_local_tables.sql | docker exec -i csdlpt_ngoctruc psql -U csdlpt_user -d csdlpt_ngoctruc
 ```
 
 ## Cách kiểm tra

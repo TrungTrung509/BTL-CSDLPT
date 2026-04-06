@@ -71,21 +71,21 @@ Chạy **SAU** khi đã tạo schema local.
 
 ### Ví dụ: Import cho site HADONG
 
-```bash
+```powershell
 # Schema CHUNG
-docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong < db/common/01_common_tables.sql
+Get-Content db/common/01_common_tables.sql | docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong
 
 # Data CHUNG
-docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong < seeds/output/common/001_common_data.sql
+Get-Content seeds/output/common/001_common_data.sql | docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong
 
 # Schema LOCAL
-docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong < db/site_hadong/init/01_local_tables.sql
+Get-Content db/site_hadong/init/01_local_tables.sql | docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong
 
 # Data LOCAL
-docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong < seeds/output/site_hadong/001_site_data.sql
+Get-Content seeds/output/site_hadong/001_site_data.sql | docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong
 
 # Indexes
-docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong < sql/indexes.sql
+Get-Content sql/indexes.sql | docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong
 ```
 
 ### Tương tự cho site khác

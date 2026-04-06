@@ -47,9 +47,9 @@ Thư mục `site_hadong/` chứa SQL tạo **bảng cục bộ** của site Hà 
 
 ## Cách nạp thủ công
 
-```bash
+```powershell
 # Nạp bảng cục bộ vào site HADONG
-docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong < db/site_hadong/init/01_local_tables.sql
+Get-Content db/site_hadong/init/01_local_tables.sql | docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong
 ```
 
 ## Cách kiểm tra
