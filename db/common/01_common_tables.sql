@@ -1,0 +1,132 @@
+-- ============================================================
+-- CƠ SỞ DỮ LIỆU PHÂN TÁN - ĐỀ TÀI: ĐĂNG KÝ HỌC PHẦN
+-- Tác giả: Nhóm CSDL Phân Tán
+-- Mô tả: Bảng dùng chung toàn trường - NHÂN BẢN TẠI CẢ 3 SITE
+-- Thứ tự chạy: 00 (trước bảng local)
+-- ============================================================
+
+-- ============================================================
+-- 1. BẢNG CoSo - Thông tin cơ sở đào tạo
+-- Nhân bản toàn phần - dùng chung tại cả 3 site
+-- ============================================================
+CREATE TABLE IF NOT EXISTS CoSo (
+    MaCoSo VARCHAR(10) PRIMARY KEY,
+    TenCoSo VARCHAR(100) NOT NULL,
+    DiaChi VARCHAR(200) NOT NULL,
+    SoDienThoai VARCHAR(20),
+    Email VARCHAR(100) UNIQUE,
+    NgayThanhLap DATE DEFAULT CURRENT_DATE,
+    TrangThai VARCHAR(20) DEFAULT 'HoatDong'
+);
+
+COMMENT ON TABLE CoSo IS 'Thông tin cơ sở đào tạo - NHÂN BẢN toàn phần tại cả 3 site';
+
+-- ============================================================
+-- 2. BẢNG Khoa - Thông tin khoa đào tạo
+-- Nhân bản toàn phần - dùng chung tại cả 3 site
+-- ============================================================
+CREATE TABLE IF NOT EXISTS Khoa (
+    MaKhoa VARCHAR(20) PRIMARY KEY,
+    TenKhoa VARCHAR(100) NOT NULL UNIQUE,
+    MoTa VARCHAR(500),
+    NgayThanhLap DATE DEFAULT CURRENT_DATE,
+    TrangThai VARCHAR(20) DEFAULT 'HoatDong'
+);
+
+COMMENT ON TABLE Khoa IS 'Thông tin khoa đào tạo - NHÂN BẢN toàn phần tại cả 3 site';
+
+-- ============================================================
+-- 3. BẢNG HocPhan - Danh mục học phần
+-- Nhân bản toàn phần - dùng chung tại cả 3 site
+-- ============================================================
+CREATE TABLE IF NOT EXISTS HocPhan (
+    MaHP VARCHAR(20) PRIMARY KEY,
+    TenHP VARCHAR(200) NOT NULL,
+    SoTinChi INT NOT NULL CHECK (SoTinChi BETWEEN 1 AND 10),
+    SoTietLyThuyet INT DEFAULT 0 CHECK (SoTietLyThuyet >= 0),
+    SoTietThucHanh INT DEFAULT 0 CHECK (SoTietThucHanh >= 0),
+    LoaiHocPhan VARCHAR(20) DEFAULT 'BatBuoc' CHECK (LoaiHocPhan IN ('BatBuoc', 'TuChon')),
+    MaKhoa VARCHAR(20) NOT NULL,
+    MoTa VARCHAR(1000),
+    TrangThai VARCHAR(20) DEFAULT 'HoatDong',
+    NgayTao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_hocphan_khoa FOREIGN KEY (MaKhoa) REFERENCES Khoa(MaKhoa)
+);
+
+COMMENT ON TABLE HocPhan IS 'Danh mục học phần - NHÂN BẢN toàn phần tại cả 3 site';
+
+-- ============================================================
+-- 4. BẢNG HocKy - Thông tin học kỳ
+-- Nhân bản toàn phần - dùng chung tại cả 3 site
+-- ============================================================
+CREATE TABLE IF NOT EXISTS HocKy (
+    MaHocKy VARCHAR(20) PRIMARY KEY,
+    NamHoc VARCHAR(10) NOT NULL,
+    KySo INT NOT NULL CHECK (KySo IN (1, 2, 3)),
+    NgayBatDau DATE,
+    NgayKetThuc DATE,
+    TrangThaiHocKy VARCHAR(20) DEFAULT 'SapMo' CHECK (TrangThaiHocKy IN ('SapMo', 'DangDangKy', 'DangHoc', 'DaKetThuc')),
+    CONSTRAINT chk_ngay_hocky CHECK (NgayKetThuc > NgayBatDau OR NgayKetThuc IS NULL)
+);
+
+COMMENT ON TABLE HocKy IS 'Thông tin học kỳ - NHÂN BẢN toàn phần tại cả 3 site';
+
+-- ============================================================
+-- 5. BẢNG TienQuyet - Học phần tiên quyết
+-- Nhân bản toàn phần - dùng chung tại cả 3 site
+-- ============================================================
+CREATE TABLE IF NOT EXISTS TienQuyet (
+    MaHP VARCHAR(20),
+    MaHP_TienQuyet VARCHAR(20),
+    PRIMARY KEY (MaHP, MaHP_TienQuyet),
+    CONSTRAINT fk_tq_hocphan FOREIGN KEY (MaHP) REFERENCES HocPhan(MaHP),
+    CONSTRAINT fk_tq_tienquyet FOREIGN KEY (MaHP_TienQuyet) REFERENCES HocPhan(MaHP),
+    CONSTRAINT chk_tienquyet_khac CHECK (MaHP <> MaHP_TienQuyet)
+);
+
+COMMENT ON TABLE TienQuyet IS 'Quan hệ học phần tiên quyết - NHÂN BẢN toàn phần tại cả 3 site';
+
+-- ============================================================
+-- 6. INDEXES CHO BẢNG COMMON
+-- ============================================================
+CREATE INDEX IF NOT EXISTS idx_hocphan_khoa ON HocPhan(MaKhoa);
+CREATE INDEX IF NOT EXISTS idx_hocphan_trangthai ON HocPhan(TrangThai);
+CREATE INDEX IF NOT EXISTS idx_tienquyet_mahp ON TienQuyet(MaHP);
+CREATE INDEX IF NOT EXISTS idx_tienquyet_tq ON TienQuyet(MaHP_TienQuyet);
+
+-- ============================================================
+-- GHI CHÚ CẤU HÌNH
+-- ============================================================
+COMMENT ON COLUMN CoSo.MaCoSo IS 'Mã cơ sở';
+COMMENT ON COLUMN CoSo.TenCoSo IS 'Tên cơ sở';
+COMMENT ON COLUMN CoSo.DiaChi IS 'Địa chỉ cơ sở';
+COMMENT ON COLUMN CoSo.SoDienThoai IS 'Số điện thoại';
+COMMENT ON COLUMN CoSo.Email IS 'Email cơ sở';
+COMMENT ON COLUMN CoSo.NgayThanhLap IS 'Ngày thành lập';
+COMMENT ON COLUMN CoSo.TrangThai IS 'Trạng thái: HoatDong, BaoTri, NgungSuDung';
+
+COMMENT ON COLUMN Khoa.MaKhoa IS 'Mã khoa';
+COMMENT ON COLUMN Khoa.TenKhoa IS 'Tên khoa';
+COMMENT ON COLUMN Khoa.MoTa IS 'Mô tả khoa';
+COMMENT ON COLUMN Khoa.NgayThanhLap IS 'Ngày thành lập';
+COMMENT ON COLUMN Khoa.TrangThai IS 'Trạng thái: HoatDong, BaoTri';
+
+COMMENT ON COLUMN HocPhan.MaHP IS 'Mã học phần';
+COMMENT ON COLUMN HocPhan.TenHP IS 'Tên học phần';
+COMMENT ON COLUMN HocPhan.SoTinChi IS 'Số tín chỉ';
+COMMENT ON COLUMN HocPhan.SoTietLyThuyet IS 'Số tiết lý thuyết';
+COMMENT ON COLUMN HocPhan.SoTietThucHanh IS 'Số tiết thực hành';
+COMMENT ON COLUMN HocPhan.LoaiHocPhan IS 'Loại: BatBuoc, TuChon';
+COMMENT ON COLUMN HocPhan.MaKhoa IS 'Mã khoa phụ trách';
+COMMENT ON COLUMN HocPhan.MoTa IS 'Mô tả nội dung';
+COMMENT ON COLUMN HocPhan.TrangThai IS 'Trạng thái: HoatDong, Khoa';
+
+COMMENT ON COLUMN HocKy.MaHocKy IS 'Mã học kỳ';
+COMMENT ON COLUMN HocKy.NamHoc IS 'Năm học (VD: 2025-2026)';
+COMMENT ON COLUMN HocKy.KySo IS 'Kỳ số: 1, 2, 3';
+COMMENT ON COLUMN HocKy.NgayBatDau IS 'Ngày bắt đầu';
+COMMENT ON COLUMN HocKy.NgayKetThuc IS 'Ngày kết thúc';
+COMMENT ON COLUMN HocKy.TrangThaiHocKy IS 'Trạng thái: SapMo, DangDangKy, DangHoc, DaKetThuc';
+
+COMMENT ON COLUMN TienQuyet.MaHP IS 'Mã học phần chính';
+COMMENT ON COLUMN TienQuyet.MaHP_TienQuyet IS 'Mã học phần tiên quyết';
