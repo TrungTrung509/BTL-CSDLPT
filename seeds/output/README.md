@@ -74,15 +74,22 @@ Chạy **SAU** khi đã tạo schema local.
 ```powershell
 # Schema CHUNG
 Get-Content db/common/01_common_tables.sql | docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong
-
-# Data CHUNG
-Get-Content seeds/output/common/001_common_data.sql | docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong
-
+Get-Content db/common/01_common_tables.sql | docker exec -i csdlpt_ngoctruc psql -U csdlpt_user -d csdlpt_ngoctruc  
+Get-Content db/common/01_common_tables.sql | docker exec -i csdlpt_hoalac psql -U csdlpt_user -d csdlpt_hoalac
 # Schema LOCAL
 Get-Content db/site_hadong/init/01_local_tables.sql | docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong
 
+
+# Data CHUNG
+Get-Content seeds/output/common/001_common_data.sql | docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong
+Get-Content seeds/output/common/001_common_data.sql | docker exec -i csdlpt_ngoctruc psql -U csdlpt_user -d csdlpt_ngoctruc  
+Get-Content seeds/output/common/001_common_data.sql | docker exec -i csdlpt_hoalac psql -U csdlpt_user -d csdlpt_hoalac
+
+
 # Data LOCAL
 Get-Content seeds/output/site_hadong/001_site_data.sql | docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong
+Get-Content seeds/output/site_hadong/001_site_data.sql | docker exec -i csdlpt_ngoctruc psql -U csdlpt_user -d csdlpt_ngoctruc
+Get-Content seeds/output/site_hadong/001_site_data.sql | docker exec -i csdlpt_hoalac psql -U csdlpt_user -d csdlpt_hoalac
 
 # Indexes
 Get-Content sql/indexes.sql | docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong

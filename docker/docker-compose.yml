@@ -8,7 +8,7 @@ version: '3.8'
 
 services:
   # ============================================================
-  # SITE HADONG (Hà Nội)
+  # SITE HADONG (Hà Nội) - PUBLISHER
   # ============================================================
   postgres_hadong:
     image: postgres:15-alpine
@@ -18,6 +18,16 @@ services:
       POSTGRES_USER: ${HADONG_USER:-csdlpt_user}
       POSTGRES_PASSWORD: ${HADONG_PASSWORD:-csdlpt_pass}
       POSTGRES_INITDB_ARGS: "-E UTF8"
+    command:
+      - postgres
+      - "-c"
+      - wal_level=logical
+      - "-c"
+      - max_replication_slots=10
+      - "-c"
+      - max_wal_senders=10
+      - "-c"
+      - wal_keep_size=1GB
     ports:
       - "${HADONG_PORT:-5432}:5432"
     volumes:
@@ -34,7 +44,7 @@ services:
     restart: unless-stopped
 
   # ============================================================
-  # SITE NGOCTRUC (Ngọc Trục)
+  # SITE NGOCTRUC (Ngọc Trục) - SUBSCRIBER
   # ============================================================
   postgres_ngoctruc:
     image: postgres:15-alpine
@@ -44,6 +54,9 @@ services:
       POSTGRES_USER: ${NGOCTRUC_USER:-csdlpt_user}
       POSTGRES_PASSWORD: ${NGOCTRUC_PASSWORD:-csdlpt_pass}
       POSTGRES_INITDB_ARGS: "-E UTF8"
+    depends_on:
+      postgres_hadong:
+        condition: service_healthy
     ports:
       - "${NGOCTRUC_PORT:-5433}:5432"
     volumes:
@@ -60,7 +73,7 @@ services:
     restart: unless-stopped
 
   # ============================================================
-  # SITE HOALAC (Hòa Lạc)
+  # SITE HOALAC (Hòa Lạc) - SUBSCRIBER
   # ============================================================
   postgres_hoalac:
     image: postgres:15-alpine
@@ -70,6 +83,9 @@ services:
       POSTGRES_USER: ${HOALAC_USER:-csdlpt_user}
       POSTGRES_PASSWORD: ${HOALAC_PASSWORD:-csdlpt_pass}
       POSTGRES_INITDB_ARGS: "-E UTF8"
+    depends_on:
+      postgres_hadong:
+        condition: service_healthy
     ports:
       - "${HOALAC_PORT:-5434}:5432"
     volumes:
@@ -132,6 +148,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+      start_period: 60s
     restart: unless-stopped
 
   # ============================================================

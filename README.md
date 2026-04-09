@@ -123,10 +123,10 @@ Ky vong gan dung:
 - `Khoa`: 4
 - `HocPhan`: 20
 - `HocKy`: 3
-- `SinhVien`: 120 moi site
-- `GiangVien`: 30 moi site
-- `PhongHoc`: 20 moi site
-- `LopHocPhan`: 25 moi site
+- `SinhVien`: 20 mỗi site
+- `GiangVien`: 5 mỗi site
+- `PhongHoc`: 6 mỗi site
+- `LopHocPhan`: 8-10 mỗi site
 
 ## 5. Ket noi bang pgAdmin
 

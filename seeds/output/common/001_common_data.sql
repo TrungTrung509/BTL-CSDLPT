@@ -1,17 +1,17 @@
 -- ============================================================
 -- DỮ LIỆU DÙNG CHUNG - Common Data
--- Sinh: 2026-04-04 23:17:07
+-- Sinh: 2026-04-10 00:43:10
 -- ============================================================
-
+SET ENCODING TO 'UTF8';
 -- ---- CoSo ----
 INSERT INTO CoSo (MaCoSo, TenCoSo, DiaChi, SoDienThoai, Email, NgayThanhLap, TrangThai)
-VALUES ('HADONG', 'Cơ sở Hà Nội', 'Hà Nội', '0904175112', 'quanlyhadong@ptit.edu.vn', '2010-01-01', 'HoatDong')
+VALUES ('HADONG', 'Cơ sở Hà Nội', 'Hà Nội', '0969280749', 'quanlyhadong@ptit.edu.vn', '2010-01-01', 'HoatDong')
 ON CONFLICT (MaCoSo) DO NOTHING;
 INSERT INTO CoSo (MaCoSo, TenCoSo, DiaChi, SoDienThoai, Email, NgayThanhLap, TrangThai)
-VALUES ('NGOCTRUC', 'Cơ sở Ngọc Trục', 'Ngọc Trục', '0942836964', 'quanlyngoctruc@ptit.edu.vn', '2010-01-01', 'HoatDong')
+VALUES ('NGOCTRUC', 'Cơ sở Ngọc Trục', 'Ngọc Trục', '0977405038', 'quanlyngoctruc@ptit.edu.vn', '2010-01-01', 'HoatDong')
 ON CONFLICT (MaCoSo) DO NOTHING;
 INSERT INTO CoSo (MaCoSo, TenCoSo, DiaChi, SoDienThoai, Email, NgayThanhLap, TrangThai)
-VALUES ('HOALAC', 'Cơ sở Hòa Lạc', 'Hòa Lạc', '0964126466', 'quanlyhoalac@ptit.edu.vn', '2010-01-01', 'HoatDong')
+VALUES ('HOALAC', 'Cơ sở Hòa Lạc', 'Hòa Lạc', '0908813845', 'quanlyhoalac@ptit.edu.vn', '2010-01-01', 'HoatDong')
 ON CONFLICT (MaCoSo) DO NOTHING;
 
 -- ---- Khoa ----

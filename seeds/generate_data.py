@@ -13,7 +13,30 @@ from faker import Faker
 # CẤU HÌNH
 # ============================================================
 
-fake = Faker('vi_VN')
+fake = Faker()
+
+# Danh sách tên tiếng Việt cố định (tránh lỗi Faker vi_VN)
+VIETNAMESE_FIRST_NAMES = [
+    'An', 'Anh', 'Bảo', 'Bình', 'Cường', 'Dung', 'Em', 'Hùng', 'Hương', 'Lan',
+    'Linh', 'Mai', 'Minh', 'Nam', 'Ngọc', 'Phong', 'Sơn', 'Thắm', 'Thảo', 'Trang',
+    'Trung', 'Tuấn', 'Vân', 'Yến', 'An', 'Bích', 'Châu', 'Dũng', 'Giang', 'Hà',
+    'Hạnh', 'Hiền', 'Hoàng', 'Huy', 'Khánh', 'Lam', 'Lâm', 'Liên', 'Loan', 'Ly',
+    'My', 'Nga', 'Nghĩa', 'Oanh', 'Phát', 'Quang', 'Quỳnh', 'Sang', 'Tâm', 'Thanh',
+    'Thi', 'Thịnh', 'Thu', 'Thúy', 'Tiến', 'Toàn', 'Trí', 'Trọng', 'Việt', 'Vinh'
+]
+
+VIETNAMESE_LAST_NAMES = [
+    'Nguyễn', 'Trần', 'Lê', 'Phạm', 'Hoàng', 'Huỳnh', 'Đặng', 'Bùi', 'Ngô', 'Đỗ',
+    'Hồ', 'Trương', 'Tạ', 'Phan', 'Trịnh', 'Cao', 'Vương', 'Lý', 'Mạc', 'Đinh',
+    'Vũ', 'Trần', 'Lê', 'Phạm', 'Hoàng', 'Dương', 'Ngô', 'Đỗ', 'Hồ', 'Lưu'
+]
+
+VIETNAMESE_ADDRESSES = [
+    'Hà Nội', 'Hải Phòng', 'Hải Dương', 'Bắc Ninh', 'Hưng Yên', 'Vĩnh Phúc',
+    'Nam Định', 'Thái Bình', 'Ninh Bình', 'Thanh Hóa', 'Nghệ An', 'Hà Tĩnh',
+    'Quảng Bình', 'Quảng Trị', 'Thừa Thiên Huế', 'Đà Nẵng', 'Quảng Nam', 'Quảng Ngãi',
+    'Bình Định', 'Phú Yên', 'Khánh Hòa', 'Ninh Thuận', 'Bình Thuận'
+]
 
 # Mapping site - cơ sở
 SITES = {
@@ -228,13 +251,13 @@ def generate_site_data(ma_coso, counts):
 
     for i in range(1, counts['sinh_vien'] + 1):
         ma_sv = f"{ma_coso}SV{i:04d}"
-        ho = fake.last_name()
-        ten = fake.first_name()
+        ho = random.choice(VIETNAMESE_LAST_NAMES)
+        ten = random.choice(VIETNAMESE_FIRST_NAMES)
         ngay_sinh = random_date(2000, 2006).strftime('%Y-%m-%d')
         gt = random.choice(gioi_tinh)
         email = random_email(ho, ten)
         sdt = random_phone()
-        dia_chi = fake.address().replace("'", "''")  # Escape single quotes
+        dia_chi = random.choice(VIETNAMESE_ADDRESSES)
         ma_khoa = random.choice(['CNTT', 'ATTT', 'VT', 'KT'])
         trang_thai = random.choice(trang_thai_sv)
         ngay_nhap_hoc = random_date(2020, 2024).strftime('%Y-%m-%d')
@@ -253,8 +276,8 @@ ON CONFLICT (MaSV) DO NOTHING;\n"""
 
     for i in range(1, counts['giang_vien'] + 1):
         ma_gv = f"{ma_coso}GV{i:03d}"
-        ho = fake.last_name()
-        ten = fake.first_name()
+        ho = random.choice(VIETNAMESE_LAST_NAMES)
+        ten = random.choice(VIETNAMESE_FIRST_NAMES)
         hv = random.choice(hoc_vi)
         hh = random.choice(hoc_ham)
         email = random_email(ho, ten, f'gv.{info["khoa_prefix"].lower()}.ptit.edu.vn')
