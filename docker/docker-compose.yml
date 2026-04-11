@@ -86,6 +86,37 @@ services:
     restart: unless-stopped
 
   # ============================================================
+  # FDW BOOTSTRAP - Cau hinh ket noi lien site va views tong hop
+  # ============================================================
+  fdw_setup:
+    image: postgres:15-alpine
+    container_name: csdlpt_fdw_setup
+    command: ["sh", "/scripts/setup-fdw.sh"]
+    environment:
+      HADONG_DB: ${HADONG_DB:-csdlpt_hadong}
+      HADONG_USER: ${HADONG_USER:-csdlpt_user}
+      HADONG_PASSWORD: ${HADONG_PASSWORD:-csdlpt_pass}
+      NGOCTRUC_DB: ${NGOCTRUC_DB:-csdlpt_ngoctruc}
+      NGOCTRUC_USER: ${NGOCTRUC_USER:-csdlpt_user}
+      NGOCTRUC_PASSWORD: ${NGOCTRUC_PASSWORD:-csdlpt_pass}
+      HOALAC_DB: ${HOALAC_DB:-csdlpt_hoalac}
+      HOALAC_USER: ${HOALAC_USER:-csdlpt_user}
+      HOALAC_PASSWORD: ${HOALAC_PASSWORD:-csdlpt_pass}
+    volumes:
+      - ../docker/fdw/setup-fdw.sh:/scripts/setup-fdw.sh:ro
+      - ../sql:/sql:ro
+    networks:
+      - csdlpt_network
+    depends_on:
+      postgres_hadong:
+        condition: service_healthy
+      postgres_ngoctruc:
+        condition: service_healthy
+      postgres_hoalac:
+        condition: service_healthy
+    restart: "no"
+
+  # ============================================================
   # REDIS - Cache Layer
   # ============================================================
   redis:
