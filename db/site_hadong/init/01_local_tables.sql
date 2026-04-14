@@ -10,225 +10,237 @@
 -- 1. BẢNG SinhVien - Sinh viên cơ sở Hà Nội
 -- Phân mảnh ngang theo MaCoSo = 'HADONG'
 -- ============================================================
-CREATE TABLE IF NOT EXISTS SinhVien (
-    MaSV VARCHAR(20) PRIMARY KEY,
-    Ho VARCHAR(50) NOT NULL,
-    Ten VARCHAR(50) NOT NULL,
-    NgaySinh DATE NOT NULL CHECK (NgaySinh < CURRENT_DATE),
-    GioiTinh VARCHAR(10) DEFAULT 'Khac' CHECK (GioiTinh IN ('Nam', 'Nu', 'Khac')),
-    Email VARCHAR(100) UNIQUE,
-    SoDienThoai VARCHAR(20),
-    DiaChi VARCHAR(300),
-    MaCoSo VARCHAR(10) NOT NULL DEFAULT 'HADONG',
-    MaKhoa VARCHAR(20),
-    TrangThai VARCHAR(20) DEFAULT 'DangHoc' CHECK (TrangThai IN ('DangHoc', 'BaoLuu', 'ThoiHoc', 'TotNghiep')),
-    NgayNhapHoc DATE,
-    NgayTao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_sv_coso FOREIGN KEY (MaCoSo) REFERENCES CoSo(MaCoSo),
-    CONSTRAINT fk_sv_khoa FOREIGN KEY (MaKhoa) REFERENCES Khoa(MaKhoa)
-);
-
-COMMENT ON TABLE SinhVien IS 'Sinh viên cơ sở HADONG - PHÂN MẢNH NGANG theo MaCoSo';
-
 -- ============================================================
--- 2. BẢNG GiangVien - Giảng viên cơ sở Hà Nội
+-- 1. BẢNG "SinhVien" - Sinh viên cơ sở Hà Nội
 -- Phân mảnh ngang theo MaCoSo = 'HADONG'
 -- ============================================================
-CREATE TABLE IF NOT EXISTS GiangVien (
-    MaGV VARCHAR(20) PRIMARY KEY,
-    Ho VARCHAR(50) NOT NULL,
-    Ten VARCHAR(50) NOT NULL,
-    HocVi VARCHAR(50),
-    HocHam VARCHAR(50),
-    Email VARCHAR(100) UNIQUE,
-    SoDienThoai VARCHAR(20),
-    MaCoSo VARCHAR(10) NOT NULL DEFAULT 'HADONG',
-    MaKhoa VARCHAR(20),
-    TrangThai VARCHAR(20) DEFAULT 'DangCongTac' CHECK (TrangThai IN ('DangCongTac', 'TamNghi', 'NghiViec')),
-    NgayVaoLam DATE,
-    NgayTao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_gv_coso FOREIGN KEY (MaCoSo) REFERENCES CoSo(MaCoSo),
-    CONSTRAINT fk_gv_khoa FOREIGN KEY (MaKhoa) REFERENCES Khoa(MaKhoa)
+CREATE TABLE IF NOT EXISTS "SinhVien" (
+    "MaSV" VARCHAR(20) PRIMARY KEY,
+    "userId" VARCHAR(50) NOT NULL UNIQUE,
+    "Ho" VARCHAR(50) NOT NULL,
+    "Ten" VARCHAR(50) NOT NULL,
+    "NgaySinh" DATE,
+    "GioiTinh" VARCHAR(10) DEFAULT 'Khac' CHECK ("GioiTinh" IN ('Nam', 'Nu', 'Khac')),
+    "SDT" VARCHAR(20),
+    "DiaChi" VARCHAR(300),
+    "MaCoSo" VARCHAR(10) NOT NULL DEFAULT 'HADONG',
+    "MaKhoa" VARCHAR(20),
+    "TrangThai" VARCHAR(20) DEFAULT 'DangHoc' CHECK ("TrangThai" IN ('DangHoc', 'BaoLuu', 'ThoiHoc', 'TotNghiep')),
+    "NgayNhapHoc" DATE,
+    "NgayTao" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "fk_sv_coso" FOREIGN KEY ("MaCoSo") REFERENCES "CoSo"("MaCoSo"),
+    CONSTRAINT "fk_sv_khoa" FOREIGN KEY ("MaKhoa") REFERENCES "Khoa"("MaKhoa"),
+    CONSTRAINT "fk_sv_users" FOREIGN KEY ("userId") REFERENCES "users"("userId")
 );
 
-COMMENT ON TABLE GiangVien IS 'Giảng viên cơ sở HADONG - PHÂN MẢNH NGANG theo MaCoSo';
+COMMENT ON TABLE "SinhVien" IS 'Sinh viên cơ sở HADONG - PHÂN MẢNH NGANG theo MaCoSo';
 
 -- ============================================================
--- 3. BẢNG PhongHoc - Phòng học cơ sở Hà Nội
+-- 2. BẢNG "GiangVien" - Giảng viên cơ sở Hà Nội
 -- Phân mảnh ngang theo MaCoSo = 'HADONG'
 -- ============================================================
-CREATE TABLE IF NOT EXISTS PhongHoc (
-    MaPhong VARCHAR(20) PRIMARY KEY,
-    TenPhong VARCHAR(100) NOT NULL,
-    ToaNha VARCHAR(50),
-    Tang INT,
-    SucChua INT NOT NULL CHECK (SucChua > 0),
-    LoaiPhong VARCHAR(30) DEFAULT 'LyThuyet' CHECK (LoaiPhong IN ('LyThuyet', 'MayTinh', 'ThiNghiem', 'HoiTruong')),
-    MaCoSo VARCHAR(10) NOT NULL DEFAULT 'HADONG',
-    TrangThai VARCHAR(20) DEFAULT 'HoatDong' CHECK (TrangThai IN ('HoatDong', 'BaoTri', 'NgungSuDung')),
-    NgayTao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_phong_coso FOREIGN KEY (MaCoSo) REFERENCES CoSo(MaCoSo)
+CREATE TABLE IF NOT EXISTS "GiangVien" (
+    "MaGV" VARCHAR(20) PRIMARY KEY,
+    "userId" VARCHAR(50) NOT NULL UNIQUE,
+    "Ho" VARCHAR(50) NOT NULL,
+    "Ten" VARCHAR(50) NOT NULL,
+    "NgaySinh" DATE,
+    "GioiTinh" VARCHAR(10) DEFAULT 'Khac' CHECK ("GioiTinh" IN ('Nam', 'Nu', 'Khac')),
+    "SDT" VARCHAR(20),
+    "DiaChi" VARCHAR(300),
+    "HocVi" VARCHAR(50),
+    "HocHam" VARCHAR(50),
+    "MaCoSo" VARCHAR(10) NOT NULL DEFAULT 'HADONG',
+    "MaKhoa" VARCHAR(20),
+    "TrangThai" VARCHAR(20) DEFAULT 'DangCongTac' CHECK ("TrangThai" IN ('DangCongTac', 'TamNghi', 'NghiViec')),
+    "NgayVaoLam" DATE,
+    "NgayTao" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "fk_gv_coso" FOREIGN KEY ("MaCoSo") REFERENCES "CoSo"("MaCoSo"),
+    CONSTRAINT "fk_gv_khoa" FOREIGN KEY ("MaKhoa") REFERENCES "Khoa"("MaKhoa"),
+    CONSTRAINT "fk_gv_users" FOREIGN KEY ("userId") REFERENCES "users"("userId")
 );
 
-COMMENT ON TABLE PhongHoc IS 'Phòng học cơ sở HADONG - PHÂN MẢNH NGANG theo MaCoSo';
+COMMENT ON TABLE "GiangVien" IS 'Giảng viên cơ sở HADONG - PHÂN MẢNH NGANG theo MaCoSo';
 
 -- ============================================================
--- 4. BẢNG LopHocPhan - Lớp học phần MỞ TẠI Hà Nội
+-- 3. BẢNG "PhongHoc" - Phòng học cơ sở Hà Nội
+-- Phân mảnh ngang theo MaCoSo = 'HADONG'
+-- ============================================================
+CREATE TABLE IF NOT EXISTS "PhongHoc" (
+    "MaPhong" VARCHAR(20) PRIMARY KEY,
+    "TenPhong" VARCHAR(100) NOT NULL,
+    "ToaNha" VARCHAR(50),
+    "Tang" INT,
+    "SucChua" INT NOT NULL CHECK ("SucChua" > 0),
+    "LoaiPhong" VARCHAR(30) DEFAULT 'LyThuyet' CHECK ("LoaiPhong" IN ('LyThuyet', 'MayTinh', 'ThiNghiem', 'HoiTruong')),
+    "MaCoSo" VARCHAR(10) NOT NULL DEFAULT 'HADONG',
+    "TrangThai" VARCHAR(20) DEFAULT 'HoatDong' CHECK ("TrangThai" IN ('HoatDong', 'BaoTri', 'NgungSuDung')),
+    "NgayTao" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "fk_phong_coso" FOREIGN KEY ("MaCoSo") REFERENCES "CoSo"("MaCoSo")
+);
+
+COMMENT ON TABLE "PhongHoc" IS 'Phòng học cơ sở HADONG - PHÂN MẢNH NGANG theo MaCoSo';
+
+-- ============================================================
+-- 4. BẢNG "LopHocPhan" - Lớp học phần MỞ TẠI Hà Nội
 -- Phân mảnh ngang theo cơ sở MỞ LỚP (không phải cơ sở quản lý GV)
 -- MaCoSo = 'HADONG'
 -- ============================================================
-CREATE TABLE IF NOT EXISTS LopHocPhan (
-    MaLopHP VARCHAR(20) PRIMARY KEY,
-    MaHP VARCHAR(20) NOT NULL,
-    MaHocKy VARCHAR(20) NOT NULL,
-    MaCoSo VARCHAR(10) NOT NULL DEFAULT 'HADONG',
-    MaGV VARCHAR(20) NOT NULL,
-    TenLopHP VARCHAR(100),
-    SiSoToiDa INT NOT NULL CHECK (SiSoToiDa > 0),
-    SiSoHienTai INT DEFAULT 0 CHECK (SiSoHienTai >= 0),
-    HinhThucHoc VARCHAR(20) DEFAULT 'Offline' CHECK (HinhThucHoc IN ('Offline', 'Online', 'Hybrid')),
-    TrangThaiLop VARCHAR(20) DEFAULT 'Mo' CHECK (TrangThaiLop IN ('Mo', 'Dong', 'Huy')),
-    NgayTao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_lhp_hocphan FOREIGN KEY (MaHP) REFERENCES HocPhan(MaHP),
-    CONSTRAINT fk_lhp_hocky FOREIGN KEY (MaHocKy) REFERENCES HocKy(MaHocKy),
-    CONSTRAINT fk_lhp_coso FOREIGN KEY (MaCoSo) REFERENCES CoSo(MaCoSo),
-    CONSTRAINT fk_lhp_gv FOREIGN KEY (MaGV) REFERENCES GiangVien(MaGV)
+CREATE TABLE IF NOT EXISTS "LopHocPhan" (
+    "MaLopHP" VARCHAR(20) PRIMARY KEY,
+    "MaHP" VARCHAR(20) NOT NULL,
+    "MaHocKy" VARCHAR(20) NOT NULL,
+    "MaCoSo" VARCHAR(10) NOT NULL DEFAULT 'HADONG',
+    "MaGV" VARCHAR(20) NOT NULL,
+    "TenLopHP" VARCHAR(100),
+    "SiSoToiDa" INT NOT NULL CHECK ("SiSoToiDa" > 0),
+    "SiSoHienTai" INT DEFAULT 0 CHECK ("SiSoHienTai" >= 0),
+    "HinhThucHoc" VARCHAR(20) DEFAULT 'Offline' CHECK ("HinhThucHoc" IN ('Offline', 'Online', 'Hybrid')),
+    "TrangThaiLop" VARCHAR(20) DEFAULT 'Mo' CHECK ("TrangThaiLop" IN ('Mo', 'Dong', 'Huy')),
+    "NgayTao" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "fk_lhp_hocphan" FOREIGN KEY ("MaHP") REFERENCES "HocPhan"("MaHP"),
+    CONSTRAINT "fk_lhp_hocky" FOREIGN KEY ("MaHocKy") REFERENCES "HocKy"("MaHocKy"),
+    CONSTRAINT "fk_lhp_coso" FOREIGN KEY ("MaCoSo") REFERENCES "CoSo"("MaCoSo"),
+    CONSTRAINT "fk_lhp_gv" FOREIGN KEY ("MaGV") REFERENCES "GiangVien"("MaGV")
 );
 
-COMMENT ON TABLE LopHocPhan IS 'Lớp học phần mở tại HADONG - PHÂN MẢNH theo cơ sở MỞ LỚP';
+COMMENT ON TABLE "LopHocPhan" IS 'Lớp học phần mở tại HADONG - PHÂN MẢNH theo cơ sở MỞ LỚP';
 
 -- ============================================================
--- 5. BẢNG LichHoc - Lịch học của lớp học phần
+-- 5. BẢNG "LichHoc" - Lịch học của lớp học phần
 -- Phân mảnh dẫn xuất theo LopHocPhan
 -- (Lớp nào thuộc site nào thì lịch thuộc site đó)
 -- ============================================================
-CREATE TABLE IF NOT EXISTS LichHoc (
-    MaLich VARCHAR(20) PRIMARY KEY,
-    MaLopHP VARCHAR(20) NOT NULL,
-    MaPhong VARCHAR(20) NOT NULL,
-    ThuTrongTuan INT NOT NULL CHECK (ThuTrongTuan BETWEEN 2 AND 8),
-    TietBatDau INT NOT NULL CHECK (TietBatDau BETWEEN 1 AND 15),
-    SoTiet INT NOT NULL CHECK (SoTiet > 0),
-    NgayBatDau DATE,
-    NgayKetThuc DATE,
-    GhiChu VARCHAR(200),
-    CONSTRAINT fk_lich_lophp FOREIGN KEY (MaLopHP) REFERENCES LopHocPhan(MaLopHP) ON DELETE CASCADE,
-    CONSTRAINT fk_lich_phong FOREIGN KEY (MaPhong) REFERENCES PhongHoc(MaPhong)
+CREATE TABLE IF NOT EXISTS "LichHoc" (
+    "MaLich" VARCHAR(20) PRIMARY KEY,
+    "MaLopHP" VARCHAR(20) NOT NULL,
+    "MaPhong" VARCHAR(20) NOT NULL,
+    "ThuTrongTuan" INT NOT NULL CHECK ("ThuTrongTuan" BETWEEN 2 AND 8),
+    "TietBatDau" INT NOT NULL CHECK ("TietBatDau" BETWEEN 1 AND 15),
+    "SoTiet" INT NOT NULL CHECK ("SoTiet" > 0),
+    "NgayBatDau" DATE,
+    "NgayKetThuc" DATE,
+    "GhiChu" VARCHAR(200),
+    CONSTRAINT "fk_lich_lophp" FOREIGN KEY ("MaLopHP") REFERENCES "LopHocPhan"("MaLopHP") ON DELETE CASCADE,
+    CONSTRAINT "fk_lich_phong" FOREIGN KEY ("MaPhong") REFERENCES "PhongHoc"("MaPhong")
 );
 
-COMMENT ON TABLE LichHoc IS 'Lịch học - PHÂN MẢNH DẪN XUẤT theo LopHocPhan';
+COMMENT ON TABLE "LichHoc" IS 'Lịch học - PHÂN MẢNH DẪN XUẤT theo LopHocPhan';
 
 -- ============================================================
--- 6. BẢNG DangKy - Đăng ký học phần
+-- 6. BẢNG "DangKy" - Đăng ký học phần
 -- Phân mảnh theo CƠ SỞ MỞ LỚP HỌC PHẦN (không phải cơ sở quản lý SV)
 -- FK tới LopHocPhan để xác định site
 -- ============================================================
-CREATE TABLE IF NOT EXISTS DangKy (
-    MaDangKy SERIAL PRIMARY KEY,
-    MaSV VARCHAR(20) NOT NULL,
-    MaLopHP VARCHAR(20) NOT NULL,
-    NgayDangKy TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    TrangThaiDangKy VARCHAR(20) DEFAULT 'DaDangKy' CHECK (TrangThaiDangKy IN ('DaDangKy', 'DaHuy', 'ChoDuyet')),
-    LanDangKy INT DEFAULT 1 CHECK (LanDangKy >= 1),
-    GhiChu VARCHAR(200),
-    CONSTRAINT fk_dk_sv FOREIGN KEY (MaSV) REFERENCES SinhVien(MaSV),
-    CONSTRAINT fk_dk_lophp FOREIGN KEY (MaLopHP) REFERENCES LopHocPhan(MaLopHP),
-    CONSTRAINT uq_dk_sv_lophp UNIQUE (MaSV, MaLopHP)
+CREATE TABLE IF NOT EXISTS "DangKy" (
+    "MaDangKy" SERIAL PRIMARY KEY,
+    "MaSV" VARCHAR(20) NOT NULL,
+    "MaLopHP" VARCHAR(20) NOT NULL,
+    "NgayDangKy" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "TrangThaiDangKy" VARCHAR(20) DEFAULT 'DaDangKy' CHECK ("TrangThaiDangKy" IN ('DaDangKy', 'DaHuy', 'ChoDuyet')),
+    "LanDangKy" INT DEFAULT 1 CHECK ("LanDangKy" >= 1),
+    "GhiChu" VARCHAR(200),
+    CONSTRAINT "fk_dk_sv" FOREIGN KEY ("MaSV") REFERENCES "SinhVien"("MaSV"),
+    CONSTRAINT "fk_dk_lophp" FOREIGN KEY ("MaLopHP") REFERENCES "LopHocPhan"("MaLopHP"),
+    CONSTRAINT "uq_dk_sv_lophp" UNIQUE ("MaSV", "MaLopHP")
 );
 
-COMMENT ON TABLE DangKy IS 'Đăng ký học phần - PHÂN MẢNH theo cơ sở MỞ LỚP';
+COMMENT ON TABLE "DangKy" IS 'Đăng ký học phần - PHÂN MẢNH theo cơ sở MỞ LỚP';
 
 -- ============================================================
--- 7. BẢNG AuditLog - Log tổng hợp thao tác
+-- 7. BẢNG "AuditLog" - Log tổng hợp thao tác
 -- ============================================================
-CREATE TABLE IF NOT EXISTS AuditLog (
-    MaLog SERIAL PRIMARY KEY,
-    BangCapNhat VARCHAR(50) NOT NULL,
-    HanhDong VARCHAR(20) NOT NULL,
-    BanGhiCu TEXT,
-    BanGhiMoi TEXT,
-    NguoiThucHien VARCHAR(50),
-    DiaChiIP VARCHAR(50),
-    ThoiGian TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE IF NOT EXISTS "AuditLog" (
+    "MaLog" SERIAL PRIMARY KEY,
+    "BangCapNhat" VARCHAR(50) NOT NULL,
+    "HanhDong" VARCHAR(20) NOT NULL,
+    "BanGhiCu" TEXT,
+    "BanGhiMoi" TEXT,
+    "NguoiThucHien" VARCHAR(50),
+    "DiaChiIP" VARCHAR(50),
+    "ThoiGian" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ============================================================
--- 8. BẢNG DangKyLog - Log riêng đăng ký/hủy
+-- 8. BẢNG "DangKyLog" - Log riêng đăng ký/hủy
 -- ============================================================
-CREATE TABLE IF NOT EXISTS DangKyLog (
-    MaLog SERIAL PRIMARY KEY,
-    MaSV VARCHAR(20) NOT NULL,
-    MaLopHP VARCHAR(20) NOT NULL,
-    HanhDong VARCHAR(20) NOT NULL,
-    TrangThaiCu VARCHAR(20),
-    TrangThaiMoi VARCHAR(20),
-    KetQua VARCHAR(20) NOT NULL,
-    LyDo TEXT,
-    NguoiThucHien VARCHAR(50),
-    ThoiGian TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE IF NOT EXISTS "DangKyLog" (
+    "MaLog" SERIAL PRIMARY KEY,
+    "MaSV" VARCHAR(20) NOT NULL,
+    "MaLopHP" VARCHAR(20) NOT NULL,
+    "HanhDong" VARCHAR(20) NOT NULL,
+    "TrangThaiCu" VARCHAR(20),
+    "TrangThaiMoi" VARCHAR(20),
+    "KetQua" VARCHAR(20) NOT NULL,
+    "LyDo" TEXT,
+    "NguoiThucHien" VARCHAR(50),
+    "ThoiGian" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ============================================================
 -- GHI CHÚ CẤU HÌNH
 -- ============================================================
-COMMENT ON COLUMN SinhVien.MaSV IS 'Mã sinh viên';
-COMMENT ON COLUMN SinhVien.Ho IS 'Họ sinh viên';
-COMMENT ON COLUMN SinhVien.Ten IS 'Tên sinh viên';
-COMMENT ON COLUMN SinhVien.NgaySinh IS 'Ngày sinh';
-COMMENT ON COLUMN SinhVien.GioiTinh IS 'Giới tính: Nam, Nu, Khac';
-COMMENT ON COLUMN SinhVien.Email IS 'Email sinh viên';
-COMMENT ON COLUMN SinhVien.SoDienThoai IS 'Số điện thoại';
-COMMENT ON COLUMN SinhVien.DiaChi IS 'Địa chỉ';
-COMMENT ON COLUMN SinhVien.MaCoSo IS 'Cơ sở quản lý chính';
-COMMENT ON COLUMN SinhVien.MaKhoa IS 'Khoa sinh viên theo học';
-COMMENT ON COLUMN SinhVien.TrangThai IS 'Trạng thái: DangHoc, BaoLuu, ThoiHoc, TotNghiep';
-COMMENT ON COLUMN SinhVien.NgayNhapHoc IS 'Ngày nhập học';
+COMMENT ON COLUMN "SinhVien"."MaSV" IS 'Mã sinh viên';
+COMMENT ON COLUMN "SinhVien"."userId" IS 'ID người dùng liên kết';
+COMMENT ON COLUMN "SinhVien"."Ho" IS 'Họ';
+COMMENT ON COLUMN "SinhVien"."Ten" IS 'Tên';
+COMMENT ON COLUMN "SinhVien"."NgaySinh" IS 'Ngày sinh';
+COMMENT ON COLUMN "SinhVien"."GioiTinh" IS 'Giới tính: Nam, Nu, Khac';
+COMMENT ON COLUMN "SinhVien"."SDT" IS 'Số điện thoại';
+COMMENT ON COLUMN "SinhVien"."DiaChi" IS 'Địa chỉ';
+COMMENT ON COLUMN "SinhVien"."MaCoSo" IS 'Cơ sở quản lý chính';
+COMMENT ON COLUMN "SinhVien"."MaKhoa" IS 'Khoa sinh viên theo học';
+COMMENT ON COLUMN "SinhVien"."TrangThai" IS 'Trạng thái: DangHoc, BaoLuu, ThoiHoc, TotNghiep';
+COMMENT ON COLUMN "SinhVien"."NgayNhapHoc" IS 'Ngày nhập học';
 
-COMMENT ON COLUMN GiangVien.MaGV IS 'Mã giảng viên';
-COMMENT ON COLUMN GiangVien.Ho IS 'Họ giảng viên';
-COMMENT ON COLUMN GiangVien.Ten IS 'Tên giảng viên';
-COMMENT ON COLUMN GiangVien.HocVi IS 'Học vị: CN, ThS, TS';
-COMMENT ON COLUMN GiangVien.HocHam IS 'Học hàm: GTV, PGS, GS';
-COMMENT ON COLUMN GiangVien.Email IS 'Email giảng viên';
-COMMENT ON COLUMN GiangVien.SoDienThoai IS 'Số điện thoại';
-COMMENT ON COLUMN GiangVien.MaCoSo IS 'Cơ sở quản lý chính';
-COMMENT ON COLUMN GiangVien.MaKhoa IS 'Khoa phụ trách';
-COMMENT ON COLUMN GiangVien.TrangThai IS 'Trạng thái: DangCongTac, TamNghi, NghiViec';
+COMMENT ON COLUMN "GiangVien"."MaGV" IS 'Mã giảng viên';
+COMMENT ON COLUMN "GiangVien"."userId" IS 'ID người dùng liên kết';
+COMMENT ON COLUMN "GiangVien"."Ho" IS 'Họ';
+COMMENT ON COLUMN "GiangVien"."Ten" IS 'Tên';
+COMMENT ON COLUMN "GiangVien"."NgaySinh" IS 'Ngày sinh';
+COMMENT ON COLUMN "GiangVien"."GioiTinh" IS 'Giới tính: Nam, Nu, Khac';
+COMMENT ON COLUMN "GiangVien"."SDT" IS 'Số điện thoại';
+COMMENT ON COLUMN "GiangVien"."DiaChi" IS 'Địa chỉ';
+COMMENT ON COLUMN "GiangVien"."HocVi" IS 'Học vị: CN, ThS, TS';
+COMMENT ON COLUMN "GiangVien"."HocHam" IS 'Học hàm: GTV, PGS, GS';
+COMMENT ON COLUMN "GiangVien"."MaCoSo" IS 'Cơ sở quản lý chính';
+COMMENT ON COLUMN "GiangVien"."MaKhoa" IS 'Khoa phụ trách';
+COMMENT ON COLUMN "GiangVien"."TrangThai" IS 'Trạng thái: DangCongTac, TamNghi, NghiViec';
 
-COMMENT ON COLUMN PhongHoc.MaPhong IS 'Mã phòng';
-COMMENT ON COLUMN PhongHoc.TenPhong IS 'Tên phòng';
-COMMENT ON COLUMN PhongHoc.ToaNha IS 'Tòa nhà';
-COMMENT ON COLUMN PhongHoc.Tang IS 'Tầng';
-COMMENT ON COLUMN PhongHoc.SucChua IS 'Sức chứa';
-COMMENT ON COLUMN PhongHoc.LoaiPhong IS 'Loại: LyThuyet, MayTinh, ThiNghiem, HoiTruong';
-COMMENT ON COLUMN PhongHoc.MaCoSo IS 'Cơ sở sở hữu phòng';
-COMMENT ON COLUMN PhongHoc.TrangThai IS 'Trạng thái: HoatDong, BaoTri, NgungSuDung';
+COMMENT ON COLUMN "PhongHoc"."MaPhong" IS 'Mã phòng';
+COMMENT ON COLUMN "PhongHoc"."TenPhong" IS 'Tên phòng';
+COMMENT ON COLUMN "PhongHoc"."ToaNha" IS 'Tòa nhà';
+COMMENT ON COLUMN "PhongHoc"."Tang" IS 'Tầng';
+COMMENT ON COLUMN "PhongHoc"."SucChua" IS 'Sức chứa';
+COMMENT ON COLUMN "PhongHoc"."LoaiPhong" IS 'Loại: LyThuyet, MayTinh, ThiNghiem, HoiTruong';
+COMMENT ON COLUMN "PhongHoc"."MaCoSo" IS 'Cơ sở sở hữu phòng';
+COMMENT ON COLUMN "PhongHoc"."TrangThai" IS 'Trạng thái: HoatDong, BaoTri, NgungSuDung';
 
-COMMENT ON COLUMN LopHocPhan.MaLopHP IS 'Mã lớp học phần';
-COMMENT ON COLUMN LopHocPhan.MaHP IS 'Mã học phần';
-COMMENT ON COLUMN LopHocPhan.MaHocKy IS 'Mã học kỳ';
-COMMENT ON COLUMN LopHocPhan.MaCoSo IS 'Cơ sở MỞ LỚP này';
-COMMENT ON COLUMN LopHocPhan.MaGV IS 'Giảng viên phụ trách';
-COMMENT ON COLUMN LopHocPhan.TenLopHP IS 'Tên hiển thị lớp';
-COMMENT ON COLUMN LopHocPhan.SiSoToiDa IS 'Sĩ số tối đa';
-COMMENT ON COLUMN LopHocPhan.SiSoHienTai IS 'Sĩ số hiện tại';
-COMMENT ON COLUMN LopHocPhan.HinhThucHoc IS 'Hình thức: Offline, Online, Hybrid';
-COMMENT ON COLUMN LopHocPhan.TrangThaiLop IS 'Trạng thái: Mo, Dong, Huy';
+COMMENT ON COLUMN "LopHocPhan"."MaLopHP" IS 'Mã lớp học phần';
+COMMENT ON COLUMN "LopHocPhan"."MaHP" IS 'Mã học phần';
+COMMENT ON COLUMN "LopHocPhan"."MaHocKy" IS 'Mã học kỳ';
+COMMENT ON COLUMN "LopHocPhan"."MaCoSo" IS 'Cơ sở MỞ LỚP này';
+COMMENT ON COLUMN "LopHocPhan"."MaGV" IS 'Giảng viên phụ trách';
+COMMENT ON COLUMN "LopHocPhan"."TenLopHP" IS 'Tên hiển thị lớp';
+COMMENT ON COLUMN "LopHocPhan"."SiSoToiDa" IS 'Sĩ số tối đa';
+COMMENT ON COLUMN "LopHocPhan"."SiSoHienTai" IS 'Sĩ số hiện tại';
+COMMENT ON COLUMN "LopHocPhan"."HinhThucHoc" IS 'Hình thức: Offline, Online, Hybrid';
+COMMENT ON COLUMN "LopHocPhan"."TrangThaiLop" IS 'Trạng thái: Mo, Dong, Huy';
 
-COMMENT ON COLUMN LichHoc.MaLich IS 'Mã lịch';
-COMMENT ON COLUMN LichHoc.MaLopHP IS 'Lớp học phần';
-COMMENT ON COLUMN LichHoc.MaPhong IS 'Phòng học';
-COMMENT ON COLUMN LichHoc.ThuTrongTuan IS 'Thứ: 2=Thứ 2, ..., 8=Chủ nhật';
-COMMENT ON COLUMN LichHoc.TietBatDau IS 'Tiết bắt đầu';
-COMMENT ON COLUMN LichHoc.SoTiet IS 'Số tiết liên tiếp';
-COMMENT ON COLUMN LichHoc.NgayBatDau IS 'Ngày bắt đầu học';
-COMMENT ON COLUMN LichHoc.NgayKetThuc IS 'Ngày kết thúc học';
-COMMENT ON COLUMN LichHoc.GhiChu IS 'Ghi chú';
+COMMENT ON COLUMN "LichHoc"."MaLich" IS 'Mã lịch';
+COMMENT ON COLUMN "LichHoc"."MaLopHP" IS 'Lớp học phần';
+COMMENT ON COLUMN "LichHoc"."MaPhong" IS 'Phòng học';
+COMMENT ON COLUMN "LichHoc"."ThuTrongTuan" IS 'Thứ: 2=Thứ 2, ..., 8=Chủ nhật';
+COMMENT ON COLUMN "LichHoc"."TietBatDau" IS 'Tiết bắt đầu';
+COMMENT ON COLUMN "LichHoc"."SoTiet" IS 'Số tiết liên tiếp';
+COMMENT ON COLUMN "LichHoc"."NgayBatDau" IS 'Ngày bắt đầu học';
+COMMENT ON COLUMN "LichHoc"."NgayKetThuc" IS 'Ngày kết thúc học';
+COMMENT ON COLUMN "LichHoc"."GhiChu" IS 'Ghi chú';
 
-COMMENT ON COLUMN DangKy.MaDangKy IS 'Mã đăng ký';
-COMMENT ON COLUMN DangKy.MaSV IS 'Sinh viên đăng ký';
-COMMENT ON COLUMN DangKy.MaLopHP IS 'Lớp học phần đăng ký';
-COMMENT ON COLUMN DangKy.NgayDangKy IS 'Thời điểm đăng ký';
-COMMENT ON COLUMN DangKy.TrangThaiDangKy IS 'Trạng thái: DaDangKy, DaHuy, ChoDuyet';
-COMMENT ON COLUMN DangKy.LanDangKy IS 'Lần đăng ký';
-COMMENT ON COLUMN DangKy.GhiChu IS 'Ghi chú';
+COMMENT ON COLUMN "DangKy"."MaDangKy" IS 'Mã đăng ký';
+COMMENT ON COLUMN "DangKy"."MaSV" IS 'Sinh viên đăng ký';
+COMMENT ON COLUMN "DangKy"."MaLopHP" IS 'Lớp học phần đăng ký';
+COMMENT ON COLUMN "DangKy"."NgayDangKy" IS 'Thời điểm đăng ký';
+COMMENT ON COLUMN "DangKy"."TrangThaiDangKy" IS 'Trạng thái: DaDangKy, DaHuy, ChoDuyet';
+COMMENT ON COLUMN "DangKy"."LanDangKy" IS 'Lần đăng ký';
+COMMENT ON COLUMN "DangKy"."GhiChu" IS 'Ghi chú';

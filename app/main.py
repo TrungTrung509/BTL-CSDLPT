@@ -1,12 +1,15 @@
 from fastapi import FastAPI
-from configs.db import Base, engine
-from configs.seed import seed_admin
+from configs.db import Base, engines
+from configs.seed import seed_all
 from routers import auth, user, branch, department
 
-# Create database tables and seed initial data
-Base.metadata.create_all(bind=engine)
-seed_admin()
-print("Tables created and default data seeded successfully!")
+# Create database tables and seed initial data across all sites
+for branch_id, engine in engines.items():
+    print(f"Initializing database for site: {branch_id}")
+    Base.metadata.create_all(bind=engine)
+
+seed_all()
+print("All tables created and default data seeded successfully!")
 
 app = FastAPI(
     title="BTL-CSDLPT API",

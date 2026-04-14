@@ -1,13 +1,14 @@
-from sqlalchemy import Column, String
+from sqlalchemy import Column, String, Date
 
 from configs.db import Base
 
 
 class Branch(Base):
-    __tablename__ = 'branches'
-    id = Column(String, primary_key=True,index=True)
-    MaCoSo= Column(String, nullable=False,unique=True)
-    name = Column(String,nullable=False,unique=True)
-    address = Column(String,nullable=False)
-    phone = Column(String,nullable=False)
-    email = Column(String,nullable=False)
+    __tablename__ = 'CoSo'
+    MaCoSo = Column(String, primary_key=True, index=True)
+    TenCoSo = Column(String, nullable=False, unique=True)
+    DiaChi = Column(String, nullable=False)
+    SoDienThoai = Column(String, nullable=True)
+    Email = Column(String, nullable=True)
+    NgayThanhLap = Column(Date)
+    TrangThai = Column(String, default='HoatDong')

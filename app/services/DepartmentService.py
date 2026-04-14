@@ -19,14 +19,15 @@ class DepartmentService:
             )
 
         # 2. Duplicate Check
-        if DepartmentRepo.get_by_maKhoa(db, dept_in.maKhoa):
-            raise HTTPException(status_code=400, detail="Department code (maKhoa) already exists")
+        if DepartmentRepo.get_by_MaKhoa(db, dept_in.MaKhoa):
+            raise HTTPException(status_code=400, detail="Department code (MaKhoa) already exists")
         
         # 3. Create
         db_dept = Departments(
-            id=str(uuid.uuid4()),
-            maKhoa=dept_in.maKhoa,
-            name=dept_in.name,
-            description=dept_in.description
+            MaKhoa=dept_in.MaKhoa,
+            TenKhoa=dept_in.TenKhoa,
+            MoTa=dept_in.MoTa,
+            NgayThanhLap=dept_in.NgayThanhLap,
+            TrangThai=dept_in.TrangThai
         )
         return DepartmentRepo.create(db, db_dept)

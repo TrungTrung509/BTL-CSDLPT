@@ -3,12 +3,12 @@ from models.Departments import Departments
 
 class DepartmentRepo:
     @staticmethod
-    def get_by_id(db: Session, dept_id: str) -> Departments:
-        return db.query(Departments).filter(Departments.id == dept_id).first()
+    def get_by_id(db: Session, MaKhoa: str) -> Departments:
+        return db.query(Departments).filter(Departments.MaKhoa == MaKhoa).first()
 
     @staticmethod
-    def get_by_maKhoa(db: Session, ma_khoa: str) -> Departments:
-        return db.query(Departments).filter(Departments.maKhoa == ma_khoa).first()
+    def get_by_MaKhoa(db: Session, MaKhoa: str) -> Departments:
+        return db.query(Departments).filter(Departments.MaKhoa == MaKhoa).first()
 
     @staticmethod
     def create(db: Session, dept: Departments) -> Departments:
