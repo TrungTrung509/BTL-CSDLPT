@@ -6,6 +6,7 @@ Repo nay hien tai chay tot phan:
 
 - Docker infrastructure
 - 3 site PostgreSQL
+- FDW lien site tu dong
 - Redis
 - Elasticsearch + Kibana
 - Schema SQL
@@ -71,9 +72,15 @@ Ban can thay cac container:
 - `csdlpt_hadong`
 - `csdlpt_ngoctruc`
 - `csdlpt_hoalac`
+- `csdlpt_fdw_setup`
 - `csdlpt_redis`
 - `csdlpt_elasticsearch`
 - `csdlpt_kibana`
+
+Luu y:
+
+- `csdlpt_fdw_setup` la container bootstrap chay 1 lan de tao FDW, foreign schema va view tong hop
+- Trang thai `Exited (0)` cua container nay sau khi chay xong la binh thuong
 
 ### Buoc 2: Kiem tra bang da duoc tao
 
@@ -86,6 +93,15 @@ docker exec csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong -c "\dt"
 ```
 
 Neu thay cac bang nhu `coso`, `khoa`, `hocphan`, `sinhvien`, `dangky`... thi schema da tao thanh cong.
+
+Kiem tra FDW da duoc bootstrap:
+
+```powershell
+docker logs csdlpt_fdw_setup
+docker exec csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong -c "\dn"
+docker exec csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong -c "SELECT COUNT(*) FROM fdw_ngoctruc.sinhvien;"
+docker exec csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong -c "SELECT COUNT(*) FROM vw_sinhvien_toantruong;"
+```
 
 ### Buoc 3: Seed du lieu
 
@@ -186,6 +202,8 @@ powershell -ExecutionPolicy Bypass -File .\infra\scripts\seed.ps1
 
 Sau do PostgreSQL se khoi tao schema lai tu dau khi `up -d`.
 
+FDW va cac view tong hop se duoc bootstrap lai tu dong sau khi 3 site healthy.
+
 ## 7. Mot so cau SQL kiem tra nhanh
 
 ### Liet ke bang
@@ -208,6 +226,15 @@ SELECT * FROM CoSo;
 ```sql
 SELECT MaCoSo, COUNT(*)
 FROM SinhVien
+GROUP BY MaCoSo
+ORDER BY MaCoSo;
+```
+
+### Dem so sinh vien toan truong tu bat ky site nao
+
+```sql
+SELECT MaCoSo, COUNT(*)
+FROM vw_sinhvien_toantruong
 GROUP BY MaCoSo
 ORDER BY MaCoSo;
 ```
@@ -275,6 +302,7 @@ Va dung dung port:
 ## 9. Script hien co
 
 - `infra/scripts/seed.ps1`: seed UTF-8 an toan cho 1 hoac tat ca site
+- `docker/fdw/setup-fdw.sh`: bootstrap FDW cho ca 3 site
 
 ## 10. Trang thai hien tai cua repo
 
@@ -283,6 +311,7 @@ Da hoan thanh:
 - Docker compose cho ha tang
 - Schema SQL
 - Seed data
+- FDW lien site + view tong hop
 - Chay va kiem tra tren PostgreSQL/pgAdmin
 
 Chua hoan thanh:
