@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from configs.db import Base, engine
 from configs.seed import seed_admin
-from routers import auth, user, branch, department
+from routers import auth, user, branch, department, campus, student_management, lecturer_management
 
 # Create database tables and seed initial data
 Base.metadata.create_all(bind=engine)
@@ -10,7 +10,7 @@ print("Tables created and default data seeded successfully!")
 
 app = FastAPI(
     title="BTL-CSDLPT API",
-    description="API for Authentication, User, Branch, and Department Management",
+    description="API for Distributed Database - Campus Registration System",
     version="1.1.1"
 )
 
@@ -19,6 +19,9 @@ app.include_router(auth.router)
 app.include_router(user.router)
 app.include_router(branch.router)
 app.include_router(department.router)
+app.include_router(campus.router)
+app.include_router(student_management.router)
+app.include_router(lecturer_management.router)
 
 @app.get("/", tags=["Health Check"])
 def read_root():

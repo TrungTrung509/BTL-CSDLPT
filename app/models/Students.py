@@ -1,30 +1,35 @@
 import enum
-from sqlalchemy import Column, String, ForeignKey, Enum
+from sqlalchemy import Column, String, Date, ForeignKey, Enum
 from sqlalchemy.orm import relationship
-from sqlalchemy.ext.associationproxy import association_proxy
-
 from configs.db import Base
 from enums.gender import Genders
 from enums.status import StudentStatus
 
 class Student(Base):
-    __tablename__ = "students"
-    id = Column(String, primary_key=True, index=True)
-    maSV = Column(String, nullable=False, unique=True)
-    gender = Column(Enum(Genders), nullable=False)
-    student_status = Column(Enum(StudentStatus), nullable=False)
-    user_id = Column(String, ForeignKey("users.id"), unique=True)
-    user = relationship("User")
-    branch_id = Column(String, ForeignKey("branches.id"))
-    branch = relationship("Branch")
-    department_id = Column(String, ForeignKey("departments.id"))
-    department = relationship("Departments")
+    __tablename__ = "sinhvien"
 
-    # Proxies to User model
-    username = association_proxy("user", "username")
-    email = association_proxy("user", "email")
-    name = association_proxy("user", "name")
-    phone = association_proxy("user", "phone")
-    date_of_birth = association_proxy("user", "date_of_birth")
-    status = association_proxy("user", "status")
-    role = association_proxy("user", "role")
+    id = Column(String, primary_key=True, index=True)
+    MaSV = Column(String, nullable=False, unique=True, index=True)
+    Ho = Column(String, nullable=False)
+    Ten = Column(String, nullable=False)
+    NgaySinh = Column(Date, nullable=False)
+    GioiTinh = Column(Enum(Genders), nullable=False)
+    Email = Column(String, unique=True)
+    SoDienThoai = Column(String)
+    DiaChi = Column(String)
+    MaCoSo = Column(String, nullable=False, index=True)
+    MaKhoa = Column(String, index=True)
+    TrangThai = Column(Enum(StudentStatus), default=StudentStatus.Active)
+    NgayNhapHoc = Column(Date)
+    NgayTao = Column(Date)
+
+    # Relationship with User (account)
+    user_id = Column(String, ForeignKey("users.id"), unique=True)
+    user = relationship("User", back_populates="student")
+
+    # Relationships with Campus and Department (reference tables)
+    # Note: These use MaCoSo/MaKhoa for distributed DB pattern
+    # For distributed setup, this can be managed via site-specific queries
+
+    def __repr__(self):
+        return f"<Student(MaSV='{self.MaSV}', Ho='{self.Ho}', Ten='{self.Ten}')>"

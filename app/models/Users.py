@@ -1,4 +1,5 @@
 from sqlalchemy import Column, String, Date, Enum
+from sqlalchemy.orm import relationship
 from configs.db import Base
 from enums.user_role import UserRole
 
@@ -14,3 +15,6 @@ class User(Base):
     phone = Column(String, nullable=False)
     date_of_birth = Column(Date, nullable=False)
     status = Column(String, default="Active")
+
+    # Relationship with Student
+    student = relationship("Student", back_populates="user", uselist=False)
