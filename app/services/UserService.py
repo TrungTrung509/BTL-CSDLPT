@@ -1,8 +1,6 @@
 import uuid
 from datetime import date
 from fastapi import HTTPException, status, Depends
-from sqlalchemy.orm import Session
-
 from configs.config import oauth2_scheme
 from services.AuthService import AuthService
 from repositories.UserRepo import UserRepo
@@ -15,7 +13,7 @@ from schemas.User import StudentCreate, TeacherCreate, ChangePasswordRequest, St
 from enums.user_role import UserRole
 from enums.status import UserStatus
 from configs.db import get_db
-
+from configs.db import SessionLocals
 class UserService:
     @staticmethod
     def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
@@ -26,7 +24,6 @@ class UserService:
         """
         token_data = AuthService.verify_token(token)
         # Bắt đầu session tạm tại Hà Đông để xác thực user
-        from configs.db import SessionLocals
         db = SessionLocals["HADONG"]()
         try:
             user = UserRepo.get_by_username(db, token_data.username)
@@ -45,8 +42,6 @@ class UserService:
         if current_user.role != UserRole.Admin:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only Admin can create students")
 
-        from configs.db import SessionLocals
-        # Mở session cho tất cả các site để thực hiện replication
         sessions = {site: session_factory() for site, session_factory in SessionLocals.items()}
         
         try:
@@ -95,7 +90,6 @@ class UserService:
                 userId=user_id,
                 Ho=student_in.Ho,
                 Ten=student_in.Ten,
-                # email không phải là cột thực tế trong bảng SinhVien (chỉ là proxy qua User)
                 NgaySinh=student_in.NgaySinh,
                 GioiTinh=student_in.GioiTinh,
                 SDT=student_in.SDT,
@@ -227,7 +221,6 @@ class UserService:
     @staticmethod
     async def get_user_profile(user: User):
         """Lấy profile đầy đủ của User từ đúng site mà user trực thuộc"""
-        from configs.db import SessionLocals
         db_site = SessionLocals[user.MaCoSo]()
         try:
             if user.role == UserRole.SinhVien:
@@ -242,7 +235,6 @@ class UserService:
 
     @staticmethod
     async def change_password(user: User, request: ChangePasswordRequest):
-        from configs.db import SessionLocals
         sessions = {site: Session() for site, Session in SessionLocals.items()}
         
         try:
