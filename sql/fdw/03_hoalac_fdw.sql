@@ -25,11 +25,11 @@ SERVER ngoctruc_server
 OPTIONS (user 'csdlpt_user', password 'csdlpt_pass');
 
 IMPORT FOREIGN SCHEMA public
-LIMIT TO (sinhvien, giangvien, phonghoc, lophocphan, lichhoc, dangky)
+LIMIT TO ("SinhVien", "GiangVien", "PhongHoc", "LopHocPhan", "LichHoc", "DangKy")
 FROM SERVER hadong_server
 INTO fdw_hadong;
 
 IMPORT FOREIGN SCHEMA public
-LIMIT TO (sinhvien, giangvien, phonghoc, lophocphan, lichhoc, dangky)
+LIMIT TO ("SinhVien", "GiangVien", "PhongHoc", "LopHocPhan", "LichHoc", "DangKy")
 FROM SERVER ngoctruc_server
 INTO fdw_ngoctruc;

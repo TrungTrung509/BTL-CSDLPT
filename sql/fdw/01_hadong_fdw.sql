@@ -25,11 +25,11 @@ SERVER hoalac_server
 OPTIONS (user 'csdlpt_user', password 'csdlpt_pass');
 
 IMPORT FOREIGN SCHEMA public
-LIMIT TO (sinhvien, giangvien, phonghoc, lophocphan, lichhoc, dangky)
+LIMIT TO ("SinhVien", "GiangVien", "PhongHoc", "LopHocPhan", "LichHoc", "DangKy")
 FROM SERVER ngoctruc_server
 INTO fdw_ngoctruc;
 
 IMPORT FOREIGN SCHEMA public
-LIMIT TO (sinhvien, giangvien, phonghoc, lophocphan, lichhoc, dangky)
+LIMIT TO ("SinhVien", "GiangVien", "PhongHoc", "LopHocPhan", "LichHoc", "DangKy")
 FROM SERVER hoalac_server
 INTO fdw_hoalac;
