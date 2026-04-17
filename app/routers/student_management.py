@@ -2,7 +2,8 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.orm import Session
-
+from typing import List, Optional
+from configs.db import open_db_by_branch
 from configs.db import get_db
 from enums.user_role import UserRole
 from models.Users import User
@@ -62,10 +63,10 @@ async def get_all_students(
 
 @router.get("/{ma_sv}")
 async def get_student(
-    ma_sv: str = Path(..., description="Ma sinh vien"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    ma_sv: str = Path(..., description="Mã sinh viên"),
+    current_user: User = Depends(UserService.get_current_user)
 ):
+    db = open_db_by_branch(current_user.MaCoSo)
     try:
         student = StudentManagementService.get_student_by_masv(db, ma_sv)
         return success_response(
@@ -84,15 +85,16 @@ async def get_student(
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_student(
     student_in: StudentCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.Admin)),
+    current_user: User = Depends(UserService.get_current_active_user)
 ):
+    """Tạo mới sinh viên (Admin only)"""
+    db = open_db_by_branch(current_user.MaCoSo)
     try:
         student = StudentManagementService.create_student(db, student_in, current_user)
         return success_response(
-            data=StudentResponse.model_validate(student).model_dump(),
-            message=f"Tao sinh vien '{student_in.MaSV}' thanh cong",
-            status=201,
+            data=student,
+            message=f"Tạo sinh viên '{student_in.MaSV}' thành công",
+            status=201
         )
     except HTTPException as e:
         return error_response(
@@ -104,17 +106,18 @@ async def create_student(
 
 @router.put("/{ma_sv}")
 async def update_student(
-    student_in: StudentUpdate,
-    ma_sv: str = Path(..., description="Ma sinh vien"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.Admin)),
+    ma_sv: str = Path(..., description="Mã sinh viên"),
+    student_in: StudentUpdate = None,
+    current_user: User = Depends(UserService.get_current_active_user)
 ):
+    """Cập nhật thông tin sinh viên (Admin only)"""
+    db = open_db_by_branch(current_user.MaCoSo)
     try:
         student = StudentManagementService.update_student(db, ma_sv, student_in, current_user)
         return success_response(
-            data=StudentResponse.model_validate(student).model_dump(),
-            message=f"Cap nhat sinh vien '{ma_sv}' thanh cong",
-            status=200,
+            data=student,
+            message=f"Cập nhật sinh viên '{ma_sv}' thành công",
+            status=200
         )
     except HTTPException as e:
         return error_response(
@@ -126,17 +129,18 @@ async def update_student(
 
 @router.patch("/{ma_sv}/status")
 async def update_student_status(
-    status_update: StudentStatusUpdate,
-    ma_sv: str = Path(..., description="Ma sinh vien"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.Admin)),
+    ma_sv: str = Path(..., description="Mã sinh viên"),
+    status_update: StudentStatusUpdate = None,
+    current_user: User = Depends(UserService.get_current_active_user)
 ):
+    """Cập nhật trạng thái sinh viên (Admin only)"""
+    db = open_db_by_branch(current_user.MaCoSo)
     try:
         student = StudentManagementService.update_student_status(db, ma_sv, status_update, current_user)
         return success_response(
-            data=StudentResponse.model_validate(student).model_dump(),
-            message=f"Cap nhat trang thai sinh vien '{ma_sv}' thanh cong",
-            status=200,
+            data=student,
+            message=f"Cập nhật trạng thái sinh viên '{ma_sv}' thành công",
+            status=200
         )
     except HTTPException as e:
         return error_response(
@@ -148,10 +152,11 @@ async def update_student_status(
 
 @router.delete("/{ma_sv}")
 async def delete_student(
-    ma_sv: str = Path(..., description="Ma sinh vien"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(UserRole.Admin)),
+    ma_sv: str = Path(..., description="Mã sinh viên"),
+    current_user: User = Depends(UserService.get_current_active_user)
 ):
+    """Xóa sinh viên (Admin only)"""
+    db = open_db_by_branch(current_user.MaCoSo)
     try:
         StudentManagementService.delete_student(db, ma_sv, current_user)
         return success_response(

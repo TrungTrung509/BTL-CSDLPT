@@ -43,9 +43,9 @@ class LecturerManagementService:
                         Teacher.Ten.ilike(keyword)
                     )
                 )
-
+        offset = skip * limit
         total = query.count()
-        lecturers = query.offset(skip).limit(limit).all()
+        lecturers = query.offset(offset).limit(limit).all()
 
         return lecturers, total
 

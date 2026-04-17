@@ -5,11 +5,11 @@ from configs.seed import seed_all
 from exceptions import register_exception_handlers
 from routers import auth, branch, class_section, classroom, course, department, lecturer_management, schedule, semester, student_management, user
 
-for branch_id, engine in engines.items():
-    print(f"Initializing database for site: {branch_id}")
-    Base.metadata.create_all(bind=engine)
+# for branch_id, engine in engines.items():
+#     print(f"Initializing database for site: {branch_id}")
+#     Base.metadata.create_all(bind=engine)
 
-seed_all()
+# seed_all()
 print("All tables created and default data seeded successfully!")
 
 app = FastAPI(
