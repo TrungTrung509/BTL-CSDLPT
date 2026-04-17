@@ -54,8 +54,9 @@ class AuthService:
         try:
             payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
             username: str = payload.get("sub")
-            user_id: str = payload.get("id")
+            user_id: str = payload.get("userId")
             role: str = payload.get("role")
+            branch_id: str = payload.get("branch_id")
             token_type: str = payload.get("type", "access")
 
             if username is None:
@@ -65,7 +66,7 @@ class AuthService:
                     headers={"WWW-Authenticate": "Bearer"},
                 )
             
-            return TokenData(username=username, user_id=user_id, role=role)
+            return TokenData(username=username, userId=user_id, role=role, branch_id=branch_id)
         except JWTError:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -75,7 +76,7 @@ class AuthService:
 
     async def login(self, username: str, password: str) -> Token:
         user = UserRepo.get_by_username(self.db, username)
-        if not user or not self.verify_password(password, user.password_hash):
+        if not user or not self.verify_password(password, user.password):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect username or password",
@@ -84,8 +85,9 @@ class AuthService:
 
         return self.create_tokens({
             "sub": user.username,
-            "id": user.id,
-            "role": user.role.value if hasattr(user.role, 'value') else str(user.role)
+            "userId": user.userId,
+            "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
+            "branch_id": user.MaCoSo
         })
 
     async def refresh(self, refresh_token: str) -> Token:
@@ -101,8 +103,9 @@ class AuthService:
             
             return self.create_tokens({
                 "sub": user.username,
-                "id": user.id,
-                "role": user.role.value if hasattr(user.role, 'value') else str(user.role)
+                "userId": user.userId,
+                "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
+                "branch_id": user.MaCoSo
             })
         except JWTError:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")

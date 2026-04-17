@@ -103,6 +103,7 @@ docker exec csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong -c "SELECT COUNT(
 docker exec csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong -c "SELECT COUNT(*) FROM vw_sinhvien_toantruong;"
 ```
 
+
 ### Buoc 3: Seed du lieu
 
 Repo da co script seed UTF-8 an toan de tranh loi tieng Viet:

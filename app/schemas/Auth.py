@@ -13,7 +13,8 @@ class Token(BaseModel):
     token_type: str
 
 class TokenData(BaseModel):
-    user_id: Optional[str] = None
+    userId: Optional[str] = None
     username: Optional[str] = None
     role: Optional[str] = None
+    branch_id: Optional[str] = None
 

@@ -1,19 +1,22 @@
 from pydantic import BaseModel, ConfigDict
 from typing import Optional
+from datetime import date
 
 class DepartmentBase(BaseModel):
-    maKhoa: str
-    name: str
-    description: str
+    MaKhoa: str
+    TenKhoa: str
+    MoTa: Optional[str] = None
+    NgayThanhLap: Optional[date] = None
+    TrangThai: Optional[str] = "HoatDong"
 
 class DepartmentCreate(DepartmentBase):
     pass
 
 class DepartmentUpdate(BaseModel):
-    maKhoa: Optional[str] = None
-    name: Optional[str] = None
-    description: Optional[str] = None
+    TenKhoa: Optional[str] = None
+    MoTa: Optional[str] = None
+    NgayThanhLap: Optional[date] = None
+    TrangThai: Optional[str] = None
 
 class DepartmentResponse(DepartmentBase):
-    id: str
     model_config = ConfigDict(from_attributes=True)

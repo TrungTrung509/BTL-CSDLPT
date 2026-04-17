@@ -1,5 +1,5 @@
 from enums.status import UserStatus
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator, field_validator
 from typing import Optional
 from datetime import date
 from enums.user_role import UserRole
@@ -7,36 +7,67 @@ from enums.status import StudentStatus, TeacherStatus
 from enums.gender import Genders
 
 class UserBase(BaseModel):
-    """Thông tin cá nhân cơ bản không bao gồm tài khoản"""
-    email: str
-    name: str
-    phone: str
-    date_of_birth: date
+    """Thông tin định danh dùng chung"""
+    username: str
+    email: Optional[str] = None
+    role: UserRole
+    MaCoSo: str
     status: UserStatus = UserStatus.Active
 
+class ProfileBase(BaseModel):
+    """Thông tin hồ sơ cá nhân (lưu tại local site)"""
+    Ho: str
+    Ten: str
+    email: Optional[str] = None
+    SDT: Optional[str] = None
+    NgaySinh: Optional[date] = None
+    GioiTinh: Optional[Genders] = Genders.Khac
+    DiaChi: Optional[str] = None
+
 class UserResponse(UserBase):
-    id: str
-    username: str
-    role: UserRole
+    userId: str
     model_config = ConfigDict(from_attributes=True)
 
-class StudentBase(BaseModel):
-    maSV: str
-    gender: Genders
-    student_status: StudentStatus
-    branch_id: Optional[str] = None
-    department_id: Optional[str] = None
+class StudentBase(ProfileBase):
+    MaSV: str
+    TrangThai: StudentStatus
+    MaCoSo: str
+    MaKhoa: Optional[str] = None
 
-class TeacherBase(BaseModel):
-    maGV: str
-    degree: str
-    teacher_status: TeacherStatus
-    branch_id: Optional[str] = None
-    department_id: Optional[str] = None
+    @field_validator("MaKhoa", mode="before")
+    @classmethod
+    def transform_null_string(cls, v):
+        if isinstance(v, str) and v.lower() == "null":
+            return None
+        return v
+
+class TeacherBase(ProfileBase):
+    MaGV: str
+    HocVi: Optional[str] = None
+    HocHam: Optional[str] = None
+    TrangThai: TeacherStatus
+    MaCoSo: str
+    MaKhoa: Optional[str] = None
+
+    @field_validator("MaKhoa", mode="before")
+    @classmethod
+    def transform_null_string(cls, v):
+        if isinstance(v, str) and v.lower() == "null":
+            return None
+        return v
+
+class StudentCreate(StudentBase):
+    """Yêu cầu tạo Sinh viên: Dữ liệu tài khoản sẽ được lấy từ MaSV"""
+    pass
+
+class TeacherCreate(TeacherBase):
+    """Yêu cầu tạo Giảng viên: Dữ liệu tài khoản sẽ được lấy từ MaGV"""
+    pass
 
 class UserSelfUpdate(BaseModel):
-    """Người dùng tự cập nhật: Chỉ cho phép đổi mật khẩu và số điện thoại"""
-    phone: Optional[str] = None
+    """Người dùng tự cập nhật thông tin cá nhân"""
+    SDT: Optional[str] = None
+    DiaChi: Optional[str] = None
     password: Optional[str] = None
 
 class ChangePasswordRequest(BaseModel):
@@ -50,64 +81,10 @@ class ChangePasswordRequest(BaseModel):
             raise ValueError("Mật khẩu mới và mật khẩu xác nhận không khớp")
         return self
 
-class UserAdminUpdate(BaseModel):
-    """Admin cập nhật User: Có quyền sửa mọi trường, kể cả Role và Status"""
-    username: Optional[str] = None
-    email: Optional[str] = None
-    name: Optional[str] = None
-    phone: Optional[str] = None
-    role: Optional[UserRole] = None
-    date_of_birth: Optional[date] = None
-    status: Optional[str] = None
-    password: Optional[str] = None
+class StudentResponse(UserResponse, StudentBase):
+    """Thông tin đầy đủ của Sinh viên (sau khi Join)"""
+    model_config = ConfigDict(from_attributes=True)
 
-class StudentAdminUpdate(UserAdminUpdate):
-    """Admin cập nhật Sinh viên: Bao gồm thông tin User + thông tin Sinh viên"""
-    maSV: Optional[str] = None
-    gender: Optional[Genders] = None
-    student_status: Optional[StudentStatus] = None
-    branch_id: Optional[str] = None
-    department_id: Optional[str] = None
-
-class TeacherAdminUpdate(UserAdminUpdate):
-    """Admin cập nhật Giảng viên: Bao gồm thông tin User + thông tin Giảng viên"""
-    maGV: Optional[str] = None
-    degree: Optional[str] = None
-    teacher_status: Optional[TeacherStatus] = None
-    branch_id: Optional[str] = None
-    department_id: Optional[str] = None
-
-class UserCreate(UserBase):
-    """Dùng cho trường hợp Admin tạo User hệ thống (tài khoản do admin đặt)"""
-    username: str
-    password: str
-
-class StudentCreate(UserBase):
-    """Request Body tạo Sinh viên: Không có username/password (tự động lấy theo maSV)"""
-    maSV: str
-    gender: Genders
-    student_status: StudentStatus
-    branch_id: Optional[str] = None
-    department_id: Optional[str] = None
-
-class TeacherCreate(UserBase):
-    """Request Body tạo Giảng viên: Không có username/password (tự động lấy theo maGV)"""
-    maGV: str
-    degree: str
-    teacher_status: TeacherStatus
-    branch_id: Optional[str] = None
-    department_id: Optional[str] = None
-
-class StudentResponse(UserResponse):
-    maSV: str
-    gender: Genders
-    student_status: StudentStatus
-    branch_id: Optional[str] = None
-    department_id: Optional[str] = None
-
-class TeacherResponse(UserResponse):
-    maGV: str
-    degree: str
-    teacher_status: TeacherStatus
-    branch_id: Optional[str] = None
-    department_id: Optional[str] = None
+class TeacherResponse(UserResponse, TeacherBase):
+    """Thông tin đầy đủ của Giảng viên (sau khi Join)"""
+    model_config = ConfigDict(from_attributes=True)

@@ -10,19 +10,38 @@
 -- ============================================================
 
 -- Index cho HocPhan theo Khoa (JOIN)
-CREATE INDEX IF NOT EXISTS idx_hocphan_makhoa ON HocPhan(MaKhoa);
+CREATE INDEX IF NOT EXISTS idx_hocphan_makhoa ON "HocPhan"("MaKhoa");
 
 -- Index cho HocPhan theo trạng thái (lọc)
-CREATE INDEX IF NOT EXISTS idx_hocphan_trangthai ON HocPhan(TrangThai);
+CREATE INDEX IF NOT EXISTS idx_hocphan_trangthai ON "HocPhan"("TrangThai");
 
 -- Index cho HocPhan theo loại (lọc)
-CREATE INDEX IF NOT EXISTS idx_hocphan_loai ON HocPhan(LoaiHocPhan);
+CREATE INDEX IF NOT EXISTS idx_hocphan_loai ON "HocPhan"("LoaiHocPhan");
 
 -- Index cho TienQuyet theo MaHP (kiểm tra tiên quyết)
-CREATE INDEX IF NOT EXISTS idx_tienquyet_mahp ON TienQuyet(MaHP);
+CREATE INDEX IF NOT EXISTS idx_tienquyet_mahp ON "TienQuyet"("MaHP");
 
 -- Index cho TienQuyet theo MaHP_TienQuyet
-CREATE INDEX IF NOT EXISTS idx_tienquyet_tq ON TienQuyet(MaHP_TienQuyet);
+CREATE INDEX IF NOT EXISTS idx_tienquyet_tq ON "TienQuyet"("MaHP_TienQuyet");
+
+-- ============================================================
+-- INDEXES CHO BẢNG users (Common - tìm kiếm & auth)
+-- ============================================================
+
+-- Index cho username (login)
+CREATE INDEX IF NOT EXISTS idx_users_username ON "users"("username");
+
+-- Index cho email (tra cứu, validation)
+CREATE INDEX IF NOT EXISTS idx_users_email ON "users"("email");
+
+-- Index cho role (lọc theo loại user)
+CREATE INDEX IF NOT EXISTS idx_users_role ON "users"("role");
+
+-- Index cho MaCoSo (định tuyến theo cơ sở)
+CREATE INDEX IF NOT EXISTS idx_users_macoso ON "users"("MaCoSo");
+
+-- Index cho status (lọc user active/inactive/locked)
+CREATE INDEX IF NOT EXISTS idx_users_status ON "users"("status");
 
 -- ============================================================
 -- INDEXES CHO BẢNG LOCAL
@@ -30,110 +49,110 @@ CREATE INDEX IF NOT EXISTS idx_tienquyet_tq ON TienQuyet(MaHP_TienQuyet);
 
 -- ---- SinhVien ----
 -- Index theo cơ sở (phân mảnh)
-CREATE INDEX IF NOT EXISTS idx_sinhvien_macoso ON SinhVien(MaCoSo);
+CREATE INDEX IF NOT EXISTS idx_sinhvien_macoso ON "SinhVien"("MaCoSo");
 
 -- Index theo khoa (JOIN với Khoa)
-CREATE INDEX IF NOT EXISTS idx_sinhvien_makhoa ON SinhVien(MaKhoa);
+CREATE INDEX IF NOT EXISTS idx_sinhvien_makhoa ON "SinhVien"("MaKhoa");
 
 -- Index theo trạng thái (lọc sinh viên đang học)
-CREATE INDEX IF NOT EXISTS idx_sinhvien_trangthai ON SinhVien(TrangThai);
+CREATE INDEX IF NOT EXISTS idx_sinhvien_trangthai ON "SinhVien"("TrangThai");
 
--- Index theo email (tra cứu nhanh)
-CREATE INDEX IF NOT EXISTS idx_sinhvien_email ON SinhVien(Email);
+-- Index theo userId (FK lookup)
+CREATE INDEX IF NOT EXISTS idx_sinhvien_userid ON "SinhVien"("userId");
 
 -- ---- GiangVien ----
 -- Index theo cơ sở (phân mảnh)
-CREATE INDEX IF NOT EXISTS idx_giangvien_macoso ON GiangVien(MaCoSo);
+CREATE INDEX IF NOT EXISTS idx_giangvien_macoso ON "GiangVien"("MaCoSo");
 
 -- Index theo khoa (JOIN)
-CREATE INDEX IF NOT EXISTS idx_giangvien_makhoa ON GiangVien(MaKhoa);
+CREATE INDEX IF NOT EXISTS idx_giangvien_makhoa ON "GiangVien"("MaKhoa");
 
 -- Index theo trạng thái
-CREATE INDEX IF NOT EXISTS idx_giangvien_trangthai ON GiangVien(TrangThai);
+CREATE INDEX IF NOT EXISTS idx_giangvien_trangthai ON "GiangVien"("TrangThai");
 
--- Index theo email
-CREATE INDEX IF NOT EXISTS idx_giangvien_email ON GiangVien(Email);
+-- Index theo userId (FK lookup)
+CREATE INDEX IF NOT EXISTS idx_giangvien_userid ON "GiangVien"("userId");
 
 -- ---- PhongHoc ----
 -- Index theo cơ sở (phân mảnh)
-CREATE INDEX IF NOT EXISTS idx_phonghoc_macoso ON PhongHoc(MaCoSo);
+CREATE INDEX IF NOT EXISTS idx_phonghoc_macoso ON "PhongHoc"("MaCoSo");
 
 -- Index theo loại phòng (lọc)
-CREATE INDEX IF NOT EXISTS idx_phonghoc_loai ON PhongHoc(LoaiPhong);
+CREATE INDEX IF NOT EXISTS idx_phonghoc_loai ON "PhongHoc"("LoaiPhong");
 
 -- Index theo trạng thái (phòng đang hoạt động)
-CREATE INDEX IF NOT EXISTS idx_phonghoc_trangthai ON PhongHoc(TrangThai);
+CREATE INDEX IF NOT EXISTS idx_phonghoc_trangthai ON "PhongHoc"("TrangThai");
 
 -- ---- LopHocPhan ----
 -- Index theo học phần (JOIN với HocPhan)
-CREATE INDEX IF NOT EXISTS idx_lophocphan_mahp ON LopHocPhan(MaHP);
+CREATE INDEX IF NOT EXISTS idx_lophocphan_mahp ON "LopHocPhan"("MaHP");
 
 -- Index theo học kỳ (lọc theo kỳ)
-CREATE INDEX IF NOT EXISTS idx_lophocphan_mahocky ON LopHocPhan(MaHocKy);
+CREATE INDEX IF NOT EXISTS idx_lophocphan_mahocky ON "LopHocPhan"("MaHocKy");
 
 -- Index theo cơ sở mở lớp (phân mảnh)
-CREATE INDEX IF NOT EXISTS idx_lophocphan_macoso ON LopHocPhan(MaCoSo);
+CREATE INDEX IF NOT EXISTS idx_lophocphan_macoso ON "LopHocPhan"("MaCoSo");
 
 -- Index theo giảng viên (JOIN)
-CREATE INDEX IF NOT EXISTS idx_lophocphan_magv ON LopHocPhan(MaGV);
+CREATE INDEX IF NOT EXISTS idx_lophocphan_magv ON "LopHocPhan"("MaGV");
 
 -- Index theo trạng thái (lớp đang mở)
-CREATE INDEX IF NOT EXISTS idx_lophocphan_trangthai ON LopHocPhan(TrangThaiLop);
+CREATE INDEX IF NOT EXISTS idx_lophocphan_trangthai ON "LopHocPhan"("TrangThaiLop");
 
 -- Index tổ hợp: Học phần + Học kỳ + Cơ sở (tra cứu nhanh)
-CREATE INDEX IF NOT EXISTS idx_lophocphan_hp_hk_cs ON LopHocPhan(MaHP, MaHocKy, MaCoSo);
+CREATE INDEX IF NOT EXISTS idx_lophocphan_hp_hk_cs ON "LopHocPhan"("MaHP", "MaHocKy", "MaCoSo");
 
 -- Index cho kiểm tra sĩ số (SiSoHienTai vs SiSoToiDa)
-CREATE INDEX IF NOT EXISTS idx_lophocphan_siso ON LopHocPhan(SiSoHienTai, SiSoToiDa);
+CREATE INDEX IF NOT EXISTS idx_lophocphan_siso ON "LopHocPhan"("SiSoHienTai", "SiSoToiDa");
 
 -- ---- LichHoc ----
 -- Index theo lớp học phần (JOIN, phân mảnh dẫn xuất)
-CREATE INDEX IF NOT EXISTS idx_lichhoc_malophp ON LichHoc(MaLopHP);
+CREATE INDEX IF NOT EXISTS idx_lichhoc_malophp ON "LichHoc"("MaLopHP");
 
 -- Index theo phòng (kiểm tra trùng phòng)
-CREATE INDEX IF NOT EXISTS idx_lichhoc_maphong ON LichHoc(MaPhong);
+CREATE INDEX IF NOT EXISTS idx_lichhoc_maphong ON "LichHoc"("MaPhong");
 
 -- Index tổ hợp: Phòng + Thứ + Tiết (kiểm tra trùng lịch phòng)
-CREATE INDEX IF NOT EXISTS idx_lichhoc_phong_thu_tiet ON LichHoc(MaPhong, ThuTrongTuan, TietBatDau);
+CREATE INDEX IF NOT EXISTS idx_lichhoc_phong_thu_tiet ON "LichHoc"("MaPhong", "ThuTrongTuan", "TietBatDau");
 
 -- Index theo thời gian
-CREATE INDEX IF NOT EXISTS idx_lichhoc_ngay ON LichHoc(NgayBatDau, NgayKetThuc);
+CREATE INDEX IF NOT EXISTS idx_lichhoc_ngay ON "LichHoc"("NgayBatDau", "NgayKetThuc");
 
 -- ---- DangKy ----
 -- Index theo sinh viên (tra cứu đăng ký của SV)
-CREATE INDEX IF NOT EXISTS idx_dangky_masv ON DangKy(MaSV);
+CREATE INDEX IF NOT EXISTS idx_dangky_masv ON "DangKy"("MaSV");
 
 -- Index theo lớp học phần (tra cứu SV đăng ký lớp)
-CREATE INDEX IF NOT EXISTS idx_dangky_malophp ON DangKy(MaLopHP);
+CREATE INDEX IF NOT EXISTS idx_dangky_malophp ON "DangKy"("MaLopHP");
 
 -- Index theo trạng thái (lọc đăng ký đang hiệu lực)
-CREATE INDEX IF NOT EXISTS idx_dangky_trangthai ON DangKy(TrangThaiDangKy);
+CREATE INDEX IF NOT EXISTS idx_dangky_trangthai ON "DangKy"("TrangThaiDangKy");
 
 -- Index tổ hợp: SV + Lớp HP (kiểm tra trùng đăng ký - UNIQUE)
-CREATE INDEX IF NOT EXISTS idx_dangky_sv_lhp ON DangKy(MaSV, MaLopHP);
+CREATE INDEX IF NOT EXISTS idx_dangky_sv_lhp ON "DangKy"("MaSV", "MaLopHP");
 
 -- Index để đếm sĩ số nhanh
-CREATE INDEX IF NOT EXISTS idx_dangky_demsiso ON DangKy(MaLopHP) WHERE TrangThaiDangKy = 'DaDangKy';
+CREATE INDEX IF NOT EXISTS idx_dangky_demsiso ON "DangKy"("MaLopHP") WHERE "TrangThaiDangKy" = 'DaDangKy';
 
 -- ============================================================
 -- INDEXES CHO REPLICATION & FDW (chạy tại tất cả site)
 -- ============================================================
 
 -- Index cho việc kiểm tra tiên quyết (JOIN với HocPhan)
-CREATE INDEX IF NOT EXISTS idx_tienquyet_lookup ON TienQuyet(MaHP_TienQuyet, MaHP);
+CREATE INDEX IF NOT EXISTS idx_tienquyet_lookup ON "TienQuyet"("MaHP_TienQuyet", "MaHP");
 
 -- Index cho HocKy theo năm học
-CREATE INDEX IF NOT EXISTS idx_hocky_namhoc ON HocKy(NamHoc);
+CREATE INDEX IF NOT EXISTS idx_hocky_namhoc ON "HocKy"("NamHoc");
 
 -- ============================================================
 -- INDEXES CHO PERFORMANCE (chạy tại site HADONG - publisher)
 -- ============================================================
 
 -- Index cho Khoa theo trạng thái
-CREATE INDEX IF NOT EXISTS idx_khoa_trangthai ON Khoa(TrangThai);
+CREATE INDEX IF NOT EXISTS idx_khoa_trangthai ON "Khoa"("TrangThai");
 
 -- Index cho CoSo theo trạng thái
-CREATE INDEX IF NOT EXISTS idx_coso_trangthai ON CoSo(TrangThai);
+CREATE INDEX IF NOT EXISTS idx_coso_trangthai ON "CoSo"("TrangThai");
 
 -- ============================================================
 -- GHI CHÚ

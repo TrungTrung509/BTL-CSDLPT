@@ -1,16 +1,26 @@
 from sqlalchemy import Column, String, Date
+
 from configs.db import Base
 
 class Branch(Base):
-    __tablename__ = 'coso'
+    # Viet
+    __tablename__ = 'CoSo'
 
-    id = Column(String, primary_key=True, index=True)
-    MaCoSo = Column(String, nullable=False, unique=True, index=True)
+    MaCoSo = Column(String, primary_key=True, index=True)
     TenCoSo = Column(String, nullable=False)
-    DiaChi = Column(String)
-    Email = Column(String)
-    SoDienThoai = Column(String)
-    NgayTao = Column(Date)
-
+    DiaChi = Column(String, nullable=True)
+    SoDienThoai = Column(String, nullable=True)
+    Email = Column(String, nullable=True)
+    NgayThanhLap = Column(Date, nullable=True)
+    TrangThai = Column(String, nullable=True)
     def __repr__(self):
         return f"<Branch(MaCoSo='{self.MaCoSo}', TenCoSo='{self.TenCoSo}')>"
+    # Trung
+    # __tablename__ = 'CoSo'
+    # MaCoSo = Column(String, primary_key=True, index=True)
+    # TenCoSo = Column(String, nullable=False, unique=True)
+    # DiaChi = Column(String, nullable=False)
+    # SoDienThoai = Column(String, nullable=True)
+    # Email = Column(String, nullable=True)
+    # NgayThanhLap = Column(Date)
+    # TrangThai = Column(String, default='HoatDong')

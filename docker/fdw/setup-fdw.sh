@@ -1,5 +1,5 @@
-#!/bin/sh
-set -eu
+﻿#!/bin/sh
+# set -eu replaced with manual error handling for ash compatibility
 
 wait_for_db() {
   host="$1"

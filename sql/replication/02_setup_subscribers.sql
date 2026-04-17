@@ -42,7 +42,7 @@ WITH (
   copy_data = false,
   create_slot = true,
   enabled = true,
-  slot_name = 'slot_hoalac' -- ten_site: ngoctruc, hoalac
+  slot_name = 'slot_ngoctruc' -- ten_site: ngoctruc, hoalac
 )  -- slot_name phải khớp với slot đã tạo ở publisher
 
 -- ============================================================

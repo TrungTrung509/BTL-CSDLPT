@@ -1,41 +1,41 @@
 CREATE OR REPLACE VIEW vw_sinhvien_toantruong AS
-SELECT * FROM public.sinhvien
+SELECT * FROM "SinhVien"
 UNION ALL
-SELECT * FROM fdw_hadong.sinhvien
+SELECT * FROM fdw_hadong."SinhVien"
 UNION ALL
-SELECT * FROM fdw_ngoctruc.sinhvien;
+SELECT * FROM fdw_ngoctruc."SinhVien";
 
 CREATE OR REPLACE VIEW vw_giangvien_toantruong AS
-SELECT * FROM public.giangvien
+SELECT * FROM "GiangVien"
 UNION ALL
-SELECT * FROM fdw_hadong.giangvien
+SELECT * FROM fdw_hadong."GiangVien"
 UNION ALL
-SELECT * FROM fdw_ngoctruc.giangvien;
+SELECT * FROM fdw_ngoctruc."GiangVien";
 
 CREATE OR REPLACE VIEW vw_phonghoc_toantruong AS
-SELECT * FROM public.phonghoc
+SELECT * FROM "PhongHoc"
 UNION ALL
-SELECT * FROM fdw_hadong.phonghoc
+SELECT * FROM fdw_hadong."PhongHoc"
 UNION ALL
-SELECT * FROM fdw_ngoctruc.phonghoc;
+SELECT * FROM fdw_ngoctruc."PhongHoc";
 
 CREATE OR REPLACE VIEW vw_lophocphan_toantruong AS
-SELECT * FROM public.lophocphan
+SELECT * FROM "LopHocPhan"
 UNION ALL
-SELECT * FROM fdw_hadong.lophocphan
+SELECT * FROM fdw_hadong."LopHocPhan"
 UNION ALL
-SELECT * FROM fdw_ngoctruc.lophocphan;
+SELECT * FROM fdw_ngoctruc."LopHocPhan";
 
 CREATE OR REPLACE VIEW vw_lichhoc_toantruong AS
-SELECT * FROM public.lichhoc
+SELECT * FROM "LichHoc"
 UNION ALL
-SELECT * FROM fdw_hadong.lichhoc
+SELECT * FROM fdw_hadong."LichHoc"
 UNION ALL
-SELECT * FROM fdw_ngoctruc.lichhoc;
+SELECT * FROM fdw_ngoctruc."LichHoc";
 
 CREATE OR REPLACE VIEW vw_dangky_toantruong AS
-SELECT * FROM public.dangky
+SELECT * FROM "DangKy"
 UNION ALL
-SELECT * FROM fdw_hadong.dangky
+SELECT * FROM fdw_hadong."DangKy"
 UNION ALL
-SELECT * FROM fdw_ngoctruc.dangky;
+SELECT * FROM fdw_ngoctruc."DangKy";

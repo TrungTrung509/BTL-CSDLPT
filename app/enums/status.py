@@ -1,16 +1,17 @@
 from enum import Enum
 
 class StudentStatus(str, Enum):
-    Active = "Active"
-    OnLeave = "OnLeave"
-    DroppedOut = "DroppedOut"
-    Graduated = "Graduated"
+    DangHoc = "DangHoc"
+    BaoLuu = "BaoLuu"
+    ThoiHoc = "ThoiHoc"
+    TotNghiep = "TotNghiep"
 
 class TeacherStatus(str, Enum):
-    Active = "Active"
-    OnLeave = "OnLeave"
-    Resigned = "Resigned"
+    DangCongTac = "DangCongTac"
+    TamNghi = "TamNghi"
+    NghiViec = "NghiViec"
 
 class UserStatus(str, Enum):
     Active = "Active"
     Inactive = "Inactive"
+    Locked = "Locked"

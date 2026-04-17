@@ -3,12 +3,16 @@ from models.Branches import Branch
 
 class BranchRepo:
     @staticmethod
-    def get_by_id(db: Session, branch_id: str) -> Branch:
-        return db.query(Branch).filter(Branch.id == branch_id).first()
+    def get_by_id(db: Session, MaCoSo: str) -> Branch:
+        return db.query(Branch).filter(Branch.MaCoSo == MaCoSo).first()
 
     @staticmethod
+    # Viet
     def get_by_MaCoSo(db: Session, ma_co_so: str) -> Branch:
         return db.query(Branch).filter(Branch.MaCoSo == ma_co_so.upper()).first()
+    # Trung
+    # def get_by_MaCoSo(db: Session, MaCoSo: str) -> Branch:
+    #     return db.query(Branch).filter(Branch.MaCoSo == MaCoSo).first()
 
     @staticmethod
     def create(db: Session, branch: Branch) -> Branch:

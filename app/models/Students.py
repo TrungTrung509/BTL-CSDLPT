@@ -1,35 +1,60 @@
 import enum
 from sqlalchemy import Column, String, Date, ForeignKey, Enum
 from sqlalchemy.orm import relationship
+from datetime import datetime
+
 from configs.db import Base
 from enums.gender import Genders
 from enums.status import StudentStatus
 
 class Student(Base):
-    __tablename__ = "sinhvien"
+    __tablename__ = "SinhVien"
 
-    id = Column(String, primary_key=True, index=True)
-    MaSV = Column(String, nullable=False, unique=True, index=True)
+    MaSV = Column(String, primary_key=True, index=True)
+    userId = Column(String, ForeignKey("users.userId"), unique=True, nullable=False)
     Ho = Column(String, nullable=False)
     Ten = Column(String, nullable=False)
-    NgaySinh = Column(Date, nullable=False)
-    GioiTinh = Column(Enum(Genders), nullable=False)
-    Email = Column(String, unique=True)
-    SoDienThoai = Column(String)
+    NgaySinh = Column(Date)
+    GioiTinh = Column(String)
+    SDT = Column(String)
     DiaChi = Column(String)
-    MaCoSo = Column(String, nullable=False, index=True)
-    MaKhoa = Column(String, index=True)
-    TrangThai = Column(Enum(StudentStatus), default=StudentStatus.Active)
+    MaCoSo = Column(String, nullable=False)
+    MaKhoa = Column(String)
+    TrangThai = Column(String, default='DangHoc')
     NgayNhapHoc = Column(Date)
-    NgayTao = Column(Date)
+    NgayTao = Column(String)
 
-    # Relationship with User (account)
-    user_id = Column(String, ForeignKey("users.id"), unique=True)
+    # Relationship with User
     user = relationship("User", back_populates="student")
 
     # Relationships with Campus and Department (reference tables)
     # Note: These use MaCoSo/MaKhoa for distributed DB pattern
     # For distributed setup, this can be managed via site-specific queries
+    # Trung
+    # def __repr__(self):
+    #     return f"<Student(MaSV='{self.MaSV}', Ho='{self.Ho}', Ten='{self.Ten}')>"
 
-    def __repr__(self):
-        return f"<Student(MaSV='{self.MaSV}', Ho='{self.Ho}', Ten='{self.Ten}')>"
+    # __tablename__ = "SinhVien"
+    # MaSV = Column(String, primary_key=True, index=True)
+    # userId = Column(String, ForeignKey("users.userId"), unique=True)
+    # Ho = Column(String, nullable=False)
+    # Ten = Column(String, nullable=False)
+    # NgaySinh = Column(Date)
+    # GioiTinh = Column(Enum(Genders), default=Genders.Khac)
+    # SDT = Column(String)
+    # DiaChi = Column(String)
+    # MaCoSo = Column(String, ForeignKey("CoSo.MaCoSo"), default="HADONG")
+    # MaKhoa = Column(String, ForeignKey("Khoa.MaKhoa"))
+    # TrangThai = Column(Enum(StudentStatus), default=StudentStatus.DangHoc)
+    # NgayNhapHoc = Column(Date)
+    # NgayTao = Column(DateTime, default=datetime.utcnow)
+
+    # user = relationship("User")
+    # # branch = relationship("Branch") # Branch model might need name check
+    # # department = relationship("Departments") # Department model might need name check
+
+    # # Remaining Proxies to User model
+    # username = association_proxy("user", "username")
+    # email = association_proxy("user", "email")
+    # status = association_proxy("user", "status")
+    # role = association_proxy("user", "role")

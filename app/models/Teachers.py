@@ -1,29 +1,56 @@
 import enum
 from sqlalchemy import Column, String, Date, ForeignKey, Enum
 from sqlalchemy.orm import relationship
+from datetime import datetime
+
 from configs.db import Base
 from enums.status import TeacherStatus
 
 class Teacher(Base):
-    __tablename__ = "giangvien"
+    __tablename__ = "GiangVien"
 
-    id = Column(String, primary_key=True, index=True)
-    MaGV = Column(String, nullable=False, unique=True, index=True)
+    MaGV = Column(String, primary_key=True, index=True)
+    userId = Column(String, ForeignKey("users.userId"), unique=True, nullable=False)
     Ho = Column(String, nullable=False)
     Ten = Column(String, nullable=False)
+    NgaySinh = Column(Date)
+    GioiTinh = Column(String)
     HocVi = Column(String)
     HocHam = Column(String)
-    Email = Column(String, unique=True)
-    SoDienThoai = Column(String)
-    MaCoSo = Column(String, nullable=False, index=True)
-    MaKhoa = Column(String, index=True)
-    TrangThai = Column(Enum(TeacherStatus), default=TeacherStatus.Active)
+    SDT = Column(String)
+    DiaChi = Column(String)
+    MaCoSo = Column(String, nullable=False)
+    MaKhoa = Column(String)
+    TrangThai = Column(String, default='DangCongTac')
     NgayVaoLam = Column(Date)
-    NgayTao = Column(Date)
+    NgayTao = Column(String)
 
-    # Relationship with User (account)
-    user_id = Column(String, ForeignKey("users.id"), unique=True)
+    # Relationship with User
     user = relationship("User")
+    # Trung
+    # __tablename__ = "GiangVien"
+    # MaGV = Column(String, primary_key=True, index=True)
+    # userId = Column(String, ForeignKey("users.userId"), unique=True)
+    # Ho = Column(String, nullable=False)
+    # Ten = Column(String, nullable=False)
+    # NgaySinh = Column(Date)
+    # GioiTinh = Column(Enum(Genders), default=Genders.Khac)
+    # SDT = Column(String)
+    # DiaChi = Column(String)
+    # HocVi = Column(String, nullable=True)
+    # HocHam = Column(String, nullable=True)
+    # MaCoSo = Column(String, ForeignKey("CoSo.MaCoSo"), default="HADONG")
+    # MaKhoa = Column(String, ForeignKey("Khoa.MaKhoa"))
+    # TrangThai = Column(Enum(TeacherStatus), default=TeacherStatus.DangCongTac)
+    # NgayVaoLam = Column(Date)
+    # NgayTao = Column(DateTime, default=datetime.utcnow)
 
-    def __repr__(self):
-        return f"<Teacher(MaGV='{self.MaGV}', Ho='{self.Ho}', Ten='{self.Ten}')>"
+    # user = relationship("User")
+    # # branch = relationship("Branch")
+    # # department = relationship("Departments")
+
+    # # Remaining Proxies to User model
+    # username = association_proxy("user", "username")
+    # email = association_proxy("user", "email")
+    # status = association_proxy("user", "status")
+    # role = association_proxy("user", "role")

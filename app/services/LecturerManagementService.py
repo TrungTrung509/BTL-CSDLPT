@@ -6,8 +6,6 @@ from schemas.LecturerManagement import (
     LecturerCreate, LecturerUpdate, LecturerStatusUpdate,
     LecturerResponse, LecturerFilter
 )
-from enums.user_role import UserRole
-from enums.status import TeacherStatus
 from fastapi import HTTPException, status
 from datetime import date
 
@@ -16,22 +14,19 @@ class LecturerManagementService:
     Service xử lý nghiệp vụ Giảng viên.
     GiangVien thuộc site theo MaCoSo - đọc/ghi đúng site sở hữu.
     """
-    
+
     VALID_DEGREES = ['CN', 'ThS', 'TS', 'PGS']
-    VALID_ACADEMIC_TITLES = ['GTV', 'PGS', None]
 
     @staticmethod
     def get_all_lecturers(
-        db: Session, 
+        db: Session,
         filters: Optional[LecturerFilter] = None,
-        skip: int = 0, 
+        skip: int = 0,
         limit: int = 20
     ) -> Tuple[List[Teacher], int]:
-        """
-        Lấy danh sách giảng viên với filter.
-        """
+        """Lấy danh sách giảng viên với filter."""
         query = db.query(Teacher)
-        
+
         if filters:
             if filters.MaCoSo:
                 query = query.filter(Teacher.MaCoSo == filters.MaCoSo.upper())
@@ -45,26 +40,14 @@ class LecturerManagementService:
                     or_(
                         Teacher.MaGV.ilike(keyword),
                         Teacher.Ho.ilike(keyword),
-                        Teacher.Ten.ilike(keyword),
-                        Teacher.Email.ilike(keyword)
+                        Teacher.Ten.ilike(keyword)
                     )
                 )
-        
+
         total = query.count()
         lecturers = query.offset(skip).limit(limit).all()
-        
-        return lecturers, total
 
-    @staticmethod
-    def get_lecturer_by_id(db: Session, lecturer_id: int) -> Optional[Teacher]:
-        """Lấy giảng viên theo ID"""
-        lecturer = db.query(Teacher).filter(Teacher.id == lecturer_id).first()
-        if not lecturer:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Không tìm thấy giảng viên với id: {lecturer_id}"
-            )
-        return lecturer
+        return lecturers, total
 
     @staticmethod
     def get_lecturer_by_magv(db: Session, ma_gv: str) -> Optional[Teacher]:
@@ -78,13 +61,24 @@ class LecturerManagementService:
         return lecturer
 
     @staticmethod
+    def get_lecturer_by_userid(db: Session, user_id: str) -> Optional[Teacher]:
+        """Lấy giảng viên theo userId"""
+        lecturer = db.query(Teacher).filter(Teacher.userId == user_id).first()
+        if not lecturer:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Không tìm thấy giảng viên với userId: {user_id}"
+            )
+        return lecturer
+
+    @staticmethod
     def get_lecturers_by_coso(db: Session, ma_co_so: str) -> List[Teacher]:
         """Lấy danh sách giảng viên theo cơ sở"""
         return db.query(Teacher).filter(Teacher.MaCoSo == ma_co_so.upper()).all()
 
     @staticmethod
     def create_lecturer(
-        db: Session, 
+        db: Session,
         lecturer_in: LecturerCreate,
         current_user
     ) -> Teacher:
@@ -93,7 +87,7 @@ class LecturerManagementService:
         Yêu cầu: Admin role
         """
         # 1. Role check
-        if current_user.role != UserRole.Admin:
+        if getattr(current_user, 'role', None) != 'Admin':
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Chỉ Admin mới có quyền tạo giảng viên"
@@ -107,15 +101,13 @@ class LecturerManagementService:
                 detail=f"Mã giảng viên '{lecturer_in.MaGV}' đã tồn tại"
             )
 
-        # 3. Duplicate email check
-        if lecturer_in.Email:
-            existing_email = db.query(Teacher).filter(
-                Teacher.Email == lecturer_in.Email
-            ).first()
-            if existing_email:
+        # 3. Duplicate userId check
+        if lecturer_in.userId:
+            existing_user = db.query(Teacher).filter(Teacher.userId == lecturer_in.userId).first()
+            if existing_user:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Email '{lecturer_in.Email}' đã được sử dụng"
+                    detail=f"UserId '{lecturer_in.userId}' đã được liên kết với giảng viên khác"
                 )
 
         # 4. Validate degree
@@ -128,18 +120,21 @@ class LecturerManagementService:
         # 5. Create
         db_lecturer = Teacher(
             MaGV=lecturer_in.MaGV,
+            userId=lecturer_in.userId,
             Ho=lecturer_in.Ho,
             Ten=lecturer_in.Ten,
+            NgaySinh=lecturer_in.NgaySinh,
+            GioiTinh=lecturer_in.GioiTinh,
             HocVi=lecturer_in.HocVi,
             HocHam=lecturer_in.HocHam,
-            Email=lecturer_in.Email,
-            SoDienThoai=lecturer_in.SoDienThoai,
+            SDT=lecturer_in.SDT,
+            DiaChi=lecturer_in.DiaChi,
             MaCoSo=lecturer_in.MaCoSo.upper(),
             MaKhoa=lecturer_in.MaKhoa,
-            TrangThai=lecturer_in.TrangThai,
+            TrangThai=lecturer_in.TrangThai or 'DangCongTac',
             NgayVaoLam=lecturer_in.NgayVaoLam
         )
-        
+
         db.add(db_lecturer)
         db.commit()
         db.refresh(db_lecturer)
@@ -147,8 +142,8 @@ class LecturerManagementService:
 
     @staticmethod
     def update_lecturer(
-        db: Session, 
-        lecturer_id: int,
+        db: Session,
+        ma_gv: str,
         lecturer_in: LecturerUpdate,
         current_user
     ) -> Teacher:
@@ -157,14 +152,14 @@ class LecturerManagementService:
         Yêu cầu: Admin role
         """
         # 1. Role check
-        if current_user.role != UserRole.Admin:
+        if getattr(current_user, 'role', None) != 'Admin':
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Chỉ Admin mới có quyền cập nhật giảng viên"
             )
 
         # 2. Get existing
-        lecturer = LecturerManagementService.get_lecturer_by_id(db, lecturer_id)
+        lecturer = LecturerManagementService.get_lecturer_by_magv(db, ma_gv)
 
         # 3. Update fields
         update_data = lecturer_in.model_dump(exclude_unset=True)
@@ -181,56 +176,41 @@ class LecturerManagementService:
                 detail=f"Học vị phải là một trong: {', '.join(LecturerManagementService.VALID_DEGREES)}"
             )
 
-        # 5. Email duplicate check
-        if lecturer_in.Email:
-            existing = db.query(Teacher).filter(
-                Teacher.Email == lecturer_in.Email,
-                Teacher.id != lecturer_id
-            ).first()
-            if existing:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Email '{lecturer_in.Email}' đã được sử dụng"
-                )
-
         db.commit()
         db.refresh(lecturer)
         return lecturer
 
     @staticmethod
     def update_lecturer_status(
-        db: Session, 
-        lecturer_id: int,
+        db: Session,
+        ma_gv: str,
         status_update: LecturerStatusUpdate,
         current_user
     ) -> Teacher:
-        """
-        Cập nhật trạng thái giảng viên.
-        Yêu cầu: Admin role
-        """
-        if current_user.role != UserRole.Admin:
+        """Cập nhật trạng thái giảng viên."""
+        if getattr(current_user, 'role', None) != 'Admin':
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Chỉ Admin mới có quyền cập nhật trạng thái"
             )
 
-        lecturer = LecturerManagementService.get_lecturer_by_id(db, lecturer_id)
+        lecturer = LecturerManagementService.get_lecturer_by_magv(db, ma_gv)
         lecturer.TrangThai = status_update.TrangThai
-        
+
         db.commit()
         db.refresh(lecturer)
         return lecturer
 
     @staticmethod
-    def delete_lecturer(db: Session, lecturer_id: int, current_user) -> bool:
+    def delete_lecturer(db: Session, ma_gv: str, current_user) -> bool:
         """Xóa giảng viên (Admin only)"""
-        if current_user.role != UserRole.Admin:
+        if getattr(current_user, 'role', None) != 'Admin':
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Chỉ Admin mới có quyền xóa giảng viên"
             )
 
-        lecturer = LecturerManagementService.get_lecturer_by_id(db, lecturer_id)
+        lecturer = LecturerManagementService.get_lecturer_by_magv(db, ma_gv)
         db.delete(lecturer)
         db.commit()
         return True

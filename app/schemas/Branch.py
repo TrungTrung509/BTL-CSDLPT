@@ -1,23 +1,26 @@
 from pydantic import BaseModel, ConfigDict
 from typing import Optional
+from datetime import date
 
 class BranchBase(BaseModel):
     MaCoSo: str
-    name: str
-    address: str
-    phone: str
-    email: str
+    TenCoSo: str
+    DiaChi: str
+    SoDienThoai: Optional[str] = None
+    Email: Optional[str] = None
+    NgayThanhLap: Optional[date] = None
+    TrangThai: Optional[str] = "HoatDong"
 
 class BranchCreate(BranchBase):
     pass
 
 class BranchUpdate(BaseModel):
-    MaCoSo: Optional[str] = None
-    name: Optional[str] = None
-    address: Optional[str] = None
-    phone: Optional[str] = None
-    email: Optional[str] = None
+    TenCoSo: Optional[str] = None
+    DiaChi: Optional[str] = None
+    SoDienThoai: Optional[str] = None
+    Email: Optional[str] = None
+    NgayThanhLap: Optional[date] = None
+    TrangThai: Optional[str] = None
 
 class BranchResponse(BranchBase):
-    id: str
     model_config = ConfigDict(from_attributes=True)

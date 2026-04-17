@@ -1,15 +1,14 @@
 from sqlalchemy.orm import Session
 from models.Students import Student
-from enums.status import StudentStatus
 
 class StudentRepo:
     @staticmethod
-    def get_by_id(db: Session, student_id: int) -> Student:
-        return db.query(Student).filter(Student.id == student_id).first()
-
-    @staticmethod
     def get_by_maSV(db: Session, maSV: str) -> Student:
         return db.query(Student).filter(Student.MaSV == maSV).first()
+
+    @staticmethod
+    def get_by_userId(db: Session, userId: str) -> Student:
+        return db.query(Student).filter(Student.userId == userId).first()
 
     @staticmethod
     def get_by_coso(db: Session, maCoSo: str):
@@ -20,8 +19,12 @@ class StudentRepo:
         return db.query(Student).filter(Student.MaKhoa == maKhoa.upper()).all()
 
     @staticmethod
-    def get_by_status(db: Session, status: StudentStatus):
+    def get_by_status(db: Session, status: str):
         return db.query(Student).filter(Student.TrangThai == status).all()
+
+    @staticmethod
+    def get_all(db: Session):
+        return db.query(Student).all()
 
     @staticmethod
     def create(db: Session, student: Student) -> Student:

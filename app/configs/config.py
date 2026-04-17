@@ -4,6 +4,11 @@ from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 
 load_dotenv()
+DATABASE_URL = os.getenv("DATABASE_URL", os.getenv("HADONG_URL"))
+HADONG_URL = os.getenv("HADONG_URL")
+HOALAC_URL = os.getenv("HOALAC_URL")
+NGOCTRUC_URL = os.getenv("NGOCTRUC_URL")
+
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
 TOKEN_EXPIRES = 30
