@@ -8,11 +8,11 @@ from configs.db import Base, engines
 from configs.seed import seed_all
 from routers import auth, user, branch, department, student_management, lecturer_management
 
-for branch_id, engine in engines.items():
-    print(f"Initializing database for site: {branch_id}")
-    Base.metadata.create_all(bind=engine)
+# for branch_id, engine in engines.items():
+#     print(f"Initializing database for site: {branch_id}")
+#     Base.metadata.create_all(bind=engine)
 
-seed_all()
+# seed_all()
 print("All tables created and default data seeded successfully!")
 
 app = FastAPI(

@@ -7,6 +7,7 @@ from schemas.LecturerManagement import (
     LecturerCreate, LecturerUpdate, LecturerStatusUpdate,
     LecturerResponse, LecturerFilter
 )
+from configs.db import open_db_by_branch
 from schemas.api_response import success_response, error_response
 from services.LecturerManagementService import LecturerManagementService
 from services.UserService import UserService
@@ -26,10 +27,10 @@ async def get_all_lecturers(
     keyword: Optional[str] = Query(None, description="Tìm kiếm theo mã, họ tên"),
     skip: int = Query(0, ge=0, description="Số bản ghi bỏ qua"),
     limit: int = Query(20, ge=1, le=100, description="Số bản ghi lấy"),
-    db: Session = Depends(get_db),
     current_user: User = Depends(UserService.get_current_user)
 ):
     """Lấy danh sách giảng viên với các filter."""
+    db = open_db_by_branch(current_user.MaCoSo)
     try:
         filters = LecturerFilter(
             MaCoSo=maCoSo,
@@ -40,7 +41,7 @@ async def get_all_lecturers(
         lecturers, total = LecturerManagementService.get_all_lecturers(db, filters, skip, limit)
         return success_response(
             data={
-                "items": [l.model_dump() for l in lecturers],
+                "items": [l for l in lecturers],
                 "total": total,
                 "skip": skip,
                 "limit": limit
@@ -59,14 +60,14 @@ async def get_all_lecturers(
 @router.get("/{ma_gv}")
 async def get_lecturer(
     ma_gv: str = Path(..., description="Mã giảng viên"),
-    db: Session = Depends(get_db),
     current_user: User = Depends(UserService.get_current_user)
 ):
     """Lấy thông tin giảng viên theo MaGV"""
+    db = open_db_by_branch(current_user.MaCoSo)
     try:
         lecturer = LecturerManagementService.get_lecturer_by_magv(db, ma_gv)
         return success_response(
-            data=lecturer.model_dump(),
+            data=lecturer,
             message=f"Lấy thông tin giảng viên '{ma_gv}' thành công",
             status=200
         )
@@ -81,14 +82,14 @@ async def get_lecturer(
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_lecturer(
     lecturer_in: LecturerCreate,
-    db: Session = Depends(get_db),
     current_user: User = Depends(UserService.get_current_active_user)
 ):
     """Tạo mới giảng viên (Admin only)"""
+    db = open_db_by_branch(current_user.MaCoSo)
     try:
         lecturer = LecturerManagementService.create_lecturer(db, lecturer_in, current_user)
         return success_response(
-            data=lecturer.model_dump(),
+            data=lecturer,
             message=f"Tạo giảng viên '{lecturer_in.MaGV}' thành công",
             status=201
         )
@@ -104,10 +105,10 @@ async def create_lecturer(
 async def update_lecturer(
     ma_gv: str = Path(..., description="Mã giảng viên"),
     lecturer_in: LecturerUpdate = None,
-    db: Session = Depends(get_db),
     current_user: User = Depends(UserService.get_current_active_user)
 ):
     """Cập nhật thông tin giảng viên (Admin only)"""
+    db = open_db_by_branch(current_user.MaCoSo)
     try:
         lecturer = LecturerManagementService.update_lecturer(db, ma_gv, lecturer_in, current_user)
         return success_response(
@@ -127,10 +128,10 @@ async def update_lecturer(
 async def update_lecturer_status(
     ma_gv: str = Path(..., description="Mã giảng viên"),
     status_update: LecturerStatusUpdate = None,
-    db: Session = Depends(get_db),
     current_user: User = Depends(UserService.get_current_active_user)
 ):
     """Cập nhật trạng thái giảng viên (Admin only)"""
+    db = open_db_by_branch(current_user.MaCoSo)
     try:
         lecturer = LecturerManagementService.update_lecturer_status(db, ma_gv, status_update, current_user)
         return success_response(
@@ -149,10 +150,10 @@ async def update_lecturer_status(
 @router.delete("/{ma_gv}")
 async def delete_lecturer(
     ma_gv: str = Path(..., description="Mã giảng viên"),
-    db: Session = Depends(get_db),
     current_user: User = Depends(UserService.get_current_active_user)
 ):
     """Xóa giảng viên (Admin only)"""
+    db = open_db_by_branch(current_user.MaCoSo)
     try:
         LecturerManagementService.delete_lecturer(db, ma_gv, current_user)
         return success_response(
