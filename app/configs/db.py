@@ -1,4 +1,3 @@
-from curses import echo
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
@@ -9,9 +8,9 @@ from configs.config import HADONG_URL, HOALAC_URL, NGOCTRUC_URL
 
 # MAPPING ENGINES
 engines = {
-    "HADONG": create_engine(HADONG_URL,echo=True),
-    "HOALAC": create_engine(HOALAC_URL,echo=True),
-    "NGOCTRUC": create_engine(NGOCTRUC_URL,echo=True),
+    "HADONG": create_engine(HADONG_URL),
+    "HOALAC": create_engine(HOALAC_URL),
+    "NGOCTRUC": create_engine(NGOCTRUC_URL),
 }
 
 # MAPPING SESSION MAKERS
