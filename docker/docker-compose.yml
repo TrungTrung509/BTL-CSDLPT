@@ -4,9 +4,41 @@
 # Mô tả: 3 Site PostgreSQL + Redis + Elasticsearch + Kibana
 # ============================================================
 
-version: '3.8'
+name : csdlpt
 
 services:
+  backend:
+    build:
+      context: ../app
+      dockerfile: Dockerfile
+    container_name: csdlpt_backend
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      DATABASE_URL: postgresql://${HADONG_USER:-csdlpt_user}:${HADONG_PASSWORD:-csdlpt_pass}@postgres_hadong:5432/${HADONG_DB:-csdlpt_hadong}
+      HADONG_URL: postgresql://${HADONG_USER:-csdlpt_user}:${HADONG_PASSWORD:-csdlpt_pass}@postgres_hadong:5432/${HADONG_DB:-csdlpt_hadong}
+      NGOCTRUC_URL: postgresql://${NGOCTRUC_USER:-csdlpt_user}:${NGOCTRUC_PASSWORD:-csdlpt_pass}@postgres_ngoctruc:5432/${NGOCTRUC_DB:-csdlpt_ngoctruc}
+      HOALAC_URL: postgresql://${HOALAC_USER:-csdlpt_user}:${HOALAC_PASSWORD:-csdlpt_pass}@postgres_hoalac:5432/${HOALAC_DB:-csdlpt_hoalac}
+      SECRET_KEY: ${SECRET_KEY:-my_super_secret_key_123}
+      ALGORITHM: ${ALGORITHM:-HS256}
+      WATCHFILES_FORCE_POLLING: "true"
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ../app:/app
+    networks:
+      - csdlpt_network
+    depends_on:
+      postgres_hadong:
+        condition: service_healthy
+      postgres_ngoctruc:
+        condition: service_healthy
+      postgres_hoalac:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    restart: unless-stopped
   # ============================================================
   # SITE HADONG (Hà Nội) - PUBLISHER
   # ============================================================
