@@ -1,13 +1,13 @@
 from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
 
 from configs.db import get_db
-from schemas.Branch import BranchCreate, BranchUpdate, BranchResponse
+from enums.user_role import UserRole
+from schemas.Branch import BranchCreate, BranchUpdate
 from schemas.api_response import success_response, error_response
 from services.BranchService import BranchService
-from services.UserService import UserService
 from models.Users import User
+from security import get_current_user, require_roles
 
 router = APIRouter(
     prefix="/branches",
@@ -18,7 +18,7 @@ router = APIRouter(
 @router.get("/")
 async def get_all_branches(
     db: Session = Depends(get_db),
-    current_user: User = Depends(UserService.get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Lấy danh sách tất cả cơ sở (Branch - tên cũ)"""
     try:
@@ -40,7 +40,7 @@ async def get_all_branches(
 async def get_branch(
     branch_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(UserService.get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Lấy thông tin cơ sở theo ID"""
     try:
@@ -62,7 +62,7 @@ async def get_branch(
 async def create_branch(
     branch_in: BranchCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(UserService.get_current_active_user)
+    current_user: User = Depends(require_roles(UserRole.Admin))
 ):
     """Tạo mới cơ sở (Admin only)"""
     try:
@@ -85,7 +85,7 @@ async def update_branch(
     branch_id: str,
     branch_in: BranchUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(UserService.get_current_active_user)
+    current_user: User = Depends(require_roles(UserRole.Admin))
 ):
     """Cập nhật thông tin cơ sở (Admin only)"""
     try:
@@ -106,7 +106,7 @@ async def update_branch(
 async def delete_branch(
     branch_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(UserService.get_current_active_user)
+    current_user: User = Depends(require_roles(UserRole.Admin))
 ):
     """Xóa cơ sở (Admin only)"""
     try:

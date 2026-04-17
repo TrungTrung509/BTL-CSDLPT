@@ -27,6 +27,22 @@ class Student(Base):
     # Relationship with User
     user = relationship("User", back_populates="student")
 
+    @property
+    def username(self):
+        return self.user.username if self.user else None
+
+    @property
+    def email(self):
+        return self.user.email if self.user else None
+
+    @property
+    def role(self):
+        return self.user.role if self.user else None
+
+    @property
+    def status(self):
+        return self.user.status if self.user else None
+
     # Relationships with Campus and Department (reference tables)
     # Note: These use MaCoSo/MaKhoa for distributed DB pattern
     # For distributed setup, this can be managed via site-specific queries

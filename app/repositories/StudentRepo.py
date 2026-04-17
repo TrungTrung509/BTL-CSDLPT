@@ -7,6 +7,10 @@ class StudentRepo:
         return db.query(Student).filter(Student.MaSV == maSV).first()
 
     @staticmethod
+    def get_by_MaSV(db: Session, maSV: str) -> Student:
+        return StudentRepo.get_by_maSV(db, maSV)
+
+    @staticmethod
     def get_by_userId(db: Session, userId: str) -> Student:
         return db.query(Student).filter(Student.userId == userId).first()
 

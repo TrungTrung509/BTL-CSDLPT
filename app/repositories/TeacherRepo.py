@@ -7,6 +7,10 @@ class TeacherRepo:
         return db.query(Teacher).filter(Teacher.MaGV == maGV).first()
 
     @staticmethod
+    def get_by_MaGV(db: Session, maGV: str) -> Teacher:
+        return TeacherRepo.get_by_maGV(db, maGV)
+
+    @staticmethod
     def get_by_userId(db: Session, userId: str) -> Teacher:
         return db.query(Teacher).filter(Teacher.userId == userId).first()
 

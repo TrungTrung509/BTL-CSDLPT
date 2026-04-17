@@ -27,6 +27,22 @@ class Teacher(Base):
 
     # Relationship with User
     user = relationship("User")
+
+    @property
+    def username(self):
+        return self.user.username if self.user else None
+
+    @property
+    def email(self):
+        return self.user.email if self.user else None
+
+    @property
+    def role(self):
+        return self.user.role if self.user else None
+
+    @property
+    def status(self):
+        return self.user.status if self.user else None
     # Trung
     # __tablename__ = "GiangVien"
     # MaGV = Column(String, primary_key=True, index=True)

@@ -1,58 +1,63 @@
-from fastapi import APIRouter, Depends, status, Query, Path, HTTPException
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from configs.db import open_db_by_branch
 from configs.db import get_db
-from schemas.StudentManagement import (
-    StudentCreate, StudentUpdate, StudentStatusUpdate,
-    StudentResponse, StudentFilter
-)
-from schemas.api_response import success_response, error_response, created_response
-from services.StudentManagementService import StudentManagementService
-from services.UserService import UserService
+from enums.user_role import UserRole
 from models.Users import User
+from schemas.StudentManagement import (
+    StudentCreate,
+    StudentFilter,
+    StudentResponse,
+    StudentStatusUpdate,
+    StudentUpdate,
+)
+from schemas.api_response import error_response, success_response
+from security import get_current_user, require_roles
+from services.StudentManagementService import StudentManagementService
 
 router = APIRouter(
     prefix="/students",
-    tags=["Student Management"]
+    tags=["Student Management"],
 )
 
 
 @router.get("/")
 async def get_all_students(
-    maCoSo: Optional[str] = Query(None, description="Lọc theo mã cơ sở"),
-    maKhoa: Optional[str] = Query(None, description="Lọc theo mã khoa"),
-    trangThai: Optional[str] = Query(None, description="Lọc theo trạng thái"),
-    keyword: Optional[str] = Query(None, description="Tìm kiếm theo mã, họ tên"),
-    skip: int = Query(0, ge=0, description="Số bản ghi bỏ qua"),
-    limit: int = Query(20, ge=1, le=100, description="Số bản ghi lấy"),
+    maCoSo: Optional[str] = Query(None, description="Loc theo ma co so"),
+    maKhoa: Optional[str] = Query(None, description="Loc theo ma khoa"),
+    trangThai: Optional[str] = Query(None, description="Loc theo trang thai"),
+    keyword: Optional[str] = Query(None, description="Tim kiem theo ma, ho ten"),
+    skip: int = Query(0, ge=0, description="So ban ghi bo qua"),
+    limit: int = Query(20, ge=1, le=100, description="So ban ghi lay"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(UserService.get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
-    """Lấy danh sách sinh viên với các filter."""
     try:
         filters = StudentFilter(
             MaCoSo=maCoSo,
             MaKhoa=maKhoa,
             TrangThai=trangThai,
-            keyword=keyword
+            keyword=keyword,
         )
         students, total = StudentManagementService.get_all_students(db, filters, skip, limit)
         return success_response(
             data={
-                "items": [s for s in students],
+                "items": [StudentResponse.model_validate(item).model_dump() for item in students],
                 "total": total,
                 "skip": skip,
-                "limit": limit
+                "limit": limit,
             },
-            message=f"Lấy danh sách sinh viên thành công (tổng: {total})",
-            status=200
+            message=f"Lay danh sach sinh vien thanh cong (tong: {total})",
+            status=200,
         )
     except HTTPException as e:
         return error_response(
             message=e.detail,
             status=e.status_code,
-            error_code="FETCH_STUDENTS_FAILED"
+            error_code="FETCH_STUDENTS_FAILED",
         )
 
 
@@ -65,15 +70,15 @@ async def get_student(
     try:
         student = StudentManagementService.get_student_by_masv(db, ma_sv)
         return success_response(
-            data=student,
-            message=f"Lấy thông tin sinh viên '{ma_sv}' thành công",
-            status=200
+            data=StudentResponse.model_validate(student).model_dump(),
+            message=f"Lay thong tin sinh vien '{ma_sv}' thanh cong",
+            status=200,
         )
     except HTTPException as e:
         return error_response(
             message=e.detail,
             status=e.status_code,
-            error_code="STUDENT_NOT_FOUND"
+            error_code="STUDENT_NOT_FOUND",
         )
 
 
@@ -95,7 +100,7 @@ async def create_student(
         return error_response(
             message=e.detail,
             status=e.status_code,
-            error_code="CREATE_STUDENT_FAILED"
+            error_code="CREATE_STUDENT_FAILED",
         )
 
 
@@ -118,7 +123,7 @@ async def update_student(
         return error_response(
             message=e.detail,
             status=e.status_code,
-            error_code="UPDATE_STUDENT_FAILED"
+            error_code="UPDATE_STUDENT_FAILED",
         )
 
 
@@ -141,7 +146,7 @@ async def update_student_status(
         return error_response(
             message=e.detail,
             status=e.status_code,
-            error_code="UPDATE_STUDENT_STATUS_FAILED"
+            error_code="UPDATE_STUDENT_STATUS_FAILED",
         )
 
 
@@ -156,12 +161,12 @@ async def delete_student(
         StudentManagementService.delete_student(db, ma_sv, current_user)
         return success_response(
             data=None,
-            message=f"Xóa sinh viên '{ma_sv}' thành công",
-            status=200
+            message=f"Xoa sinh vien '{ma_sv}' thanh cong",
+            status=200,
         )
     except HTTPException as e:
         return error_response(
             message=e.detail,
             status=e.status_code,
-            error_code="DELETE_STUDENT_FAILED"
+            error_code="DELETE_STUDENT_FAILED",
         )

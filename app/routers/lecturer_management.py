@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, status, Query, Path, HTTPException
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.orm import Session
-from typing import List, Optional
 
 from configs.db import get_db
 from schemas.LecturerManagement import (
@@ -12,10 +13,20 @@ from schemas.api_response import success_response, error_response
 from services.LecturerManagementService import LecturerManagementService
 from services.UserService import UserService
 from models.Users import User
+from schemas.LecturerManagement import (
+    LecturerCreate,
+    LecturerFilter,
+    LecturerResponse,
+    LecturerStatusUpdate,
+    LecturerUpdate,
+)
+from schemas.api_response import error_response, success_response
+from security import get_current_user, require_roles
+from services.LecturerManagementService import LecturerManagementService
 
 router = APIRouter(
     prefix="/lecturers",
-    tags=["Lecturer Management"]
+    tags=["Lecturer Management"],
 )
 
 
@@ -36,7 +47,7 @@ async def get_all_lecturers(
             MaCoSo=maCoSo,
             MaKhoa=maKhoa,
             TrangThai=trangThai,
-            keyword=keyword
+            keyword=keyword,
         )
         lecturers, total = LecturerManagementService.get_all_lecturers(db, filters, skip, limit)
         return success_response(
@@ -44,16 +55,16 @@ async def get_all_lecturers(
                 "items": [l for l in lecturers],
                 "total": total,
                 "skip": skip,
-                "limit": limit
+                "limit": limit,
             },
-            message=f"Lấy danh sách giảng viên thành công (tổng: {total})",
-            status=200
+            message=f"Lay danh sach giang vien thanh cong (tong: {total})",
+            status=200,
         )
     except HTTPException as e:
         return error_response(
             message=e.detail,
             status=e.status_code,
-            error_code="FETCH_LECTURERS_FAILED"
+            error_code="FETCH_LECTURERS_FAILED",
         )
 
 
@@ -75,7 +86,7 @@ async def get_lecturer(
         return error_response(
             message=e.detail,
             status=e.status_code,
-            error_code="LECTURER_NOT_FOUND"
+            error_code="LECTURER_NOT_FOUND",
         )
 
 
@@ -97,7 +108,7 @@ async def create_lecturer(
         return error_response(
             message=e.detail,
             status=e.status_code,
-            error_code="CREATE_LECTURER_FAILED"
+            error_code="CREATE_LECTURER_FAILED",
         )
 
 
@@ -112,15 +123,15 @@ async def update_lecturer(
     try:
         lecturer = LecturerManagementService.update_lecturer(db, ma_gv, lecturer_in, current_user)
         return success_response(
-            data=lecturer.model_dump(),
-            message=f"Cập nhật giảng viên '{ma_gv}' thành công",
-            status=200
+            data=LecturerResponse.model_validate(lecturer).model_dump(),
+            message=f"Cap nhat giang vien '{ma_gv}' thanh cong",
+            status=200,
         )
     except HTTPException as e:
         return error_response(
             message=e.detail,
             status=e.status_code,
-            error_code="UPDATE_LECTURER_FAILED"
+            error_code="UPDATE_LECTURER_FAILED",
         )
 
 
@@ -135,15 +146,15 @@ async def update_lecturer_status(
     try:
         lecturer = LecturerManagementService.update_lecturer_status(db, ma_gv, status_update, current_user)
         return success_response(
-            data=lecturer.model_dump(),
-            message=f"Cập nhật trạng thái giảng viên '{ma_gv}' thành công",
-            status=200
+            data=LecturerResponse.model_validate(lecturer).model_dump(),
+            message=f"Cap nhat trang thai giang vien '{ma_gv}' thanh cong",
+            status=200,
         )
     except HTTPException as e:
         return error_response(
             message=e.detail,
             status=e.status_code,
-            error_code="UPDATE_LECTURER_STATUS_FAILED"
+            error_code="UPDATE_LECTURER_STATUS_FAILED",
         )
 
 
@@ -158,12 +169,12 @@ async def delete_lecturer(
         LecturerManagementService.delete_lecturer(db, ma_gv, current_user)
         return success_response(
             data=None,
-            message=f"Xóa giảng viên '{ma_gv}' thành công",
-            status=200
+            message=f"Xoa giang vien '{ma_gv}' thanh cong",
+            status=200,
         )
     except HTTPException as e:
         return error_response(
             message=e.detail,
             status=e.status_code,
-            error_code="DELETE_LECTURER_FAILED"
+            error_code="DELETE_LECTURER_FAILED",
         )

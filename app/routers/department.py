@@ -2,11 +2,12 @@ from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.orm import Session
 
 from configs.db import get_db
-from schemas.Department import DepartmentCreate, DepartmentResponse
+from enums.user_role import UserRole
+from models.Users import User
+from security import require_roles
+from schemas.Department import DepartmentCreate
 from schemas.api_response import success_response, error_response
 from services.DepartmentService import DepartmentService
-from services.UserService import UserService
-from models.Users import User
 
 router = APIRouter(
     prefix="/departments",
@@ -18,7 +19,7 @@ router = APIRouter(
 async def create_department(
     dept_in: DepartmentCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(UserService.get_current_active_user)
+    current_user: User = Depends(require_roles(UserRole.Admin))
 ):
     """Tạo mới khoa (Admin only)"""
     try:
