@@ -1,19 +1,17 @@
 from fastapi import APIRouter, Depends, status, HTTPException
-from sqlalchemy.orm import Session
-from typing import Union
 
+from enums.user_role import UserRole
 from services.UserService import UserService
 from models.Users import User
+from security import get_current_user, require_roles
 from schemas.User import (
     StudentCreate, 
     TeacherCreate, 
     StudentResponse, 
     TeacherResponse, 
-    UserResponse,
     ChangePasswordRequest
 )
 from schemas.api_response import success_response, error_response
-from configs.db import get_db
 
 router = APIRouter(
     prefix="/users",
@@ -23,7 +21,7 @@ router = APIRouter(
 
 @router.get("/me")
 async def read_users_me(
-    current_user: User = Depends(UserService.get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     try:
         profile = await UserService.get_user_profile(current_user)
@@ -49,7 +47,7 @@ async def read_users_me(
 @router.put("/change-password")
 async def change_password(
     request: ChangePasswordRequest,
-    current_user: User = Depends(UserService.get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     try:
         result = await UserService.change_password(current_user, request)
@@ -69,7 +67,7 @@ async def change_password(
 @router.post("/students", status_code=status.HTTP_201_CREATED)
 async def create_student(
     student_in: StudentCreate,
-    current_user: User = Depends(UserService.get_current_active_user)
+    current_user: User = Depends(require_roles(UserRole.Admin))
 ):
     try:
         student = await UserService.create_student(student_in, current_user)
@@ -89,7 +87,7 @@ async def create_student(
 @router.post("/teachers", status_code=status.HTTP_201_CREATED)
 async def create_teacher(
     teacher_in: TeacherCreate,
-    current_user: User = Depends(UserService.get_current_active_user)
+    current_user: User = Depends(require_roles(UserRole.Admin))
 ):
     try:
         teacher = await UserService.create_teacher(teacher_in, current_user)
