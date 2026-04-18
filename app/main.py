@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from configs.db import Base, engines
 from configs.seed import seed_all
 from exceptions import register_exception_handlers
-from routers import auth, branch, class_section, classroom, course, department, lecturer_management, schedule, semester, student_management, user
+from routers import auth, branch, class_section, classroom, course, department, teacher, schedule, semester, student_management, user
 
 # for branch_id, engine in engines.items():
 #     print(f"Initializing database for site: {branch_id}")
@@ -14,7 +14,7 @@ print("All tables created and default data seeded successfully!")
 
 app = FastAPI(
     title="BTL-CSDLPT API",
-    description="API for Distributed Database - Campus Registration System",
+    description="API for Distributed Database - Branch Registration System",
     version="1.1.1",
 )
 
@@ -30,7 +30,7 @@ app.include_router(class_section.router)
 app.include_router(classroom.router)
 app.include_router(schedule.router)
 app.include_router(student_management.router)
-app.include_router(lecturer_management.router)
+app.include_router(teacher.router)
 
 
 @app.get("/", tags=["Health Check"])

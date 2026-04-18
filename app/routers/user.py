@@ -4,13 +4,9 @@ from enums.user_role import UserRole
 from services.UserService import UserService
 from models.Users import User
 from security import get_current_user, require_roles
-from schemas.User import (
-    StudentCreate, 
-    TeacherCreate, 
-    StudentResponse, 
-    TeacherResponse, 
-    ChangePasswordRequest
-)
+from schemas.User import ChangePasswordRequest
+from schemas.Student import StudentResponse
+from schemas.Teacher import TeacherResponse
 from schemas.api_response import success_response, error_response
 
 router = APIRouter(
@@ -63,42 +59,3 @@ async def change_password(
             error_code="PASSWORD_CHANGE_FAILED"
         )
 
-
-@router.post("/students", status_code=status.HTTP_201_CREATED)
-async def create_student(
-    student_in: StudentCreate,
-    current_user: User = Depends(require_roles(UserRole.Admin))
-):
-    try:
-        student = await UserService.create_student(student_in, current_user)
-        return success_response(
-            data=student.model_dump(),
-            message=f"Tạo sinh viên '{student_in.MaSV}' thành công",
-            status=201
-        )
-    except HTTPException as e:
-        return error_response(
-            message=e.detail,
-            status=e.status_code,
-            error_code="CREATE_STUDENT_FAILED"
-        )
-
-
-@router.post("/teachers", status_code=status.HTTP_201_CREATED)
-async def create_teacher(
-    teacher_in: TeacherCreate,
-    current_user: User = Depends(require_roles(UserRole.Admin))
-):
-    try:
-        teacher = await UserService.create_teacher(teacher_in, current_user)
-        return success_response(
-            data=teacher.model_dump(),
-            message=f"Tạo giảng viên '{teacher_in.MaGV}' thành công",
-            status=201
-        )
-    except HTTPException as e:
-        return error_response(
-            message=e.detail,
-            status=e.status_code,
-            error_code="CREATE_TEACHER_FAILED"
-        )

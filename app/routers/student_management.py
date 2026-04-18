@@ -1,13 +1,10 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
-from sqlalchemy.orm import Session
-from typing import List, Optional
-from configs.db import open_db_by_branch
-from configs.db import get_db
-from enums.user_role import UserRole
+
+from configs.db import open_db_by_branch, get_db
 from models.Users import User
-from schemas.StudentManagement import (
+from schemas.Student import (
     StudentCreate,
     StudentFilter,
     StudentResponse,
@@ -15,7 +12,8 @@ from schemas.StudentManagement import (
     StudentUpdate,
 )
 from schemas.api_response import error_response, success_response
-from security import get_current_user, require_roles
+from security import get_current_user, get_current_active_user
+from sqlalchemy.orm import Session
 from services.StudentManagementService import StudentManagementService
 
 router = APIRouter(
@@ -64,7 +62,7 @@ async def get_all_students(
 @router.get("/{ma_sv}")
 async def get_student(
     ma_sv: str = Path(..., description="Mã sinh viên"),
-    current_user: User = Depends(UserService.get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     db = open_db_by_branch(current_user.MaCoSo)
     try:
@@ -85,12 +83,11 @@ async def get_student(
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_student(
     student_in: StudentCreate,
-    current_user: User = Depends(UserService.get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Tạo mới sinh viên (Admin only)"""
-    db = open_db_by_branch(current_user.MaCoSo)
     try:
-        student = StudentManagementService.create_student(db, student_in, current_user)
+        student = await StudentManagementService.create_student(student_in, current_user)
         return success_response(
             data=student,
             message=f"Tạo sinh viên '{student_in.MaSV}' thành công",
@@ -108,7 +105,7 @@ async def create_student(
 async def update_student(
     ma_sv: str = Path(..., description="Mã sinh viên"),
     student_in: StudentUpdate = None,
-    current_user: User = Depends(UserService.get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Cập nhật thông tin sinh viên (Admin only)"""
     db = open_db_by_branch(current_user.MaCoSo)
@@ -131,7 +128,7 @@ async def update_student(
 async def update_student_status(
     ma_sv: str = Path(..., description="Mã sinh viên"),
     status_update: StudentStatusUpdate = None,
-    current_user: User = Depends(UserService.get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Cập nhật trạng thái sinh viên (Admin only)"""
     db = open_db_by_branch(current_user.MaCoSo)
@@ -153,7 +150,7 @@ async def update_student_status(
 @router.delete("/{ma_sv}")
 async def delete_student(
     ma_sv: str = Path(..., description="Mã sinh viên"),
-    current_user: User = Depends(UserService.get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Xóa sinh viên (Admin only)"""
     db = open_db_by_branch(current_user.MaCoSo)

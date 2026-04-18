@@ -1,13 +1,27 @@
-from sqlalchemy.orm import Session
-from sqlalchemy import or_, and_
+import uuid
+from datetime import date, datetime
 from typing import List, Optional, Tuple
-from models.Students import Student
-from schemas.StudentManagement import (
-    StudentCreate, StudentUpdate, StudentStatusUpdate,
-    StudentResponse, StudentFilter
-)
+
 from fastapi import HTTPException, status
-from datetime import date
+from sqlalchemy import or_
+from sqlalchemy.orm import Session
+
+from configs.db import SessionLocals
+from enums.status import UserStatus, StudentStatus
+from enums.user_role import UserRole
+from models.Students import Student
+from models.Users import User
+from repositories.StudentRepo import StudentRepo
+from repositories.UserRepo import UserRepo
+from schemas.Student import (
+    StudentCreate,
+    StudentUpdate,
+    StudentStatusUpdate,
+    StudentResponse,
+    StudentFilter,
+)
+from services.AuthService import AuthService
+
 
 class StudentManagementService:
     """
@@ -16,37 +30,8 @@ class StudentManagementService:
     """
 
     @staticmethod
-    def _build_filter_query(db: Session, filters: StudentFilter):
-        """Build filter query từ filter params"""
-        query = db.query(Student)
-
-        if filters.MaCoSo:
-            query = query.filter(Student.MaCoSo == filters.MaCoSo.upper())
-
-        if filters.MaKhoa:
-            query = query.filter(Student.MaKhoa == filters.MaKhoa.upper())
-
-        if filters.TrangThai:
-            query = query.filter(Student.TrangThai == filters.TrangThai)
-
-        if filters.keyword:
-            keyword = f"%{filters.keyword}%"
-            query = query.filter(
-                or_(
-                    Student.MaSV.ilike(keyword),
-                    Student.Ho.ilike(keyword),
-                    Student.Ten.ilike(keyword)
-                )
-            )
-
-        return query
-
-    @staticmethod
     def get_all_students(
-        db: Session,
-        filters: Optional[StudentFilter] = None,
-        skip: int = 0,
-        limit: int = 20
+        db: Session, filters: Optional[StudentFilter] = None, skip: int = 0, limit: int = 20
     ) -> Tuple[List[Student], int]:
         """
         Lấy danh sách sinh viên với filter.
@@ -66,7 +51,7 @@ class StudentManagementService:
                     or_(
                         Student.MaSV.ilike(keyword),
                         Student.Ho.ilike(keyword),
-                        Student.Ten.ilike(keyword)
+                        Student.Ten.ilike(keyword),
                     )
                 )
         offset = skip * limit
@@ -82,7 +67,7 @@ class StudentManagementService:
         if not student:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Không tìm thấy sinh viên với mã: {ma_sv}"
+                detail=f"Không tìm thấy sinh viên với mã: {ma_sv}",
             )
         return student
 
@@ -93,7 +78,7 @@ class StudentManagementService:
         if not student:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Không tìm thấy sinh viên với userId: {user_id}"
+                detail=f"Không tìm thấy sinh viên với userId: {user_id}",
             )
         return student
 
@@ -103,85 +88,128 @@ class StudentManagementService:
         return db.query(Student).filter(Student.MaCoSo == ma_co_so.upper()).all()
 
     @staticmethod
-    def create_student(
-        db: Session,
-        student_in: StudentCreate,
-        current_user
-    ) -> Student:
+    async def create_student(
+        student_in: StudentCreate, current_user: User
+    ) -> StudentResponse:
         """
-        Tạo mới sinh viên.
+        Tạo mới sinh viên (Distributed).
         Yêu cầu: Admin role
+        Logic di chuyển từ UserService để tập trung quản lý.
         """
-        # 1. Role check (assumes current_user.role is string)
-        if getattr(current_user, 'role', None) != 'Admin':
+        if current_user.role != UserRole.Admin:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Chỉ Admin mới có quyền tạo sinh viên"
+                detail="Only Admin can create students",
             )
 
-        # 2. Duplicate MaSV check
-        existing = db.query(Student).filter(Student.MaSV == student_in.MaSV).first()
-        if existing:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Mã sinh viên '{student_in.MaSV}' đã tồn tại"
-            )
+        sessions = {
+            site: session_factory() for site, session_factory in SessionLocals.items()
+        }
 
-        # 3. Duplicate userId check
-        if student_in.userId:
-            existing_user = db.query(Student).filter(Student.userId == student_in.userId).first()
-            if existing_user:
+        try:
+            if UserRepo.get_by_username(sessions["HADONG"], student_in.MaSV):
                 raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"UserId '{student_in.userId}' đã được liên kết với sinh viên khác"
+                    status_code=400, detail=f"Username '{student_in.MaSV}' already exists"
                 )
 
-        # 4. Create
-        db_student = Student(
-            MaSV=student_in.MaSV,
-            userId=student_in.userId,
-            Ho=student_in.Ho,
-            Ten=student_in.Ten,
-            NgaySinh=student_in.NgaySinh,
-            GioiTinh=student_in.GioiTinh,
-            SDT=student_in.SDT,
-            DiaChi=student_in.DiaChi,
-            MaCoSo=student_in.MaCoSo.upper(),
-            MaKhoa=student_in.MaKhoa,
-            TrangThai=student_in.TrangThai or 'DangHoc',
-            NgayNhapHoc=student_in.NgayNhapHoc
-        )
+            email_to_check = student_in.email
+            if email_to_check and email_to_check.lower() == "string":
+                email_to_check = None
 
-        db.add(db_student)
-        db.commit()
-        db.refresh(db_student)
-        return db_student
+            if email_to_check and UserRepo.get_by_email(sessions["HADONG"], email_to_check):
+                raise HTTPException(
+                    status_code=400, detail=f"Email '{email_to_check}' is already in use"
+                )
+
+            db_local = sessions.get(student_in.MaCoSo)
+            if not db_local:
+                raise HTTPException(
+                    status_code=400, detail=f"Invalid MaCoSo: {student_in.MaCoSo}"
+                )
+
+            if StudentRepo.get_by_MaSV(db_local, student_in.MaSV):
+                raise HTTPException(
+                    status_code=400, detail="Student ID (MaSV) already exists"
+                )
+
+            user_id = str(uuid.uuid4())
+            hashed_password = AuthService.get_password_hash(student_in.MaSV)
+
+            db_user_data = {
+                "userId": user_id,
+                "username": student_in.MaSV,
+                "password": hashed_password,
+                "role": UserRole.SinhVien,
+                "email": email_to_check,
+                "MaCoSo": student_in.MaCoSo,
+                "status": UserStatus.Active,
+                "NgayTao": datetime.now().isoformat(),
+            }
+
+            for session in sessions.values():
+                session.add(User(**db_user_data))
+
+            db_student = Student(
+                MaSV=student_in.MaSV,
+                userId=user_id,
+                Ho=student_in.Ho,
+                Ten=student_in.Ten,
+                NgaySinh=student_in.NgaySinh,
+                GioiTinh=student_in.GioiTinh,
+                SDT=student_in.SDT,
+                DiaChi=student_in.DiaChi,
+                TrangThai=student_in.TrangThai or StudentStatus.DangHoc,
+                MaCoSo=student_in.MaCoSo,
+                MaKhoa=student_in.MaKhoa,
+                NgayNhapHoc=student_in.NgayNhapHoc or date.today(),
+                NgayTao=datetime.now().isoformat(),
+            )
+            db_local.add(db_student)
+
+            for session in sessions.values():
+                session.commit()
+
+            db_local.refresh(db_student)
+            return StudentResponse.model_validate(db_student)
+
+        except Exception as e:
+            for session in sessions.values():
+                session.rollback()
+
+            from sqlalchemy.exc import IntegrityError
+
+            if isinstance(e, IntegrityError):
+                raise HTTPException(
+                    status_code=400, detail=f"Database integrity error: {str(e.orig)}"
+                )
+            if isinstance(e, HTTPException):
+                raise e
+            raise HTTPException(
+                status_code=500, detail=f"Distributed write failed: {str(e)}"
+            )
+        finally:
+            for session in sessions.values():
+                session.close()
 
     @staticmethod
     def update_student(
-        db: Session,
-        ma_sv: str,
-        student_in: StudentUpdate,
-        current_user
+        db: Session, ma_sv: str, student_in: StudentUpdate, current_user: User
     ) -> Student:
         """
         Cập nhật thông tin sinh viên.
         Yêu cầu: Admin role
         """
-        # 1. Role check
-        if getattr(current_user, 'role', None) != 'Admin':
+        if current_user.role != UserRole.Admin:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Chỉ Admin mới có quyền cập nhật sinh viên"
+                detail="Chỉ Admin mới có quyền cập nhật sinh viên",
             )
 
-        # 2. Get existing
         student = StudentManagementService.get_student_by_masv(db, ma_sv)
 
-        # 3. Update fields
         update_data = student_in.model_dump(exclude_unset=True)
         for field, value in update_data.items():
-            if field == 'MaCoSo' and value:
+            if field == "MaCoSo" and value:
                 value = value.upper()
             if hasattr(student, field) and value is not None:
                 setattr(student, field, value)
@@ -192,19 +220,16 @@ class StudentManagementService:
 
     @staticmethod
     def update_student_status(
-        db: Session,
-        ma_sv: str,
-        status_update: StudentStatusUpdate,
-        current_user
+        db: Session, ma_sv: str, status_update: StudentStatusUpdate, current_user: User
     ) -> Student:
         """
         Cập nhật trạng thái sinh viên.
         Yêu cầu: Admin role
         """
-        if getattr(current_user, 'role', None) != 'Admin':
+        if current_user.role != UserRole.Admin:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Chỉ Admin mới có quyền cập nhật trạng thái"
+                detail="Chỉ Admin mới có quyền cập nhật trạng thái",
             )
 
         student = StudentManagementService.get_student_by_masv(db, ma_sv)
@@ -215,12 +240,12 @@ class StudentManagementService:
         return student
 
     @staticmethod
-    def delete_student(db: Session, ma_sv: str, current_user) -> bool:
+    def delete_student(db: Session, ma_sv: str, current_user: User) -> bool:
         """Xóa sinh viên (Admin only)"""
-        if getattr(current_user, 'role', None) != 'Admin':
+        if current_user.role != UserRole.Admin:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Chỉ Admin mới có quyền xóa sinh viên"
+                detail="Chỉ Admin mới có quyền xóa sinh viên",
             )
 
         student = StudentManagementService.get_student_by_masv(db, ma_sv)
