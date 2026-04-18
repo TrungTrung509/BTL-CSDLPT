@@ -3,6 +3,7 @@
 ## Nguyên tắc
 
 Mỗi site = 1 database riêng → dùng file `.ini` tương ứng khi chạy lệnh.
+## 0. Mỗi khi có Model mới phải import vào FOLDER MODELS
 
 ---
 
@@ -19,7 +20,7 @@ alembic -c alembic_ngoctruc.ini revision --autogenerate -m "message"
 * So sánh model với DB
 * Tạo file migration (thay đổi schema)
 * Message giống kiểu trong commit github
-
+* Ghi message chuẩn để không đè version
 ---
 
 ## 🔼 2. Áp dụng migration (update DB)
