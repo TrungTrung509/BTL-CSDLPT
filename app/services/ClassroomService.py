@@ -8,6 +8,8 @@ from enums.user_role import UserRole
 from models.Classrooms import Classroom
 from models.Schedules import Schedule
 from models.Users import User
+from enums.types import RoomType
+from enums.status import RoomStatus
 from repositories.ClassroomRepo import ClassroomRepo
 from schemas.Classroom import ClassroomCreate, ClassroomResponse, ClassroomUpdate
 
@@ -168,27 +170,26 @@ class ClassroomService:
         )
 
     @staticmethod
-    def _validate_payload(suc_chua: int, loai_phong: str, trang_thai: str) -> None:
+    def _validate_payload(suc_chua: int, loai_phong: RoomType, trang_thai: RoomStatus) -> None:
         if suc_chua <= 0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="SucChua phai lon hon 0",
             )
-        if loai_phong not in {"LyThuyet", "MayTinh", "ThiNghiem", "HoiTruong"}:
+        if not isinstance(loai_phong, RoomType):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="LoaiPhong phai la LyThuyet, MayTinh, ThiNghiem hoac HoiTruong",
+                detail=f"LoaiPhong khong hop le. Phai la {[e.value for e in RoomType]}",
             )
-        if trang_thai not in {"HoatDong", "BaoTri", "NgungSuDung"}:
+        if not isinstance(trang_thai, RoomStatus):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="TrangThai phai la HoatDong, BaoTri hoac NgungSuDung",
+                detail=f"TrangThai khong hop le. Phai la {[e.value for e in RoomStatus]}",
             )
 
     @staticmethod
     def _ensure_admin(current_user: User) -> None:
-        role = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
-        if role != UserRole.Admin.value:
+        if current_user.role != UserRole.Admin:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only Admin can manage classrooms",

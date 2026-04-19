@@ -15,6 +15,15 @@ from models.Semesters import Semester
 from models.Students import Student
 from models.Teachers import Teacher
 from models.Users import User
+from enums.types import StudyForm
+from enums.status import (
+    ClassSectionStatus, 
+    CourseStatus, 
+    SemesterStatus, 
+    TeacherStatus, 
+    RoomStatus, 
+    EnrollmentStatus
+)
 from repositories.ClassSectionRepo import ClassSectionRepo
 from schemas.ClassSection import (
     CourseSectionCreate,
@@ -410,7 +419,7 @@ class ClassSectionService:
         teacher = ClassSectionService._ensure_teacher_exists(db, section.MaGV)
         schedules = ClassSectionRepo.list_schedules(db, section.MaLopHP)
         enrollments = ClassSectionRepo.list_enrollments(db, section.MaLopHP)
-        active_count = sum(1 for enrollment in enrollments if enrollment.TrangThaiDangKy == "DaDangKy")
+        active_count = sum(1 for enrollment in enrollments if enrollment.TrangThaiDangKy == EnrollmentStatus.DaDangKy)
 
         return CourseSectionDetailResponse(
             MaLopHP=section.MaLopHP,
@@ -463,6 +472,7 @@ class ClassSectionService:
                 EnrollmentResponse(
                     MaDangKy=enrollment.MaDangKy,
                     MaSV=enrollment.MaSV,
+                    MaLich=enrollment.MaLich,
                     HoTenSinhVien=ClassSectionService._format_student_name(student),
                     TrangThaiDangKy=enrollment.TrangThaiDangKy,
                     LanDangKy=enrollment.LanDangKy,
@@ -492,7 +502,7 @@ class ClassSectionService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Ma hoc phan khong hop le: {ma_hoc_phan.upper()}",
             )
-        if course.TrangThai != "HoatDong":
+        if course.TrangThai != CourseStatus.HoatDong:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Hoc phan '{course.MaHocPhan}' khong o trang thai hoat dong",
@@ -517,7 +527,7 @@ class ClassSectionService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Ma giang vien khong hop le: {ma_gv.upper()}",
             )
-        if teacher.TrangThai != "DangCongTac":
+        if teacher.TrangThai != TeacherStatus.DangCongTac:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Giang vien '{teacher.MaGV}' khong o trang thai dang cong tac",
@@ -542,7 +552,7 @@ class ClassSectionService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Ma phong khong hop le: {ma_phong.upper()}",
             )
-        if room.TrangThai != "HoatDong":
+        if room.TrangThai != RoomStatus.HoatDong:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Phong hoc '{room.MaPhong}' khong san sang de xep lich",
@@ -574,17 +584,17 @@ class ClassSectionService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Si so toi da khong duoc nho hon si so hien tai",
             )
-        if hinh_thuc_hoc not in {"Offline", "Online", "Hybrid"}:
+        if not isinstance(hinh_thuc_hoc, StudyForm):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="HinhThucHoc phai la Offline, Online hoac Hybrid",
+                detail=f"HinhThucHoc khong hop le. Phai la {[e.value for e in StudyForm]}",
             )
-        if trang_thai_lop not in {"Mo", "Dong", "Huy"}:
+        if not isinstance(trang_thai_lop, ClassSectionStatus):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="TrangThaiLop phai la Mo, Dong hoac Huy",
+                detail=f"TrangThaiLop khong hop le. Phai la {[e.value for e in ClassSectionStatus]}",
             )
-        if semester.TrangThaiHocKy == "DaKetThuc":
+        if semester.TrangThaiHocKy == SemesterStatus.DaKetThuc:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Hoc ky '{semester.MaHocKy}' da ket thuc, khong the mo lop moi",
@@ -631,7 +641,7 @@ class ClassSectionService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Ngay ket thuc lich hoc phai nam trong hoc ky",
             )
-        if section.TrangThaiLop == "Huy":
+        if section.TrangThaiLop == ClassSectionStatus.Huy:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Khong the xep lich cho lop da bi huy",
@@ -761,12 +771,10 @@ class ClassSectionService:
 
     @staticmethod
     def _ensure_roles(current_user: User, *roles: UserRole) -> None:
-        current_role = ClassSectionService._current_role(current_user)
-        allowed = {role.value if hasattr(role, "value") else str(role) for role in roles}
-        if current_role not in allowed:
+        if current_user.role not in roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Required role: {', '.join(sorted(allowed))}",
+                detail=f"Required role: {', '.join([r.value for r in roles])}",
             )
 
     @staticmethod

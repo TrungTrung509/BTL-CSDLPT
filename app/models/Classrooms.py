@@ -1,8 +1,9 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
-
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Enum
 from configs.db import Base
+from enums.types import RoomType
+from enums.status import RoomStatus
 
 
 class Classroom(Base):
@@ -13,7 +14,7 @@ class Classroom(Base):
     ToaNha = Column(String, nullable=True)
     Tang = Column(Integer, nullable=True)
     SucChua = Column(Integer, nullable=False)
-    LoaiPhong = Column(String, nullable=False, default="LyThuyet")
+    LoaiPhong = Column(Enum(RoomType), nullable=False, default=RoomType.LyThuyet)
     MaCoSo = Column(String, ForeignKey("CoSo.MaCoSo"), nullable=False)
-    TrangThai = Column(String, nullable=False, default="HoatDong")
+    TrangThai = Column(Enum(RoomStatus), nullable=False, default=RoomStatus.HoatDong)
     NgayTao = Column(DateTime, default=datetime.utcnow, nullable=False)

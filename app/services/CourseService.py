@@ -9,6 +9,8 @@ from models.Courses import Course
 from models.Departments import Departments
 from models.Users import User
 from repositories.CourseRepo import CourseRepo
+from enums.types import CourseType
+from enums.status import CourseStatus
 from schemas.Course import CourseCreate, CourseResponse, CourseUpdate
 
 
@@ -184,8 +186,7 @@ class CourseService:
 
     @staticmethod
     def _ensure_admin(current_user: User) -> None:
-        role = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
-        if role != UserRole.Admin.value:
+        if current_user.role != UserRole.Admin:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only Admin can manage courses",
@@ -205,7 +206,7 @@ class CourseService:
         so_tin_chi: int,
         so_tiet_ly_thuyet: int,
         so_tiet_thuc_hanh: int,
-        loai_hoc_phan: str,
+        loai_hoc_phan: CourseType,
     ) -> None:
         if so_tiet_ly_thuyet == 0 and so_tiet_thuc_hanh == 0:
             raise HTTPException(
@@ -217,10 +218,10 @@ class CourseService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="So tin chi phai lon hon 0",
             )
-        if loai_hoc_phan not in {"BatBuoc", "TuChon"}:
+        if not isinstance(loai_hoc_phan, CourseType):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="LoaiHocPhan phai la 'BatBuoc' hoac 'TuChon'",
+                detail=f"LoaiHocPhan khong hop le. Phai la {[e.value for e in CourseType]}",
             )
 
     @staticmethod

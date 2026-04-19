@@ -15,7 +15,12 @@ def _role_to_string(role: UserRole | str) -> str:
 
 def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     token_data = AuthService.verify_token(token)
-    db = SessionLocals["HADONG"]()
+    site = (token_data.branch_id or "HADONG").upper()
+    
+    if site not in SessionLocals:
+        site = "HADONG"
+        
+    db = SessionLocals[site]()
 
     try:
         user = UserRepo.get_by_username(db, token_data.username)

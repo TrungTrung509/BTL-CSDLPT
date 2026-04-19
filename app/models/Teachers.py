@@ -5,6 +5,7 @@ from datetime import datetime
 
 from configs.db import Base
 from enums.status import TeacherStatus
+from enums.gender import Genders
 
 class Teacher(Base):
     __tablename__ = "GiangVien"
@@ -14,14 +15,14 @@ class Teacher(Base):
     Ho = Column(String, nullable=False)
     Ten = Column(String, nullable=False)
     NgaySinh = Column(Date)
-    GioiTinh = Column(String)
+    GioiTinh = Column(Enum(Genders))
     HocVi = Column(String)
     HocHam = Column(String)
     SDT = Column(String)
     DiaChi = Column(String)
     MaCoSo = Column(String, nullable=False)
     MaKhoa = Column(String)
-    TrangThai = Column(String, default='DangCongTac')
+    TrangThai = Column(Enum(TeacherStatus), default=TeacherStatus.DangCongTac)
     NgayVaoLam = Column(Date)
     NgayTao = Column(String)
 

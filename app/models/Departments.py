@@ -1,6 +1,7 @@
-from sqlalchemy import Column, String, Date
+from sqlalchemy import Column, String, Date, Enum
 
 from configs.db import Base
+from enums.status import GeneralStatus
 
 
 class Departments(Base):
@@ -9,4 +10,4 @@ class Departments(Base):
     TenKhoa = Column(String, nullable=False, unique=True)
     MoTa = Column(String, nullable=True)
     NgayThanhLap = Column(Date)
-    TrangThai = Column(String, default='HoatDong')
+    TrangThai = Column(Enum(GeneralStatus), default=GeneralStatus.HoatDong)

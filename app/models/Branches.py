@@ -1,6 +1,6 @@
-from sqlalchemy import Column, String, Date
-
+from sqlalchemy import Column, String, Date, Enum
 from configs.db import Base
+from enums.status import GeneralStatus
 
 class Branch(Base):
     # Viet
@@ -12,7 +12,7 @@ class Branch(Base):
     SoDienThoai = Column(String, nullable=True)
     Email = Column(String, nullable=True)
     NgayThanhLap = Column(Date, nullable=True)
-    TrangThai = Column(String, nullable=True)
+    TrangThai = Column(Enum(GeneralStatus), nullable=True, default=GeneralStatus.HoatDong)
     def __repr__(self):
         return f"<Branch(MaCoSo='{self.MaCoSo}', TenCoSo='{self.TenCoSo}')>"
     # Trung

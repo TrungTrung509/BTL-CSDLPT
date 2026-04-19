@@ -2,6 +2,8 @@ from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
+from enums.types import RoomType
+from enums.status import RoomStatus
 
 
 class ClassroomBase(BaseModel):
@@ -10,9 +12,9 @@ class ClassroomBase(BaseModel):
     ToaNha: Optional[str] = Field(default=None, max_length=50)
     Tang: Optional[int] = Field(default=None, ge=0, le=100)
     SucChua: int = Field(..., ge=1, le=1000)
-    LoaiPhong: str = Field(default="LyThuyet", min_length=3, max_length=30)
+    LoaiPhong: RoomType = Field(default=RoomType.LyThuyet)
     MaCoSo: str = Field(..., min_length=2, max_length=10)
-    TrangThai: str = Field(default="HoatDong", min_length=3, max_length=20)
+    TrangThai: RoomStatus = Field(default=RoomStatus.HoatDong)
 
 
 class ClassroomCreate(ClassroomBase):
@@ -24,8 +26,8 @@ class ClassroomUpdate(BaseModel):
     ToaNha: Optional[str] = Field(default=None, max_length=50)
     Tang: Optional[int] = Field(default=None, ge=0, le=100)
     SucChua: Optional[int] = Field(default=None, ge=1, le=1000)
-    LoaiPhong: Optional[str] = Field(default=None, min_length=3, max_length=30)
-    TrangThai: Optional[str] = Field(default=None, min_length=3, max_length=20)
+    LoaiPhong: Optional[RoomType] = Field(default=None)
+    TrangThai: Optional[RoomStatus] = Field(default=None)
 
 
 class ClassroomResponse(ClassroomBase):

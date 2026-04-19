@@ -2,7 +2,7 @@ from datetime import date
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-
+from enums.status import SemesterStatus
 
 class SemesterBase(BaseModel):
     MaHocKy: str = Field(..., min_length=3, max_length=20)
@@ -10,7 +10,7 @@ class SemesterBase(BaseModel):
     KySo: int = Field(..., ge=1, le=3)
     NgayBatDau: Optional[date] = None
     NgayKetThuc: Optional[date] = None
-    TrangThaiHocKy: str = Field(default="SapMo", min_length=3, max_length=20)
+    TrangThaiHocKy: SemesterStatus = Field(default=SemesterStatus.SapMo)
 
     @model_validator(mode="after")
     def validate_dates(self):
@@ -28,7 +28,7 @@ class SemesterUpdate(BaseModel):
     KySo: Optional[int] = Field(default=None, ge=1, le=3)
     NgayBatDau: Optional[date] = None
     NgayKetThuc: Optional[date] = None
-    TrangThaiHocKy: Optional[str] = Field(default=None, min_length=3, max_length=20)
+    TrangThaiHocKy: Optional[SemesterStatus] = None
 
     @model_validator(mode="after")
     def validate_dates(self):

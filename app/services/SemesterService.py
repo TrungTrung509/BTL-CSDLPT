@@ -9,6 +9,7 @@ from models.CourseSections import CourseSection
 from models.Semesters import Semester
 from models.Users import User
 from repositories.SemesterRepo import SemesterRepo
+from enums.status import SemesterStatus
 from schemas.Semester import SemesterCreate, SemesterResponse, SemesterUpdate
 
 
@@ -182,24 +183,23 @@ class SemesterService:
 
     @staticmethod
     def _ensure_admin(current_user: User) -> None:
-        role = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
-        if role != UserRole.Admin.value:
+        if current_user.role != UserRole.Admin:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only Admin can manage semesters",
             )
 
     @staticmethod
-    def _validate_payload(ky_so: int, ngay_bat_dau, ngay_ket_thuc, trang_thai: str) -> None:
+    def _validate_payload(ky_so: int, ngay_bat_dau, ngay_ket_thuc, trang_thai: SemesterStatus) -> None:
         if ky_so not in {1, 2, 3}:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="KySo phai la 1, 2 hoac 3",
             )
-        if trang_thai not in {"SapMo", "DangDangKy", "DangHoc", "DaKetThuc"}:
+        if not isinstance(trang_thai, SemesterStatus):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="TrangThaiHocKy phai la SapMo, DangDangKy, DangHoc hoac DaKetThuc",
+                detail=f"TrangThaiHocKy khong hop le. Phai la {[e.value for e in SemesterStatus]}",
             )
         if ngay_bat_dau and ngay_ket_thuc and ngay_ket_thuc <= ngay_bat_dau:
             raise HTTPException(

@@ -1,6 +1,6 @@
-from sqlalchemy import Column, Date, Integer, String
-
+from sqlalchemy import Column, Date, Integer, String, Enum
 from configs.db import Base
+from enums.status import SemesterStatus
 
 
 class Semester(Base):
@@ -11,4 +11,4 @@ class Semester(Base):
     KySo = Column(Integer, nullable=False)
     NgayBatDau = Column(Date, nullable=True)
     NgayKetThuc = Column(Date, nullable=True)
-    TrangThaiHocKy = Column(String, nullable=False, default="SapMo")
+    TrangThaiHocKy = Column(Enum(SemesterStatus), nullable=False, default=SemesterStatus.SapMo)

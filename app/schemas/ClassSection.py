@@ -2,6 +2,8 @@ from datetime import date, datetime
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
+from enums.types import StudyForm
+from enums.status import ClassSectionStatus
 
 
 class ScheduleBase(BaseModel):
@@ -39,6 +41,7 @@ class ScheduleResponse(ScheduleBase):
 class EnrollmentResponse(BaseModel):
     MaDangKy: int
     MaSV: str
+    MaLich: Optional[str] = None
     HoTenSinhVien: Optional[str] = None
     TrangThaiDangKy: str
     LanDangKy: int
@@ -54,8 +57,8 @@ class CourseSectionBase(BaseModel):
     MaGV: str = Field(..., min_length=2, max_length=20)
     TenLopHP: Optional[str] = Field(default=None, max_length=100)
     SiSoToiDa: int = Field(..., ge=1, le=500)
-    HinhThucHoc: str = Field(default="Offline", min_length=3, max_length=20)
-    TrangThaiLop: str = Field(default="Mo", min_length=2, max_length=20)
+    HinhThucHoc: StudyForm = Field(default=StudyForm.Offline)
+    TrangThaiLop: ClassSectionStatus = Field(default=ClassSectionStatus.Mo)
 
 
 class CourseSectionCreate(CourseSectionBase):
@@ -66,8 +69,8 @@ class CourseSectionUpdate(BaseModel):
     MaGV: Optional[str] = Field(default=None, min_length=2, max_length=20)
     TenLopHP: Optional[str] = Field(default=None, max_length=100)
     SiSoToiDa: Optional[int] = Field(default=None, ge=1, le=500)
-    HinhThucHoc: Optional[str] = Field(default=None, min_length=3, max_length=20)
-    TrangThaiLop: Optional[str] = Field(default=None, min_length=2, max_length=20)
+    HinhThucHoc: Optional[StudyForm] = Field(default=None)
+    TrangThaiLop: Optional[ClassSectionStatus] = Field(default=None)
 
 
 class CourseSectionListResponse(BaseModel):
@@ -84,8 +87,8 @@ class CourseSectionListResponse(BaseModel):
     SiSoToiDa: int
     SiSoHienTai: int
     SoChoConLai: int
-    HinhThucHoc: str
-    TrangThaiLop: str
+    HinhThucHoc: StudyForm
+    TrangThaiLop: ClassSectionStatus
     SoLuongLichHoc: int = 0
     NgayTao: datetime
 

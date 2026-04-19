@@ -1,6 +1,8 @@
-from sqlalchemy import Column, String
+from sqlalchemy import Column, String, Enum
 from sqlalchemy.orm import relationship
 from configs.db import Base
+from enums.status import UserStatus
+from enums.user_role import UserRole
 
 class User(Base):
     __tablename__ = "users"
@@ -9,9 +11,9 @@ class User(Base):
     username = Column(String, unique=True, nullable=False)
     password = Column(String, nullable=False)
     email = Column(String, unique=True, nullable=False)
-    role = Column(String, nullable=False)  # 'SinhVien', 'GiangVien', 'Admin'
+    role = Column(Enum(UserRole), nullable=False)  # 'SinhVien', 'GiangVien', 'Admin'
     MaCoSo = Column(String, nullable=False)
-    status = Column(String, default='Active')  # 'Active', 'Inactive', 'Locked'
+    status = Column(Enum(UserStatus), default=UserStatus.Active)  # 'Active', 'Inactive', 'Locked'
     NgayTao = Column(String)  # ISO format date string
 
     # Relationship with Student

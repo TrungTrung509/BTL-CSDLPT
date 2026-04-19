@@ -1,8 +1,9 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
-
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Enum
 from configs.db import Base
+from enums.types import StudyForm
+from enums.status import ClassSectionStatus
 
 
 class CourseSection(Base):
@@ -16,6 +17,6 @@ class CourseSection(Base):
     TenLopHP = Column(String, nullable=True)
     SiSoToiDa = Column(Integer, nullable=False)
     SiSoHienTai = Column(Integer, nullable=False, default=0)
-    HinhThucHoc = Column(String, nullable=False, default="Offline")
-    TrangThaiLop = Column(String, nullable=False, default="Mo")
+    HinhThucHoc = Column(Enum(StudyForm), nullable=False, default=StudyForm.Offline)
+    TrangThaiLop = Column(Enum(ClassSectionStatus), nullable=False, default=ClassSectionStatus.Mo)
     NgayTao = Column(DateTime, default=datetime.utcnow, nullable=False)
