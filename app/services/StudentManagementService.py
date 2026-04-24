@@ -1,4 +1,3 @@
-import uuid
 from datetime import date, datetime
 from typing import List, Optional, Tuple
 
@@ -21,6 +20,7 @@ from schemas.Student import (
     StudentFilter,
 )
 from services.AuthService import AuthService
+from services.UserService import UserService
 
 
 class StudentManagementService:
@@ -107,9 +107,14 @@ class StudentManagementService:
         }
 
         try:
-            if UserRepo.get_by_username(sessions["HADONG"], student_in.MaSV):
+            # Tự sinh mã nếu không cung cấp
+            ma_sv = student_in.MaSV
+            if not ma_sv:
+                ma_sv = UserService.generate_id(UserRole.SinhVien, student_in.MaCoSo, student_in.MaKhoa)
+
+            if UserRepo.get_by_username(sessions["HADONG"], ma_sv):
                 raise HTTPException(
-                    status_code=400, detail=f"Username '{student_in.MaSV}' already exists"
+                    status_code=400, detail=f"Username '{ma_sv}' đã tồn tại"
                 )
 
             email_to_check = student_in.email
@@ -118,26 +123,25 @@ class StudentManagementService:
 
             if email_to_check and UserRepo.get_by_email(sessions["HADONG"], email_to_check):
                 raise HTTPException(
-                    status_code=400, detail=f"Email '{email_to_check}' is already in use"
+                    status_code=400, detail=f"Email '{email_to_check}' đã được sử dụng"
                 )
 
             db_local = sessions.get(student_in.MaCoSo)
             if not db_local:
                 raise HTTPException(
-                    status_code=400, detail=f"Invalid MaCoSo: {student_in.MaCoSo}"
+                    status_code=400, detail=f"Cơ sở không hợp lệ: {student_in.MaCoSo}"
                 )
 
-            if StudentRepo.get_by_MaSV(db_local, student_in.MaSV):
+            if StudentRepo.get_by_MaSV(db_local, ma_sv):
                 raise HTTPException(
-                    status_code=400, detail="Student ID (MaSV) already exists"
+                    status_code=400, detail="Mã sinh viên (MaSV) đã tồn tại"
                 )
 
-            user_id = str(uuid.uuid4())
-            hashed_password = AuthService.get_password_hash(student_in.MaSV)
+            hashed_password = AuthService.get_password_hash(ma_sv)
 
             db_user_data = {
-                "userId": user_id,
-                "username": student_in.MaSV,
+                "userId": ma_sv,
+                "username": ma_sv,
                 "password": hashed_password,
                 "role": UserRole.SinhVien,
                 "email": email_to_check,
@@ -150,8 +154,8 @@ class StudentManagementService:
                 session.add(User(**db_user_data))
 
             db_student = Student(
-                MaSV=student_in.MaSV,
-                userId=user_id,
+                MaSV=ma_sv,
+                userId=ma_sv,
                 Ho=student_in.Ho,
                 Ten=student_in.Ten,
                 NgaySinh=student_in.NgaySinh,

@@ -467,12 +467,13 @@ class ClassSectionService:
     def _build_enrollment_responses(db: Session, enrollments: Iterable[Enrollment]) -> list[EnrollmentResponse]:
         items: list[EnrollmentResponse] = []
         for enrollment in enrollments:
-            student = db.query(Student).filter(Student.MaSV == enrollment.MaSV).first()
+            # Tìm Student qua userId (vì Enrollment giờ dùng userId, không dùng MaSV làm FK)
+            student = db.query(Student).filter(Student.userId == enrollment.userId).first()
             items.append(
                 EnrollmentResponse(
                     MaDangKy=enrollment.MaDangKy,
-                    MaSV=enrollment.MaSV,
-                    MaLich=enrollment.MaLich,
+                    MaSV=student.MaSV if student else enrollment.MaSV,
+                    MaLich=getattr(enrollment, 'MaLich', None),
                     HoTenSinhVien=ClassSectionService._format_student_name(student),
                     TrangThaiDangKy=enrollment.TrangThaiDangKy,
                     LanDangKy=enrollment.LanDangKy,

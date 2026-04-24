@@ -1,4 +1,3 @@
-import uuid
 from datetime import date, datetime
 from typing import List, Optional, Tuple
 
@@ -21,6 +20,7 @@ from schemas.Teacher import (
     TeacherFilter,
 )
 from services.AuthService import AuthService
+from services.UserService import UserService
 
 
 class TeacherManagementService:
@@ -117,11 +117,16 @@ class TeacherManagementService:
         }
 
         try:
+            # Tự sinh mã nếu không cung cấp
+            ma_gv = teacher_in.MaGV
+            if not ma_gv:
+                ma_gv = UserService.generate_id(UserRole.GiangVien, teacher_in.MaCoSo, teacher_in.MaKhoa)
+
             # Check username on HEAD site
-            if UserRepo.get_by_username(sessions["HADONG"], teacher_in.MaGV):
+            if UserRepo.get_by_username(sessions["HADONG"], ma_gv):
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Username '{teacher_in.MaGV}' already exists",
+                    detail=f"Username '{ma_gv}' đã tồn tại",
                 )
 
             email_to_check = teacher_in.email
@@ -132,26 +137,25 @@ class TeacherManagementService:
                 sessions["HADONG"], email_to_check
             ):
                 raise HTTPException(
-                    status_code=400, detail=f"Email '{email_to_check}' is already in use"
+                    status_code=400, detail=f"Email '{email_to_check}' đã được sử dụng"
                 )
 
             db_local = sessions.get(teacher_in.MaCoSo)
             if not db_local:
                 raise HTTPException(
-                    status_code=400, detail=f"Invalid MaCoSo: {teacher_in.MaCoSo}"
+                    status_code=400, detail=f"Cơ sở không hợp lệ: {teacher_in.MaCoSo}"
                 )
 
-            if TeacherRepo.get_by_MaGV(db_local, teacher_in.MaGV):
+            if TeacherRepo.get_by_MaGV(db_local, ma_gv):
                 raise HTTPException(
-                    status_code=400, detail="Teacher ID (MaGV) already exists"
+                    status_code=400, detail="Mã giảng viên (MaGV) đã tồn tại"
                 )
 
-            user_id = str(uuid.uuid4())
-            hashed_password = AuthService.get_password_hash(teacher_in.MaGV)
+            hashed_password = AuthService.get_password_hash(ma_gv)
 
             db_user_data = {
-                "userId": user_id,
-                "username": teacher_in.MaGV,
+                "userId": ma_gv,
+                "username": ma_gv,
                 "password": hashed_password,
                 "role": UserRole.GiangVien,
                 "email": email_to_check,
@@ -164,8 +168,8 @@ class TeacherManagementService:
                 session.add(User(**db_user_data))
 
             db_teacher = Teacher(
-                MaGV=teacher_in.MaGV,
-                userId=user_id,
+                MaGV=ma_gv,
+                userId=ma_gv,
                 Ho=teacher_in.Ho,
                 Ten=teacher_in.Ten,
                 NgaySinh=teacher_in.NgaySinh,
