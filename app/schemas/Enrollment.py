@@ -7,7 +7,6 @@ from enums.status import EnrollmentStatus
 
 class EnrollmentCreate(BaseModel):
     MaLopHP: str = Field(..., description="Mã lớp học phần đăng ký")
-    MaLich: str = Field(..., description="Mã lịch học cụ thể")
     GhiChu: Optional[str] = None
 
 class EligibilityResponse(BaseModel):
@@ -20,12 +19,13 @@ class RegistrationResult(BaseModel):
     status: str  # 'Success', 'Failed'
     message: Optional[str] = None
     enrollment_id: Optional[int] = None
+    action: Optional[str] = None # 'REGISTER', 'SWITCH'
+    old_ma_lop_hp: Optional[str] = None
 
 class EnrollmentHistoryResponse(BaseModel):
     MaDangKy: int
     MaSV: str
     MaLopHP: str
-    MaLich: Optional[str] = None
     TenLopHP: Optional[str] = None
     TenHocPhan: Optional[str] = None
     MaHocKy: str

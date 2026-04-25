@@ -34,14 +34,8 @@ async def register_course(
     if current_user.role != UserRole.SinhVien:
         return error_response(message="Chỉ sinh viên mới được đăng ký học phần.", status=403, error_code="FORBIDDEN")
         
-    with open_db_by_branch(current_user.MaCoSo) as user_db:
-        student = user_db.query(Student).filter(Student.userId == current_user.userId).first()
-        
-    if not student:
-        return error_response(message="Không tìm thấy hồ sơ sinh viên tương ứng.", status=404, error_code="NOT_FOUND")
-
     try:
-        result = EnrollmentService.register(student.MaSV, enroll_in)
+        result = EnrollmentService.register(current_user, enroll_in)
         if result.status == "Success":
             return success_response(
                 data=result.model_dump(),
@@ -72,14 +66,8 @@ async def get_enrollment_history(
     if current_user.role != UserRole.SinhVien:
         raise HTTPException(status_code=403, detail="Chỉ sinh viên mới được xem lịch sử đăng ký của bản thân.")
         
-    with open_db_by_branch(current_user.MaCoSo) as user_db:
-        student = user_db.query(Student).filter(Student.userId == current_user.userId).first()
-
-    if not student:
-        raise HTTPException(status_code=404, detail="Không tìm thấy hồ sơ sinh viên tương ứng.")
-
     try:
-        history = EnrollmentService.get_history(student.MaSV, maHocKy)
+        history = EnrollmentService.get_history(current_user.userId, maHocKy)
         return history
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -87,7 +75,7 @@ async def get_enrollment_history(
 
 @router.delete("/cancel")
 async def cancel_registration(
-    maLich: str = Query(..., description="Mã lịch học muốn hủy"),
+    maLopHP: str = Query(..., description="Mã lớp học phần muốn hủy"),
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
@@ -95,14 +83,8 @@ async def cancel_registration(
     if current_user.role != UserRole.SinhVien:
         raise HTTPException(status_code=403, detail="Chỉ sinh viên mới được quyền hủy đăng ký học phần của bản thân.")
         
-    with open_db_by_branch(current_user.MaCoSo) as user_db:
-        student = user_db.query(Student).filter(Student.userId == current_user.userId).first()
-
-    if not student:
-        raise HTTPException(status_code=404, detail="Không tìm thấy hồ sơ sinh viên tương ứng.")
-
     try:
-        EnrollmentService.cancel(student.MaSV, maLich)
+        EnrollmentService.cancel(current_user.userId, maLopHP, current_user.MaCoSo)
         return success_response(data=None, message="Hủy đăng ký thành công")
     except HTTPException as e:
         raise e

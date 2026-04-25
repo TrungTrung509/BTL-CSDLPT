@@ -64,12 +64,30 @@ def seed_common_data(db):
 
 def seed_admin(sessions):
     """Seed tài khoản Admin đồng bộ trên tất cả các site"""
-    # Sử dụng UUID cố định cho Admin hệ thống
-    admin_id = "00000000-0000-0000-0000-000000000000"
+    admin_id = "AD1"
     username = "admin"
     password = "admin123"
     hashed_pwd = pwd_context.hash(password)
 
+    for site, db in sessions.items():
+        # Kiểm tra xem admin đã tồn tại chưa
+        check_sql = text('SELECT 1 FROM users WHERE "userId" = :id OR username = :uname')
+        if not db.execute(check_sql, {"id": admin_id, "uname": username}).fetchone():
+            insert_sql = text("""
+                INSERT INTO users ("userId", username, password, role, "MaCoSo", status, "NgayTao")
+                VALUES (:id, :uname, :pwd, :role, :coso, :status, :date)
+            """)
+            db.execute(insert_sql, {
+                "id": admin_id,
+                "uname": username,
+                "pwd": hashed_pwd,
+                "role": "Admin",
+                "coso": "HADONG",
+                "status": "Active",
+                "date": datetime.now().isoformat()
+            })
+            db.commit()
+            print(f"Seeded admin '{username}' on site {site}")
     for site, Session in sessions.items():
         db = Session()
         try:

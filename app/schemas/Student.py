@@ -16,7 +16,7 @@ class StudentProfileBase(BaseModel):
 
 class StudentBase(StudentProfileBase):
     """Schema base cho Sinh viên"""
-    MaSV: str = Field(..., min_length=3, max_length=20, description="Mã sinh viên")
+    MaSV: Optional[str] = Field(None, min_length=3, max_length=20, description="Mã sinh viên (Tự sinh nếu để trống)")
     MaCoSo: str = Field(..., description="Mã cơ sở quản lý")
     MaKhoa: Optional[str] = Field(None, description="Mã khoa")
     TrangThai: Optional[StudentStatus] = Field(default=StudentStatus.DangHoc, description="Trạng thái")

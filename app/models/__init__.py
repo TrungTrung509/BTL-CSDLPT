@@ -11,6 +11,7 @@ from .SiteStatus import SiteStatus
 from .Students import Student
 from .Teachers import Teacher
 from .Users import User
+from .EnrollmentLogs import EnrollmentLog
 
 __all__ = [
     "Branch",
@@ -26,4 +27,5 @@ __all__ = [
     "Student",
     "Teacher",
     "User",
+    "EnrollmentLog",
 ]

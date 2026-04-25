@@ -16,7 +16,7 @@ class TeacherProfileBase(BaseModel):
 
 class TeacherBase(TeacherProfileBase):
     """Schema base cho Giảng viên"""
-    MaGV: str = Field(..., min_length=3, max_length=20, description="Mã giảng viên")
+    MaGV: Optional[str] = Field(None, min_length=3, max_length=20, description="Mã giảng viên (Tự sinh nếu để trống)")
     HocVi: Optional[str] = Field(None, max_length=50, description="Học vị (CN, ThS, TS, PGS)")
     HocHam: Optional[str] = Field(None, max_length=50, description="Học hàm (GTV, PGS)")
     MaCoSo: str = Field(..., description="Mã cơ sở quản lý")

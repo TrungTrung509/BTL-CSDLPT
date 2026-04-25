@@ -45,3 +45,13 @@ class EnrollmentStatus(str, Enum):
 class GeneralStatus(str, Enum):
     HoatDong = "HoatDong"
     NgungHoatDong = "NgungHoatDong"
+
+class EnrollmentAction(str, Enum):
+    REGISTER = "REGISTER"
+    CANCEL = "CANCEL"
+    SWITCH = "SWITCH"
+
+class LogStatus(str, Enum):
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"
+    PENDING = "PENDING"
