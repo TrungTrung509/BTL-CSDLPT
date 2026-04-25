@@ -25,7 +25,7 @@ echo ""
 # ============================================================
 
 # Bảng dùng chung (Replication)
-SHARED_TABLES=("CoSo" "Khoa" "HocPhan" "HocKy" "TienQuyet")
+SHARED_TABLES=("CoSo" "users" "Khoa" "HocPhan" "HocKy" "TienQuyet")
 
 # Bảng cục bộ (Local)
 LOCAL_TABLES=("SinhVien" "GiangVien" "PhongHoc" "LopHocPhan" "LichHoc" "DangKy")
@@ -46,7 +46,8 @@ get_count() {
     local db=$2
     local table=$3
 
-    count=$(docker exec -i "$container" psql -U csdlpt_user -d "$db" -t -c "SELECT COUNT(*) FROM $table;" 2>/dev/null | tr -d ' ')
+    # Dùng double quotes cho table name vì PostgreSQL case-sensitive
+    count=$(docker exec -i "$container" psql -U csdlpt_user -d "$db" -t -c "SELECT COUNT(*) FROM \"$table\";" 2>/dev/null | tr -d ' ')
     echo "${count:-0}"
 }
 

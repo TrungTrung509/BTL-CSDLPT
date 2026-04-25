@@ -131,7 +131,7 @@ def random_date_between(start, end):
 # ============================================================
 
 def generate_common_data():
-    """Sinh dữ liệu cho bảng dùng chung (CoSo, Khoa, HocPhan, HocKy, TienQuyet)"""
+    """Sinh dữ liệu cho bảng dùng chung (CoSo, users, Khoa, HocPhan, HocKy, TienQuyet)"""
     
     output = "-- ============================================================\n"
     output += "-- DỮ LIỆU DÙNG CHUNG - Common Data\n"
@@ -141,9 +141,19 @@ def generate_common_data():
     # ---- CoSo ----
     output += "-- ---- CoSo ----\n"
     for ma_coso, info in SITES.items():
-        output += f"""INSERT INTO CoSo (MaCoSo, TenCoSo, DiaChi, SoDienThoai, Email, NgayThanhLap, TrangThai)
+        output += f"""INSERT INTO "CoSo" ("MaCoSo", "TenCoSo", "DiaChi", "SoDienThoai", "Email", "NgayThanhLap", "TrangThai")
 VALUES ('{ma_coso}', '{info['name']}', '{info['address']}', '{random_phone()}', 'quanly{ma_coso.lower()}@ptit.edu.vn', '2010-01-01', 'HoatDong')
-ON CONFLICT (MaCoSo) DO NOTHING;\n"""
+ON CONFLICT ("MaCoSo") DO NOTHING;\n"""
+    
+    output += "\n"
+    
+    # ---- users ----
+    output += "-- ---- users ----\n"
+    # Admin user cho mỗi site
+    for ma_coso in SITES.keys():
+        output += f"""INSERT INTO "users" ("userId", "username", "password", "email", "role", "MaCoSo", "status")
+VALUES ('{ma_coso}ADMIN001', 'admin_{ma_coso.lower()}', 'hashed_default_pass_123', 'admin.{ma_coso.lower()}@ptit.edu.vn', 'Admin', '{ma_coso}', 'Active')
+ON CONFLICT ("userId") DO NOTHING;\n"""
     
     output += "\n"
     
@@ -156,9 +166,9 @@ ON CONFLICT (MaCoSo) DO NOTHING;\n"""
         ('KT', 'Khoa Kinh tế', 'KT'),
     ]
     for ma_khoa, ten_khoa, _ in khoas:
-        output += f"""INSERT INTO Khoa (MaKhoa, TenKhoa, MoTa, NgayThanhLap, TrangThai)
+        output += f"""INSERT INTO "Khoa" ("MaKhoa", "TenKhoa", "MoTa", "NgayThanhLap", "TrangThai")
 VALUES ('{ma_khoa}', '{ten_khoa}', 'Khoa dao tao nganh {ma_khoa}', '2000-01-01', 'HoatDong')
-ON CONFLICT (MaKhoa) DO NOTHING;\n"""
+ON CONFLICT ("MaKhoa") DO NOTHING;\n"""
     
     output += "\n"
     
@@ -188,9 +198,9 @@ ON CONFLICT (MaKhoa) DO NOTHING;\n"""
     ]
     
     for ma_hp, ten_hp, so_tc, so_lt, so_th, loai, ma_khoa, mo_ta in hoc_phans:
-        output += f"""INSERT INTO HocPhan (MaHP, TenHP, SoTinChi, SoTietLyThuyet, SoTietThucHanh, LoaiHocPhan, MaKhoa, MoTa, TrangThai)
+        output += f"""INSERT INTO "HocPhan" ("MaHP", "TenHP", "SoTinChi", "SoTietLyThuyet", "SoTietThucHanh", "LoaiHocPhan", "MaKhoa", "MoTa", "TrangThai")
 VALUES ('{ma_hp}', '{ten_hp}', {so_tc}, {so_lt}, {so_th}, '{loai}', '{ma_khoa}', '{mo_ta}', 'HoatDong')
-ON CONFLICT (MaHP) DO NOTHING;\n"""
+ON CONFLICT ("MaHP") DO NOTHING;\n"""
     
     output += "\n"
     
@@ -202,9 +212,9 @@ ON CONFLICT (MaHP) DO NOTHING;\n"""
         ('HK20261', '2026-2027', 1, '2026-09-01', '2026-12-31', 'SapMo'),
     ]
     for ma_hk, nam_hoc, ky_so, ngay_bd, ngay_kt, trang_thai in hoc_ky_data:
-        output += f"""INSERT INTO HocKy (MaHocKy, NamHoc, KySo, NgayBatDau, NgayKetThuc, TrangThaiHocKy)
+        output += f"""INSERT INTO "HocKy" ("MaHocKy", "NamHoc", "KySo", "NgayBatDau", "NgayKetThuc", "TrangThaiHocKy")
 VALUES ('{ma_hk}', '{nam_hoc}', {ky_so}, '{ngay_bd}', '{ngay_kt}', '{trang_thai}')
-ON CONFLICT (MaHocKy) DO NOTHING;\n"""
+ON CONFLICT ("MaHocKy") DO NOTHING;\n"""
     
     output += "\n"
     
@@ -224,9 +234,9 @@ ON CONFLICT (MaHocKy) DO NOTHING;\n"""
         ('CS1012', 'CS1001'),  # ĐHMT cần NMLT
     ]
     for ma_hp, ma_hp_tq in tien_quyet:
-        output += f"""INSERT INTO TienQuyet (MaHP, MaHP_TienQuyet)
+        output += f"""INSERT INTO "TienQuyet" ("MaHP", "MaHP_TienQuyet")
 VALUES ('{ma_hp}', '{ma_hp_tq}')
-ON CONFLICT (MaHP, MaHP_TienQuyet) DO NOTHING;\n"""
+ON CONFLICT ("MaHP", "MaHP_TienQuyet") DO NOTHING;\n"""
     
     return output
 
@@ -244,10 +254,53 @@ def generate_site_data(ma_coso, counts):
     output += f"-- Sinh: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
     output += "-- ============================================================\n\n"
     
-    # ---- SinhVien ----
-    output += "-- ---- SinhVien ----\n"
+    # ---- Tạo users cho SinhVien ----
+    output += "-- ---- users (SinhVien) ----\n"
     gioi_tinh = ['Nam', 'Nu']
     trang_thai_sv = ['DangHoc', 'DangHoc', 'DangHoc', 'BaoLuu']  # 75% đang học
+    
+    sv_user_ids = []  # Lưu userId của SinhVien để join sau
+    for i in range(1, counts['sinh_vien'] + 1):
+        ma_sv = f"{ma_coso}SV{i:04d}"
+        ho = random.choice(VIETNAMESE_LAST_NAMES)
+        ten = random.choice(VIETNAMESE_FIRST_NAMES)
+        ngay_sinh = random_date(2000, 2006)
+        email = random_email(ho, ten)
+        
+        # Tạo userId
+        user_id = f"{ma_coso}SV{i:04d}U"
+        sv_user_ids.append(user_id)
+        
+        output += f"""INSERT INTO "users" ("userId", "username", "password", "email", "role", "MaCoSo", "status")
+VALUES ('{user_id}', 'sv_{ma_sv.lower()}', 'hashed_default_pass_123', '{email}', 'SinhVien', '{ma_coso}', 'Active')
+ON CONFLICT ("userId") DO NOTHING;\n"""
+    
+    output += "\n"
+    
+    # ---- Tạo users cho GiangVien ----
+    output += "-- ---- users (GiangVien) ----\n"
+    hoc_vi = ['CN', 'ThS', 'TS', 'PGS']
+    
+    gv_user_ids = []  # Lưu userId của GiangVien để join sau
+    for i in range(1, counts['giang_vien'] + 1):
+        ma_gv = f"{ma_coso}GV{i:03d}"
+        ho = random.choice(VIETNAMESE_LAST_NAMES)
+        ten = random.choice(VIETNAMESE_FIRST_NAMES)
+        email = random_email(ho, ten, f'gv.{info["khoa_prefix"].lower()}.ptit.edu.vn')
+        
+        # Tạo userId
+        user_id = f"{ma_coso}GV{i:03d}U"
+        gv_user_ids.append(user_id)
+        
+        output += f"""INSERT INTO "users" ("userId", "username", "password", "email", "role", "MaCoSo", "status")
+VALUES ('{user_id}', 'gv_{ma_gv.lower()}', 'hashed_default_pass_123', '{email}', 'GiangVien', '{ma_coso}', 'Active')
+ON CONFLICT ("userId") DO NOTHING;\n"""
+    
+    output += "\n"
+    
+    # ---- SinhVien ----
+    output += "-- ---- SinhVien ----\n"
+    trang_thai_sv = ['DangHoc', 'DangHoc', 'DangHoc', 'BaoLuu']
 
     for i in range(1, counts['sinh_vien'] + 1):
         ma_sv = f"{ma_coso}SV{i:04d}"
@@ -261,16 +314,16 @@ def generate_site_data(ma_coso, counts):
         ma_khoa = random.choice(['CNTT', 'ATTT', 'VT', 'KT'])
         trang_thai = random.choice(trang_thai_sv)
         ngay_nhap_hoc = random_date(2020, 2024).strftime('%Y-%m-%d')
+        user_id = sv_user_ids[i-1]
 
-        output += f"""INSERT INTO SinhVien (MaSV, Ho, Ten, NgaySinh, GioiTinh, Email, SoDienThoai, DiaChi, MaCoSo, MaKhoa, TrangThai, NgayNhapHoc)
-VALUES ('{ma_sv}', '{ho}', '{ten}', '{ngay_sinh}', '{gt}', '{email}', '{sdt}', '{dia_chi}', '{ma_coso}', '{ma_khoa}', '{trang_thai}', '{ngay_nhap_hoc}')
-ON CONFLICT (MaSV) DO NOTHING;\n"""
+        output += f"""INSERT INTO "SinhVien" ("MaSV", "userId", "Ho", "Ten", "NgaySinh", "GioiTinh", "SDT", "DiaChi", "MaCoSo", "MaKhoa", "TrangThai", "NgayNhapHoc")
+VALUES ('{ma_sv}', '{user_id}', '{ho}', '{ten}', '{ngay_sinh}', '{gt}', '{sdt}', '{dia_chi}', '{ma_coso}', '{ma_khoa}', '{trang_thai}', '{ngay_nhap_hoc}')
+ON CONFLICT ("MaSV") DO NOTHING;\n"""
     
     output += "\n"
     
     # ---- GiangVien ----
     output += "-- ---- GiangVien ----\n"
-    hoc_vi = ['CN', 'ThS', 'TS', 'PGS']
     hoc_ham = [None, None, None, 'GTV', 'PGS']
     trang_thai_gv = ['DangCongTac', 'DangCongTac', 'TamNghi']
 
@@ -285,11 +338,12 @@ ON CONFLICT (MaSV) DO NOTHING;\n"""
         ma_khoa = random.choice(['CNTT', 'ATTT', 'VT', 'KT'])
         trang_thai = random.choice(trang_thai_gv)
         ngay_vao_lam = random_date(2010, 2023).strftime('%Y-%m-%d')
+        user_id = gv_user_ids[i-1]
 
         hh_str = f"'{hh}'" if hh else 'NULL'
-        output += f"""INSERT INTO GiangVien (MaGV, Ho, Ten, HocVi, HocHam, Email, SoDienThoai, MaCoSo, MaKhoa, TrangThai, NgayVaoLam)
-VALUES ('{ma_gv}', '{ho}', '{ten}', '{hv}', {hh_str}, '{email}', '{sdt}', '{ma_coso}', '{ma_khoa}', '{trang_thai}', '{ngay_vao_lam}')
-ON CONFLICT (MaGV) DO NOTHING;\n"""
+        output += f"""INSERT INTO "GiangVien" ("MaGV", "userId", "Ho", "Ten", "HocVi", "HocHam", "SDT", "MaCoSo", "MaKhoa", "TrangThai", "NgayVaoLam")
+VALUES ('{ma_gv}', '{user_id}', '{ho}', '{ten}', '{hv}', {hh_str}, '{sdt}', '{ma_coso}', '{ma_khoa}', '{trang_thai}', '{ngay_vao_lam}')
+ON CONFLICT ("MaGV") DO NOTHING;\n"""
     
     output += "\n"
     
@@ -307,9 +361,9 @@ ON CONFLICT (MaGV) DO NOTHING;\n"""
         loai = random.choice(loai_phong)
         trang_thai = 'HoatDong'
 
-        output += f"""INSERT INTO PhongHoc (MaPhong, TenPhong, ToaNha, Tang, SucChua, LoaiPhong, MaCoSo, TrangThai)
+        output += f"""INSERT INTO "PhongHoc" ("MaPhong", "TenPhong", "ToaNha", "Tang", "SucChua", "LoaiPhong", "MaCoSo", "TrangThai")
 VALUES ('{ma_phong}', 'Phong {i}', 'Toa {toa}', {tang}, {suc_chua}, '{loai}', '{ma_coso}', '{trang_thai}')
-ON CONFLICT (MaPhong) DO NOTHING;\n"""
+ON CONFLICT ("MaPhong") DO NOTHING;\n"""
     
     output += "\n"
     
@@ -356,9 +410,9 @@ ON CONFLICT (MaPhong) DO NOTHING;\n"""
         hinh_thuc = random.choice(['Offline', 'Offline', 'Offline', 'Online', 'Hybrid'])
         trang_thai = 'Mo'
 
-        output += f"""INSERT INTO LopHocPhan (MaLopHP, MaHP, MaHocKy, MaCoSo, MaGV, TenLopHP, SiSoToiDa, SiSoHienTai, HinhThucHoc, TrangThaiLop)
+        output += f"""INSERT INTO "LopHocPhan" ("MaLopHP", "MaHP", "MaHocKy", "MaCoSo", "MaGV", "TenLopHP", "SiSoToiDa", "SiSoHienTai", "HinhThucHoc", "TrangThaiLop")
 VALUES ('{ma_lhp}', '{ma_hp}', '{hoc_ky}', '{ma_coso}', '{ma_gv}', '{ma_hp}-{nhom:02d}', {si_so_max}, {si_so_hien_tai}, '{hinh_thuc}', '{trang_thai}')
-ON CONFLICT (MaLopHP) DO NOTHING;\n"""
+ON CONFLICT ("MaLopHP") DO NOTHING;\n"""
     
     output += "\n"
     
@@ -380,9 +434,9 @@ ON CONFLICT (MaLopHP) DO NOTHING;\n"""
             ngay_bd = '2025-09-01'
             ngay_kt = '2025-12-31'
 
-            output += f"""INSERT INTO LichHoc (MaLich, MaLopHP, MaPhong, ThuTrongTuan, TietBatDau, SoTiet, NgayBatDau, NgayKetThuc)
+            output += f"""INSERT INTO "LichHoc" ("MaLich", "MaLopHP", "MaPhong", "ThuTrongTuan", "TietBatDau", "SoTiet", "NgayBatDau", "NgayKetThuc")
 VALUES ('{ma_lich}', '{ma_lhp}', '{ma_phong}', {th}, {tiet}, {so_t}, '{ngay_bd}', '{ngay_kt}')
-ON CONFLICT (MaLich) DO NOTHING;\n"""
+ON CONFLICT ("MaLich") DO NOTHING;\n"""
             lich_id += 1
 
     return output

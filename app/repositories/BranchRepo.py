@@ -7,12 +7,22 @@ class BranchRepo:
         return db.query(Branch).filter(Branch.MaCoSo == MaCoSo).first()
 
     @staticmethod
-    def get_by_MaCoSo(db: Session, MaCoSo: str) -> Branch:
-        return db.query(Branch).filter(Branch.MaCoSo == MaCoSo).first()
+    # Viet
+    def get_by_MaCoSo(db: Session, ma_co_so: str) -> Branch:
+        return db.query(Branch).filter(Branch.MaCoSo == ma_co_so.upper()).first()
+    # Trung
+    # def get_by_MaCoSo(db: Session, MaCoSo: str) -> Branch:
+    #     return db.query(Branch).filter(Branch.MaCoSo == MaCoSo).first()
 
     @staticmethod
     def create(db: Session, branch: Branch) -> Branch:
         db.add(branch)
+        db.commit()
+        db.refresh(branch)
+        return branch
+
+    @staticmethod
+    def update(db: Session, branch: Branch) -> Branch:
         db.commit()
         db.refresh(branch)
         return branch

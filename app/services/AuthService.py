@@ -5,10 +5,10 @@ from sqlalchemy.orm import Session
 from typing import Optional
 
 from configs.config import SECRET_KEY, ALGORITHM, TOKEN_EXPIRES, REFRESH_TOKEN_EXPIRES, pwd_context
+from configs.db import SessionLocals, get_db
 from repositories.UserRepo import UserRepo
 from schemas.Auth import Token, TokenData
-
-from configs.db import get_db
+from services.FailoverService import FailoverService
 
 class AuthService:
     def __init__(self, db: Session):
@@ -76,6 +76,8 @@ class AuthService:
 
     async def login(self, username: str, password: str) -> Token:
         user = UserRepo.get_by_username(self.db, username)
+        if user is None:
+            user = self._find_user_by_username(username)
         if not user or not self.verify_password(password, user.password):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -99,6 +101,8 @@ class AuthService:
             username: str = payload.get("sub")
             user = UserRepo.get_by_username(self.db, username)
             if user is None:
+                user = self._find_user_by_username(username)
+            if user is None:
                 raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
             
             return self.create_tokens({
@@ -113,6 +117,27 @@ class AuthService:
     async def logout(self, refresh_token: str):
         # Placeholder for blacklisting logic
         pass
+
+    @staticmethod
+    def _find_user_by_username(username: str):
+        candidate_sites = []
+        current_primary = FailoverService.get_current_primary_site(auto_failover=True)
+        candidate_sites.append(current_primary)
+        for site_id in SessionLocals:
+            if site_id not in candidate_sites:
+                candidate_sites.append(site_id)
+
+        for site_id in candidate_sites:
+            if not FailoverService.is_site_alive(site_id):
+                continue
+            db = SessionLocals[site_id]()
+            try:
+                user = UserRepo.get_by_username(db, username)
+                if user is not None:
+                    return user
+            finally:
+                db.close()
+        return None
 
 def get_auth_service(db: Session = Depends(get_db)) -> AuthService:
     return AuthService(db)

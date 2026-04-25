@@ -89,20 +89,20 @@ def fetch_hocphan_data(conn) -> List[Dict[str, Any]]:
     """Lấy dữ liệu HocPhan từ PostgreSQL"""
     query = """
         SELECT
-            hp.MaHP,
-            hp.TenHP,
-            hp.SoTinChi,
-            hp.SoTietLyThuyet,
-            hp.SoTietThucHanh,
-            hp.LoaiHocPhan,
-            hp.MaKhoa,
-            hp.MoTa,
-            hp.TrangThai,
-            hp.NgayTao,
-            k.TenKhoa
-        FROM HocPhan hp
-        LEFT JOIN Khoa k ON hp.MaKhoa = k.MaKhoa
-        ORDER BY hp.MaHP
+            hp."MaHP",
+            hp."TenHP",
+            hp."SoTinChi",
+            hp."SoTietLyThuyet",
+            hp."SoTietThucHanh",
+            hp."LoaiHocPhan",
+            hp."MaKhoa",
+            hp."MoTa",
+            hp."TrangThai",
+            hp."NgayTao",
+            k."TenKhoa"
+        FROM "HocPhan" hp
+        LEFT JOIN "Khoa" k ON hp."MaKhoa" = k."MaKhoa"
+        ORDER BY hp."MaHP"
     """
 
     try:
@@ -123,12 +123,12 @@ def fetch_tienquyet_data(conn) -> Dict[str, List[Dict]]:
     """Lấy dữ liệu TienQuyet, nhóm theo MaHP"""
     query = """
         SELECT
-            tq.MaHP,
-            tq.MaHP_TienQuyet,
-            hp.TenHP as TenHP_TienQuyet
-        FROM TienQuyet tq
-        LEFT JOIN HocPhan hp ON tq.MaHP_TienQuyet = hp.MaHP
-        ORDER BY tq.MaHP, tq.MaHP_TienQuyet
+            tq."MaHP",
+            tq."MaHP_TienQuyet",
+            hp."TenHP" as TenHP_TienQuyet
+        FROM "TienQuyet" tq
+        LEFT JOIN "HocPhan" hp ON tq."MaHP_TienQuyet" = hp."MaHP"
+        ORDER BY tq."MaHP", tq."MaHP_TienQuyet"
     """
 
     try:
@@ -170,6 +170,16 @@ def build_documents(hocphan_data: List[Dict], tienquyet_map: Dict) -> List[Dict]
         # Map field names (handle both naming conventions)
         sotiet_thuchanh = hp_lower.get("sotietteuchanh") or hp_lower.get("sotietthuchanh") or 0
 
+        # Format NgayTao: handle both date and datetime with microseconds
+        ngaytao_val = hp_lower.get("ngaytao")
+        if ngaytao_val:
+            if hasattr(ngaytao_val, 'strftime'):
+                formatted_ngaytao = ngaytao_val.strftime("%Y-%m-%d %H:%M:%S")
+            else:
+                formatted_ngaytao = str(ngaytao_val)[:19]
+        else:
+            formatted_ngaytao = None
+
         doc = {
             "MaHP": mahp,
             "TenHP": hp_lower["tenhp"],
@@ -181,7 +191,7 @@ def build_documents(hocphan_data: List[Dict], tienquyet_map: Dict) -> List[Dict]
             "TenKhoa": hp_lower["tenkhoa"],
             "MoTa": hp_lower["mota"],
             "TrangThai": hp_lower["trangthai"],
-            "NgayTao": hp_lower["ngaytao"].strftime("%Y-%m-%d %H:%M:%S") if hp_lower["ngaytao"] else None,
+            "NgayTao": formatted_ngaytao,
             "TienQuyet": tienquyet_map.get(mahp, []),
             "suggest": {
                 "input": [mahp, hp_lower["tenhp"]],

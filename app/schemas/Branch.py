@@ -1,6 +1,7 @@
 from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from datetime import date
+from enums.status import GeneralStatus
 
 class BranchBase(BaseModel):
     MaCoSo: str
@@ -9,7 +10,7 @@ class BranchBase(BaseModel):
     SoDienThoai: Optional[str] = None
     Email: Optional[str] = None
     NgayThanhLap: Optional[date] = None
-    TrangThai: Optional[str] = "HoatDong"
+    TrangThai: Optional[GeneralStatus] = GeneralStatus.HoatDong
 
 class BranchCreate(BranchBase):
     pass
@@ -20,7 +21,7 @@ class BranchUpdate(BaseModel):
     SoDienThoai: Optional[str] = None
     Email: Optional[str] = None
     NgayThanhLap: Optional[date] = None
-    TrangThai: Optional[str] = None
+    TrangThai: Optional[GeneralStatus] = None
 
 class BranchResponse(BranchBase):
     model_config = ConfigDict(from_attributes=True)

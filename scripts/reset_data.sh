@@ -52,21 +52,21 @@ truncate_site() {
 		SET session_replication_role = replica;
 
 		-- Truncate các bảng theo thứ tự (FK constraints)
-		TRUNCATE TABLE DangKyLog CASCADE;
-		TRUNCATE TABLE AuditLog CASCADE;
-		TRUNCATE TABLE DangKy CASCADE;
-		TRUNCATE TABLE LichHoc CASCADE;
-		TRUNCATE TABLE LopHocPhan CASCADE;
-		TRUNCATE TABLE PhongHoc CASCADE;
-		TRUNCATE TABLE GiangVien CASCADE;
-		TRUNCATE TABLE SinhVien CASCADE;
+		TRUNCATE TABLE "DangKyLog" CASCADE;
+		TRUNCATE TABLE "AuditLog" CASCADE;
+		TRUNCATE TABLE "DangKy" CASCADE;
+		TRUNCATE TABLE "LichHoc" CASCADE;
+		TRUNCATE TABLE "LopHocPhan" CASCADE;
+		TRUNCATE TABLE "PhongHoc" CASCADE;
+		TRUNCATE TABLE "GiangVien" CASCADE;
+		TRUNCATE TABLE "SinhVien" CASCADE;
 
 		-- Không truncate bảng common vì replication sẽ tự đồng bộ
-		-- TRUNCATE TABLE TienQuyet CASCADE;
-		-- TRUNCATE TABLE HocKy CASCADE;
-		-- TRUNCATE TABLE HocPhan CASCADE;
-		-- TRUNCATE TABLE Khoa CASCADE;
-		-- TRUNCATE TABLE CoSo CASCADE;
+		-- TRUNCATE TABLE "TienQuyet" CASCADE;
+		-- TRUNCATE TABLE "HocKy" CASCADE;
+		-- TRUNCATE TABLE "HocPhan" CASCADE;
+		-- TRUNCATE TABLE "Khoa" CASCADE;
+		-- TRUNCATE TABLE "CoSo" CASCADE;
 
 		-- Re-enable trigger
 		SET session_replication_role = DEFAULT;

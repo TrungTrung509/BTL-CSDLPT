@@ -39,11 +39,12 @@ DROP PUBLICATION IF EXISTS pub_common_tables;
 -- Tạo publication mới với ALL TABLES
 -- Cú pháp: CREATE PUBLICATION pub_name FOR TABLE table1, table2, ...;
 CREATE PUBLICATION pub_common_tables FOR TABLE
-    CoSo,
-    Khoa,
-    HocPhan,
-    HocKy,
-    TienQuyet;
+    "CoSo",
+    "users",
+    "Khoa",
+    "HocPhan",
+    "HocKy",
+    "TienQuyet";
 
 -- ============================================================
 -- BƯỚC 4: Xác nhận Publication đã tạo

@@ -1,234 +1,141 @@
+from datetime import date, datetime
 import uuid
-from datetime import date
-from fastapi import HTTPException, status, Depends
-from configs.config import oauth2_scheme
-from services.AuthService import AuthService
-from repositories.UserRepo import UserRepo
-from repositories.StudentRepo import StudentRepo
-from repositories.TeacherRepo import TeacherRepo
-from models.Users import User
+
+from fastapi import HTTPException, status
+
+from configs.db import SessionLocals
+from enums.status import UserStatus
+from enums.user_role import UserRole
 from models.Students import Student
 from models.Teachers import Teacher
-from schemas.User import StudentCreate, TeacherCreate, ChangePasswordRequest, StudentResponse, TeacherResponse
-from enums.user_role import UserRole
-from enums.status import UserStatus
-from configs.db import get_db
-from configs.db import SessionLocals
+from models.Users import User
+from repositories.StudentRepo import StudentRepo
+from repositories.TeacherRepo import TeacherRepo
+from repositories.UserRepo import UserRepo
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+from schemas.User import UserCreate
+from schemas.Student import StudentResponse
+from schemas.Teacher import TeacherResponse
+from schemas.User import ChangePasswordRequest
+from services.AuthService import AuthService
 class UserService:
     @staticmethod
-    def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
+    def generate_id(role: UserRole, ma_co_so: str = None, ma_khoa: str = None) -> str:
         """
-        Lấy thông tin User hiện tại. 
-        Lưu ý: Vì bảng users được nhân bản, ta có thể check ở bất kỳ Site nào.
-        Mặc định dùng Hà Đông để tra cứu.
+        Tự sinh mã theo quy tắc:
+        - Sinh viên: SV + Cơ sở (HD/NT/HL) + Năm (26) + Mã Khoa (CNTT) + STT (001) -> SVHD26CNTT001
+        - Giảng viên: GV + Cơ sở (HD/NT/HL) + Năm (26) + Mã Khoa (CNTT) + STT (001) -> GVHD26CNTT001
+        - Admin: AD + STT -> AD1
         """
-        token_data = AuthService.verify_token(token)
-        # Bắt đầu session tạm tại Hà Đông để xác thực user
+        # Ánh xạ mã cơ sở
+        site_map = {
+            "HADONG": "HD",
+            "NGUYENTRAI": "NT",
+            "HOALAC": "HL"
+        }
+        
+        # Mở session trên site HADONG (site chính để quản lý ID toàn hệ thống)
         db = SessionLocals["HADONG"]()
         try:
-            user = UserRepo.get_by_username(db, token_data.username)
-            if user is None:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="User not found",
-                    headers={"WWW-Authenticate": "Bearer"},
-                )
-            return user
+            year_prefix = str(datetime.now().year)[2:]
+            
+            if role == UserRole.Admin:
+                prefix = "AD"
+                # Tìm STT lớn nhất của Admin
+                query = text('SELECT "userId" FROM users WHERE "userId" LIKE :prefix || \'%\' ORDER BY "userId" DESC LIMIT 1')
+                result = db.execute(query, {"prefix": prefix}).fetchone()
+                if result:
+                    last_id = result[0]
+                    last_num = int(last_id[2:])
+                    return f"AD{last_num + 1}"
+                return "AD1"
+            
+            # SV hoặc GV
+            role_prefix = "SV" if role == UserRole.SinhVien else "GV"
+            site_code = site_map.get(ma_co_so.upper(), "XX")
+            khoa_code = ma_khoa.upper() if ma_khoa else ""
+            prefix = f"{role_prefix}{site_code}{year_prefix}{khoa_code}"
+            
+            query = text('SELECT "userId" FROM users WHERE "userId" LIKE :prefix || \'%\' ORDER BY "userId" DESC LIMIT 1')
+            result = db.execute(query, {"prefix": prefix}).fetchone()
+            
+            if result:
+                last_id = result[0]
+                # Tìm phần số cuối cùng (giả sử là 3 chữ số)
+                # Vì độ dài prefix có thể thay đổi do mã khoa, ta lấy 3 ký tự cuối
+                try:
+                    last_num = int(last_id[-3:])
+                    new_num = str(last_num + 1).zfill(3)
+                    return f"{prefix}{new_num}"
+                except ValueError:
+                    return f"{prefix}001"
+            
+            return f"{prefix}001"
         finally:
             db.close()
 
     @staticmethod
-    async def create_student(student_in: StudentCreate, current_user: User) -> StudentResponse:
+    async def create_admin(admin_in: UserCreate, current_user: User):
+        """Tạo tài khoản Admin mới (chỉ Admin mới được tạo Admin)"""
         if current_user.role != UserRole.Admin:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only Admin can create students")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Chỉ Admin mới có quyền tạo tài khoản Admin"
+            )
 
         sessions = {site: session_factory() for site, session_factory in SessionLocals.items()}
         
         try:
-            # 1. Kiểm tra tồn tại (Chỉ cần check tại HADONG)
-            if UserRepo.get_by_username(sessions["HADONG"], student_in.MaSV):
-                raise HTTPException(status_code=400, detail=f"Username '{student_in.MaSV}' already exists")
+            # Check if username or email exists
+            if UserRepo.get_by_username(sessions["HADONG"], admin_in.username):
+                raise HTTPException(status_code=400, detail="Username đã tồn tại")
             
-            # Kiểm tra Email duy nhất (nếu có email)
-            email_to_check = student_in.email
-            if email_to_check and email_to_check.lower() == "string": # Xử lý Swagger default
-                email_to_check = None
-                
-            if email_to_check and UserRepo.get_by_email(sessions["HADONG"], email_to_check):
-                raise HTTPException(status_code=400, detail=f"Email '{email_to_check}' is already in use")
+            if admin_in.email and UserRepo.get_by_email(sessions["HADONG"], admin_in.email):
+                raise HTTPException(status_code=400, detail="Email đã tồn tại")
 
-            # 2. Kiểm tra tồn tại ở Local (Bảng hồ sơ)
-            db_local = sessions.get(student_in.MaCoSo)
-            if not db_local:
-                raise HTTPException(status_code=400, detail=f"Invalid MaCoSo: {student_in.MaCoSo}")
-                
-            if StudentRepo.get_by_MaSV(db_local, student_in.MaSV):
-                raise HTTPException(status_code=400, detail="Student ID (MaSV) already exists")
+            admin_id = UserService.generate_id(UserRole.Admin)
+            hashed_password = AuthService.get_password_hash(admin_in.password)
 
-            user_id = str(uuid.uuid4())
-            hashed_password = AuthService.get_password_hash(student_in.MaSV)
-            
-            # 3. Tạo User tại TẤT CẢ các site (Replication)
             db_user_data = {
-                "userId": user_id,
-                "username": student_in.MaSV,
+                "userId": admin_id,
+                "username": admin_in.username,
                 "password": hashed_password,
-                "role": UserRole.SinhVien,
-                "email": email_to_check,
-                "MaCoSo": student_in.MaCoSo,
-                "status": UserStatus.Active
+                "role": UserRole.Admin,
+                "email": admin_in.email,
+                "MaCoSo": "HADONG", # Admin mặc định ở site chính
+                "status": UserStatus.Active,
+                "NgayTao": datetime.now().isoformat(),
             }
-            
-            # Lưu user vào 3 DB
-            for site_name, session in sessions.items():
-                new_user = User(**db_user_data)
-                session.add(new_user)
 
-            # 4. Tạo Hồ sơ tại DB Local duy nhất (Sharding)
-            db_student = Student(
-                MaSV=student_in.MaSV,
-                userId=user_id,
-                Ho=student_in.Ho,
-                Ten=student_in.Ten,
-                NgaySinh=student_in.NgaySinh,
-                GioiTinh=student_in.GioiTinh,
-                SDT=student_in.SDT,
-                DiaChi=student_in.DiaChi,
-                TrangThai=student_in.TrangThai,
-                MaCoSo=student_in.MaCoSo,
-                MaKhoa=student_in.MaKhoa,
-                NgayNhapHoc=date.today()
-            )
-            db_local.add(db_student)
-
-            # 5. Commit tất cả các site
             for session in sessions.values():
+                session.add(User(**db_user_data))
                 session.commit()
-            
-            # Refresh để lấy dữ liệu đã save (từ site local)
-            db_local.refresh(db_student)
-            
-            # Chuyển đổi sang Response Schema ngay khi session còn mở (tránh lazy load error)
-            return StudentResponse.model_validate(db_student)
 
-        except Exception as e:
-            # Rollback tất cả nếu có bất kỳ lỗi nào xảy ra
-            for session in sessions.values():
-                session.rollback()
-            
-            from sqlalchemy.exc import IntegrityError
-            if isinstance(e, IntegrityError):
-                raise HTTPException(status_code=400, detail=f"Database integrity error: {str(e.orig)}")
-            if isinstance(e, HTTPException): raise e
-            raise HTTPException(status_code=500, detail=f"Distributed write failed: {str(e)}")
-        finally:
-            for session in sessions.values():
-                session.close()
-
-    @staticmethod
-    async def create_teacher(teacher_in: TeacherCreate, current_user: User) -> TeacherResponse:
-        if current_user.role != UserRole.Admin:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only Admin can create teachers")
-
-        from configs.db import SessionLocals
-        sessions = {site: session_factory() for site, session_factory in SessionLocals.items()}
-
-        try:
-            # 1. Kiểm tra tồn tại
-            if UserRepo.get_by_username(sessions["HADONG"], teacher_in.MaGV):
-                raise HTTPException(status_code=400, detail=f"Username '{teacher_in.MaGV}' already exists")
-            
-            # Kiểm tra Email duy nhất
-            email_to_check = teacher_in.email
-            if email_to_check and email_to_check.lower() == "string":
-                email_to_check = None
-
-            if email_to_check and UserRepo.get_by_email(sessions["HADONG"], email_to_check):
-                raise HTTPException(status_code=400, detail=f"Email '{email_to_check}' is already in use")
-
-            db_local = sessions.get(teacher_in.MaCoSo)
-            if not db_local:
-                raise HTTPException(status_code=400, detail=f"Invalid MaCoSo: {teacher_in.MaCoSo}")
-
-            if TeacherRepo.get_by_MaGV(db_local, teacher_in.MaGV):
-                raise HTTPException(status_code=400, detail="Teacher ID (MaGV) already exists")
-
-            user_id = str(uuid.uuid4())
-            hashed_password = AuthService.get_password_hash(teacher_in.MaGV)
-            
-            # 3. Tạo User tại TẤT CẢ các site (Replication)
-            db_user_data = {
-                "userId": user_id,
-                "username": teacher_in.MaGV,
-                "password": hashed_password,
-                "role": UserRole.GiangVien,
-                "email": email_to_check,
-                "MaCoSo": teacher_in.MaCoSo,
-                "status": UserStatus.Active
-            }
-            
-            for session in sessions.values():
-                new_user = User(**db_user_data)
-                session.add(new_user)
-
-            # 4. Tạo Hồ sơ tại DB Local (Sharding)
-            db_teacher = Teacher(
-                MaGV=teacher_in.MaGV,
-                userId=user_id,
-                Ho=teacher_in.Ho,
-                Ten=teacher_in.Ten,
-                # email không phải là cột thực tế trong bảng GiangVien
-                NgaySinh=teacher_in.NgaySinh,
-                GioiTinh=teacher_in.GioiTinh,
-                SDT=teacher_in.SDT,
-                DiaChi=teacher_in.DiaChi,
-                HocVi=teacher_in.HocVi,
-                HocHam=teacher_in.HocHam,
-                TrangThai=teacher_in.TrangThai,
-                MaCoSo=teacher_in.MaCoSo,
-                MaKhoa=teacher_in.MaKhoa,
-                NgayVaoLam=date.today()
-            )
-            db_local.add(db_teacher)
-
-            # 5. Commit tất cả
-            for session in sessions.values():
-                session.commit()
-            
-            db_local.refresh(db_teacher)
-            return TeacherResponse.model_validate(db_teacher)
-
+            return {"message": f"Admin created successfully with ID: {admin_id}", "userId": admin_id}
         except Exception as e:
             for session in sessions.values():
                 session.rollback()
-            
-            from sqlalchemy.exc import IntegrityError
-            if isinstance(e, IntegrityError):
-                raise HTTPException(status_code=400, detail=f"Database integrity error: {str(e.orig)}")
-            if isinstance(e, HTTPException): raise e
-            raise HTTPException(status_code=500, detail=f"Distributed write failed: {str(e)}")
+            if isinstance(e, HTTPException):
+                raise e
+            raise HTTPException(status_code=500, detail=str(e))
         finally:
             for session in sessions.values():
                 session.close()
-
-    @staticmethod
-    def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
-        from enums.status import UserStatus
-        if current_user.status != UserStatus.Active:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user")
-        return current_user
 
     @staticmethod
     async def get_user_profile(user: User):
-        """Lấy profile đầy đủ của User từ đúng site mà user trực thuộc"""
+
         db_site = SessionLocals[user.MaCoSo]()
         try:
             if user.role == UserRole.SinhVien:
                 profile = StudentRepo.get_by_userId(db_site, user.userId)
-                if profile: return StudentResponse.model_validate(profile)
+                if profile:
+                    return StudentResponse.model_validate(profile)
             elif user.role == UserRole.GiangVien:
                 profile = TeacherRepo.get_by_userId(db_site, user.userId)
-                if profile: return TeacherResponse.model_validate(profile)
+                if profile:
+                    return TeacherResponse.model_validate(profile)
             return user
         finally:
             db_site.close()
@@ -236,28 +143,28 @@ class UserService:
     @staticmethod
     async def change_password(user: User, request: ChangePasswordRequest):
         sessions = {site: Session() for site, Session in SessionLocals.items()}
-        
+
         try:
             if not AuthService.verify_password(request.old_password, user.password):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Mật khẩu cũ không chính xác"
+                    detail="Mat khau cu khong chinh xac",
                 )
-            
+
             new_hashed_password = AuthService.get_password_hash(request.new_password)
-            
-            # Cập nhật ở tất cả các site
+
             for session in sessions.values():
                 db_user = UserRepo.get_by_id(session, user.userId)
                 if db_user:
                     db_user.password = new_hashed_password
                     session.commit()
-            
+
             return {"message": "Password changed successfully across all sites"}
         except Exception as e:
             for session in sessions.values():
                 session.rollback()
-            if isinstance(e, HTTPException): raise e
+            if isinstance(e, HTTPException):
+                raise e
             raise HTTPException(status_code=500, detail=f"Distributed update failed: {str(e)}")
         finally:
             for session in sessions.values():
