@@ -21,6 +21,7 @@ from schemas.Teacher import (
     TeacherFilter,
 )
 from services.AuthService import AuthService
+from services.FailoverService import FailoverService
 
 
 class TeacherManagementService:
@@ -118,7 +119,8 @@ class TeacherManagementService:
 
         try:
             # Check username on HEAD site
-            if UserRepo.get_by_username(sessions["HADONG"], teacher_in.MaGV):
+            primary_site = FailoverService.get_current_primary_site(auto_failover=True)
+            if UserRepo.get_by_username(sessions[primary_site], teacher_in.MaGV):
                 raise HTTPException(
                     status_code=400,
                     detail=f"Username '{teacher_in.MaGV}' already exists",
@@ -129,7 +131,7 @@ class TeacherManagementService:
                 email_to_check = None
 
             if email_to_check and UserRepo.get_by_email(
-                sessions["HADONG"], email_to_check
+                sessions[primary_site], email_to_check
             ):
                 raise HTTPException(
                     status_code=400, detail=f"Email '{email_to_check}' is already in use"

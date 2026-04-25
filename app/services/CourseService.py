@@ -1,17 +1,18 @@
-from typing import Dict, Tuple
+from typing import Any, Tuple
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from configs.db import SessionLocals
 from enums.user_role import UserRole
+from enums.types import CourseType
 from models.Courses import Course
 from models.Departments import Departments
 from models.Users import User
 from repositories.CourseRepo import CourseRepo
-from enums.types import CourseType
-from enums.status import CourseStatus
 from schemas.Course import CourseCreate, CourseResponse, CourseUpdate
+from services.FailoverService import FailoverService
+from services.ReplicationService import ReplicationService
 
 
 class CourseService:
@@ -33,10 +34,9 @@ class CourseService:
         return course
 
     @staticmethod
-    async def create_course(course_in: CourseCreate, current_user: User) -> CourseResponse:
+    async def create_course(course_in: CourseCreate, current_user: User) -> dict[str, Any]:
         CourseService._ensure_admin(current_user)
-        sessions = CourseService._open_sessions()
-        primary_site, primary_session = CourseService._get_primary_session(sessions)
+        primary_session = CourseService._open_primary_session()
 
         try:
             course_code = course_in.MaHocPhan.upper()
@@ -56,48 +56,47 @@ class CourseService:
 
             CourseService._ensure_department_exists(primary_session, department_code)
 
-            representative = None
-            for site_name, session in sessions.items():
-                course = Course(
-                    MaHocPhan=course_code,
-                    TenHocPhan=course_in.TenHocPhan,
-                    SoTinChi=course_in.SoTinChi,
-                    SoTietLyThuyet=course_in.SoTietLyThuyet,
-                    SoTietThucHanh=course_in.SoTietThucHanh,
-                    LoaiHocPhan=course_in.LoaiHocPhan,
-                    MaKhoa=department_code,
-                    MoTa=course_in.MoTa,
-                    TrangThai=course_in.TrangThai,
-                )
-                session.add(course)
-                if site_name == primary_site:
-                    representative = course
+            course = Course(
+                MaHocPhan=course_code,
+                TenHocPhan=course_in.TenHocPhan,
+                SoTinChi=course_in.SoTinChi,
+                SoTietLyThuyet=course_in.SoTietLyThuyet,
+                SoTietThucHanh=course_in.SoTietThucHanh,
+                LoaiHocPhan=course_in.LoaiHocPhan,
+                MaKhoa=department_code,
+                MoTa=course_in.MoTa,
+                TrangThai=course_in.TrangThai,
+            )
+            primary_session.add(course)
+            primary_session.flush()
+            events = ReplicationService.stage_course_upsert(primary_session, course)
+            primary_session.commit()
+            primary_session.refresh(course)
 
-            for session in sessions.values():
-                session.commit()
-
-            if representative is None:
-                raise HTTPException(status_code=500, detail="Distributed write failed")
-
-            primary_session.refresh(representative)
-            return CourseResponse.model_validate(representative)
+            replication = CourseService._dispatch_replication(events)
+            return {
+                "course": CourseResponse.model_validate(course).model_dump(),
+                "replication": replication,
+            }
         except Exception as e:
-            for session in sessions.values():
-                session.rollback()
+            primary_session.rollback()
             if isinstance(e, HTTPException):
                 raise e
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Distributed write failed: {str(e)}",
+                detail=f"Primary write failed: {str(e)}",
             )
         finally:
-            CourseService._close_sessions(sessions)
+            primary_session.close()
 
     @staticmethod
-    async def update_course(ma_hoc_phan: str, course_in: CourseUpdate, current_user: User) -> CourseResponse:
+    async def update_course(
+        ma_hoc_phan: str,
+        course_in: CourseUpdate,
+        current_user: User,
+    ) -> dict[str, Any]:
         CourseService._ensure_admin(current_user)
-        sessions = CourseService._open_sessions()
-        primary_site, primary_session = CourseService._get_primary_session(sessions)
+        primary_session = CourseService._open_primary_session()
 
         try:
             course_code = ma_hoc_phan.upper()
@@ -120,41 +119,34 @@ class CourseService:
                 loai_hoc_phan=update_data.get("LoaiHocPhan", existing.LoaiHocPhan),
             )
 
-            representative = None
-            for site_name, session in sessions.items():
-                course = CourseRepo.get_by_id(session, course_code)
-                if not course:
-                    continue
-                for field, value in update_data.items():
-                    setattr(course, field, value)
-                if site_name == primary_site:
-                    representative = course
+            for field, value in update_data.items():
+                setattr(existing, field, value)
 
-            for session in sessions.values():
-                session.commit()
+            primary_session.flush()
+            events = ReplicationService.stage_course_upsert(primary_session, existing)
+            primary_session.commit()
+            primary_session.refresh(existing)
 
-            if representative is None:
-                raise HTTPException(status_code=500, detail="Distributed update failed")
-
-            primary_session.refresh(representative)
-            return CourseResponse.model_validate(representative)
+            replication = CourseService._dispatch_replication(events)
+            return {
+                "course": CourseResponse.model_validate(existing).model_dump(),
+                "replication": replication,
+            }
         except Exception as e:
-            for session in sessions.values():
-                session.rollback()
+            primary_session.rollback()
             if isinstance(e, HTTPException):
                 raise e
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Distributed update failed: {str(e)}",
+                detail=f"Primary update failed: {str(e)}",
             )
         finally:
-            CourseService._close_sessions(sessions)
+            primary_session.close()
 
     @staticmethod
-    async def delete_course(ma_hoc_phan: str, current_user: User) -> None:
+    async def delete_course(ma_hoc_phan: str, current_user: User) -> dict[str, Any]:
         CourseService._ensure_admin(current_user)
-        sessions = CourseService._open_sessions()
-        _, primary_session = CourseService._get_primary_session(sessions)
+        primary_session = CourseService._open_primary_session()
 
         try:
             course_code = ma_hoc_phan.upper()
@@ -165,24 +157,56 @@ class CourseService:
                     detail=f"Khong tim thay hoc phan voi ma: {course_code}",
                 )
 
-            for session in sessions.values():
-                course = CourseRepo.get_by_id(session, course_code)
-                if course:
-                    session.delete(course)
+            events = ReplicationService.stage_course_delete(primary_session, course_code)
+            primary_session.delete(existing)
+            primary_session.commit()
 
-            for session in sessions.values():
-                session.commit()
+            replication = CourseService._dispatch_replication(events)
+            return {
+                "course_code": course_code,
+                "replication": replication,
+            }
         except Exception as e:
-            for session in sessions.values():
-                session.rollback()
+            primary_session.rollback()
             if isinstance(e, HTTPException):
                 raise e
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Distributed delete failed: {str(e)}",
+                detail=f"Primary delete failed: {str(e)}",
             )
         finally:
-            CourseService._close_sessions(sessions)
+            primary_session.close()
+
+    @staticmethod
+    def get_replication_status() -> dict[str, Any]:
+        ReplicationService.refresh_site_statuses()
+        return ReplicationService.get_replication_status()
+
+    @staticmethod
+    def run_replication_recovery(target_site: str | None = None) -> dict[str, Any]:
+        if target_site:
+            ReplicationService.refresh_site_statuses()
+        return ReplicationService.dispatch_outbox_events(target_site=target_site)
+
+    @staticmethod
+    def _dispatch_replication(events: list[Any]) -> dict[str, Any]:
+        event_ids = [event.EventId for event in events]
+        try:
+            return ReplicationService.dispatch_outbox_events(event_ids=event_ids)
+        except Exception as exc:
+            return {
+                "primary_site": FailoverService.get_current_primary_site(auto_failover=False),
+                "attempted": len(event_ids),
+                "delivered": 0,
+                "pending": len(event_ids),
+                "failed": 0,
+                "events": [],
+                "error": str(exc),
+            }
+
+    @staticmethod
+    def _open_primary_session() -> Session:
+        return FailoverService.open_primary_session(auto_failover=True)
 
     @staticmethod
     def _ensure_admin(current_user: User) -> None:
@@ -223,22 +247,3 @@ class CourseService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"LoaiHocPhan khong hop le. Phai la {[e.value for e in CourseType]}",
             )
-
-    @staticmethod
-    def _open_sessions() -> Dict[str, Session]:
-        return {site: session_factory() for site, session_factory in SessionLocals.items()}
-
-    @staticmethod
-    def _get_primary_session(sessions: Dict[str, Session]) -> tuple[str, Session]:
-        primary_site, primary_session = next(iter(sessions.items()), (None, None))
-        if primary_site is None or primary_session is None:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Khong mo duoc ket noi den bat ky site nao",
-            )
-        return primary_site, primary_session
-
-    @staticmethod
-    def _close_sessions(sessions: Dict[str, Session]) -> None:
-        for session in sessions.values():
-            session.close()

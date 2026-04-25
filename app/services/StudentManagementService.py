@@ -21,6 +21,7 @@ from schemas.Student import (
     StudentFilter,
 )
 from services.AuthService import AuthService
+from services.FailoverService import FailoverService
 
 
 class StudentManagementService:
@@ -107,7 +108,8 @@ class StudentManagementService:
         }
 
         try:
-            if UserRepo.get_by_username(sessions["HADONG"], student_in.MaSV):
+            primary_site = FailoverService.get_current_primary_site(auto_failover=True)
+            if UserRepo.get_by_username(sessions[primary_site], student_in.MaSV):
                 raise HTTPException(
                     status_code=400, detail=f"Username '{student_in.MaSV}' already exists"
                 )
@@ -116,7 +118,7 @@ class StudentManagementService:
             if email_to_check and email_to_check.lower() == "string":
                 email_to_check = None
 
-            if email_to_check and UserRepo.get_by_email(sessions["HADONG"], email_to_check):
+            if email_to_check and UserRepo.get_by_email(sessions[primary_site], email_to_check):
                 raise HTTPException(
                     status_code=400, detail=f"Email '{email_to_check}' is already in use"
                 )
