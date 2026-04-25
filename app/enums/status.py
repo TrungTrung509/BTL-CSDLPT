@@ -55,3 +55,11 @@ class LogStatus(str, Enum):
     SUCCESS = "SUCCESS"
     FAILED = "FAILED"
     PENDING = "PENDING"
+
+
+class EnrollmentTransactionState(str, Enum):
+    INIT = "INIT"
+    PREPARED = "PREPARED"
+    PRECOMMIT = "PRECOMMIT"
+    COMMITTED = "COMMITTED"
+    ABORTED = "ABORTED"

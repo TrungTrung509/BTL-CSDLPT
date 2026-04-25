@@ -377,6 +377,10 @@ class ReplicationService:
                 )
             )
 
+        # SessionLocals use autoflush=False, so flush pending SiteStatus rows
+        # before any later query/update tries to read them again.
+        primary_db.flush()
+
     @staticmethod
     def _update_site_row(
         primary_db: Session,
