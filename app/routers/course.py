@@ -15,6 +15,45 @@ router = APIRouter(
 )
 
 
+@router.get("/replication/status")
+async def get_course_replication_status(
+    current_user: User = Depends(require_roles(UserRole.Admin)),
+):
+    try:
+        status_data = CourseService.get_replication_status()
+        return success_response(
+            data=status_data,
+            message="Lay trang thai replication hoc phan thanh cong",
+            status=200,
+        )
+    except HTTPException as e:
+        return error_response(
+            message=e.detail,
+            status=e.status_code,
+            error_code="REPLICATION_STATUS_FAILED",
+        )
+
+
+@router.post("/replication/recover")
+async def recover_course_replication(
+    target_site: str | None = None,
+    current_user: User = Depends(require_roles(UserRole.Admin)),
+):
+    try:
+        result = CourseService.run_replication_recovery(target_site)
+        return success_response(
+            data=result,
+            message="Da kich hoat recovery replication hoc phan",
+            status=200,
+        )
+    except HTTPException as e:
+        return error_response(
+            message=e.detail,
+            status=e.status_code,
+            error_code="REPLICATION_RECOVERY_FAILED",
+        )
+
+
 @router.get("/")
 async def get_all_courses(
     db: Session = Depends(get_db),
@@ -65,10 +104,10 @@ async def create_course(
     current_user: User = Depends(require_roles(UserRole.Admin)),
 ):
     try:
-        course = await CourseService.create_course(course_in, current_user)
+        result = await CourseService.create_course(course_in, current_user)
         return success_response(
-            data=course.model_dump(),
-            message=f"Tao hoc phan '{course.MaHocPhan}' thanh cong",
+            data=result,
+            message=f"Tao hoc phan '{result['course']['MaHocPhan']}' thanh cong",
             status=201,
         )
     except HTTPException as e:
@@ -86,10 +125,10 @@ async def update_course(
     current_user: User = Depends(require_roles(UserRole.Admin)),
 ):
     try:
-        course = await CourseService.update_course(ma_hoc_phan, course_in, current_user)
+        result = await CourseService.update_course(ma_hoc_phan, course_in, current_user)
         return success_response(
-            data=course.model_dump(),
-            message=f"Cap nhat hoc phan '{course.MaHocPhan}' thanh cong",
+            data=result,
+            message=f"Cap nhat hoc phan '{result['course']['MaHocPhan']}' thanh cong",
             status=200,
         )
     except HTTPException as e:
@@ -106,9 +145,9 @@ async def delete_course(
     current_user: User = Depends(require_roles(UserRole.Admin)),
 ):
     try:
-        await CourseService.delete_course(ma_hoc_phan, current_user)
+        result = await CourseService.delete_course(ma_hoc_phan, current_user)
         return success_response(
-            data=None,
+            data=result,
             message=f"Xoa hoc phan '{ma_hoc_phan.upper()}' thanh cong",
             status=200,
         )

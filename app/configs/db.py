@@ -5,11 +5,26 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from configs.config import HADONG_URL, HOALAC_URL, NGOCTRUC_URL
 
+ENGINE_KWARGS = {
+    "pool_pre_ping": True,
+}
+
+POSTGRES_CONNECT_ARGS = {
+    "connect_timeout": 3,
+}
+
+
+def _create_site_engine(db_url: str):
+    if db_url.startswith("postgresql"):
+        return create_engine(db_url, connect_args=POSTGRES_CONNECT_ARGS, **ENGINE_KWARGS)
+    return create_engine(db_url, **ENGINE_KWARGS)
+
+
 # MAPPING ENGINES
 engines = {
-    "HADONG": create_engine(HADONG_URL),
-    "HOALAC": create_engine(HOALAC_URL),
-    "NGOCTRUC": create_engine(NGOCTRUC_URL),
+    "HADONG": _create_site_engine(HADONG_URL),
+    "HOALAC": _create_site_engine(HOALAC_URL),
+    "NGOCTRUC": _create_site_engine(NGOCTRUC_URL),
 }
 
 # MAPPING SESSION MAKERS
@@ -34,7 +49,9 @@ def open_db_by_branch(branch_id: str) -> Session:
 
 
 def get_db():
-    db = SessionLocals["HADONG"]()
+    from services.FailoverService import FailoverService
+
+    db = FailoverService.open_read_session(auto_failover=True)
     try:
         yield db
     finally:

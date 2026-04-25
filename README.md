@@ -12,6 +12,10 @@ Repo nay hien tai chay tot phan:
 - Schema SQL
 - Seed du lieu mau
 
+Tai lieu nghiep vu:
+
+- Xem them tai `README_NGHIEP_VU.md`
+
 Repo nay chua co backend/API hoan chinh trong `app/`, vi cac file Python chinh van dang rong. Nghia la ban co the dung va demo phan CSDL, nhung chua co web/API de chay.
 
 ## 1. Cau truc thu muc

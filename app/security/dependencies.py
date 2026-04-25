@@ -7,6 +7,7 @@ from enums.user_role import UserRole
 from models.Users import User
 from repositories.UserRepo import UserRepo
 from services.AuthService import AuthService
+from services.FailoverService import FailoverService
 
 
 def _role_to_string(role: UserRole | str) -> str:
@@ -16,23 +17,33 @@ def _role_to_string(role: UserRole | str) -> str:
 def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     token_data = AuthService.verify_token(token)
     site = (token_data.branch_id or "HADONG").upper()
-    
-    if site not in SessionLocals:
-        site = "HADONG"
-        
-    db = SessionLocals[site]()
 
-    try:
-        user = UserRepo.get_by_username(db, token_data.username)
-        if user is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        return user
-    finally:
-        db.close()
+    candidate_sites = []
+    if site in SessionLocals:
+        candidate_sites.append(site)
+    current_primary = FailoverService.get_current_primary_site(auto_failover=True)
+    if current_primary not in candidate_sites:
+        candidate_sites.append(current_primary)
+    for candidate in SessionLocals:
+        if candidate not in candidate_sites:
+            candidate_sites.append(candidate)
+
+    for candidate in candidate_sites:
+        if not FailoverService.is_site_alive(candidate):
+            continue
+        db = SessionLocals[candidate]()
+        try:
+            user = UserRepo.get_by_username(db, token_data.username)
+            if user is not None:
+                return user
+        finally:
+            db.close()
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="User not found",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
 
 def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:

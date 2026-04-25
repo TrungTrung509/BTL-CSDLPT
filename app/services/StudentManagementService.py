@@ -121,7 +121,7 @@ class StudentManagementService:
             if email_to_check and email_to_check.lower() == "string":
                 email_to_check = None
 
-            if email_to_check and UserRepo.get_by_email(sessions["HADONG"], email_to_check):
+            if email_to_check and UserRepo.get_by_email(sessions[primary_site], email_to_check):
                 raise HTTPException(
                     status_code=400, detail=f"Email '{email_to_check}' đã được sử dụng"
                 )
