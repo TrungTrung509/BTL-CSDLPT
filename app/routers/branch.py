@@ -7,7 +7,7 @@ from schemas.Branch import BranchCreate, BranchUpdate
 from schemas.api_response import success_response, error_response
 from services.BranchService import BranchService
 from models.Users import User
-from security import get_current_user, require_roles
+from security import get_current_user, get_current_user_db, require_roles
 
 router = APIRouter(
     prefix="/branches",
@@ -17,7 +17,7 @@ router = APIRouter(
 
 @router.get("/")
 async def get_all_branches(
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_current_user_db),
     current_user: User = Depends(get_current_user)
 ):
     """Lấy danh sách tất cả cơ sở (Branch - tên cũ)"""
@@ -39,7 +39,7 @@ async def get_all_branches(
 @router.get("/{branch_id}")
 async def get_branch(
     branch_id: str,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_current_user_db),
     current_user: User = Depends(get_current_user)
 ):
     """Lấy thông tin cơ sở theo ID"""
