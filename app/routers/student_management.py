@@ -2,7 +2,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 
-from configs.db import open_db_by_branch, get_db
+from configs.db import open_db_by_branch
 from models.Users import User
 from schemas.Student import (
     StudentCreate,
@@ -12,7 +12,7 @@ from schemas.Student import (
     StudentUpdate,
 )
 from schemas.api_response import error_response, success_response
-from security import get_current_user, get_current_active_user
+from security import get_current_user, get_current_active_user, get_current_user_db
 from sqlalchemy.orm import Session
 from services.StudentManagementService import StudentManagementService
 
@@ -30,7 +30,7 @@ async def get_all_students(
     keyword: Optional[str] = Query(None, description="Tim kiem theo ma, ho ten"),
     skip: int = Query(0, ge=0, description="So ban ghi bo qua"),
     limit: int = Query(20, ge=1, le=100, description="So ban ghi lay"),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_current_user_db),
     current_user: User = Depends(get_current_user),
 ):
     try:

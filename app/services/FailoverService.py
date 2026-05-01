@@ -46,26 +46,38 @@ class FailoverService:
         return SessionLocals[primary_site]()
 
     @staticmethod
-    def open_read_session(
+    def resolve_read_site(
         preferred_site: Optional[str] = None,
         *,
         auto_failover: bool = True,
-    ) -> Session:
+    ) -> str:
         site = FailoverService._normalize_site(preferred_site)
         if site and FailoverService.is_site_alive(site):
-            return SessionLocals[site]()
+            return site
 
         primary_site = FailoverService.get_current_primary_site(auto_failover=auto_failover)
         if FailoverService.is_site_alive(primary_site):
-            return SessionLocals[primary_site]()
+            return primary_site
 
         for candidate in FailoverService.get_alive_sites():
-            return SessionLocals[candidate]()
+            return candidate
 
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Khong con site nao kha dung",
         )
+
+    @staticmethod
+    def open_read_session(
+        preferred_site: Optional[str] = None,
+        *,
+        auto_failover: bool = True,
+    ) -> Session:
+        resolved_site = FailoverService.resolve_read_site(
+            preferred_site=preferred_site,
+            auto_failover=auto_failover,
+        )
+        return SessionLocals[resolved_site]()
 
     @staticmethod
     def get_alive_sites(exclude_site: Optional[str] = None) -> list[str]:

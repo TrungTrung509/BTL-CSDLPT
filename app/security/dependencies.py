@@ -55,6 +55,17 @@ def get_current_active_user(current_user: User = Depends(get_current_user)) -> U
     return current_user
 
 
+def get_current_user_db(current_user: User = Depends(get_current_active_user)):
+    db = FailoverService.open_read_session(
+        preferred_site=current_user.MaCoSo,
+        auto_failover=True,
+    )
+    try:
+        yield db
+    finally:
+        db.close()
+
+
 def require_roles(*roles: UserRole):
     allowed_roles = {_role_to_string(role) for role in roles}
 
