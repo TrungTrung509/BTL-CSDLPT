@@ -1,12 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 from sqlalchemy.orm import Session
 
-from configs.db import get_db
 from enums.user_role import UserRole
 from models.Users import User
 from schemas.Semester import SemesterCreate, SemesterUpdate
 from schemas.api_response import error_response, success_response
-from security import get_current_active_user, require_roles
+from security import get_current_active_user, get_current_user_db, require_roles
 from services.SemesterService import SemesterService
 
 router = APIRouter(
@@ -17,7 +16,7 @@ router = APIRouter(
 
 @router.get("/")
 async def get_all_semesters(
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_current_user_db),
     current_user: User = Depends(get_current_active_user),
 ):
     try:
@@ -38,7 +37,7 @@ async def get_all_semesters(
 @router.get("/{ma_hoc_ky}")
 async def get_semester(
     ma_hoc_ky: str = Path(..., description="Ma hoc ky"),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_current_user_db),
     current_user: User = Depends(get_current_active_user),
 ):
     try:
