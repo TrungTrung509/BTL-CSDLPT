@@ -35,7 +35,7 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('LogId')
     )
     op.create_index(op.f('ix_DangKy_Log_LogId'), 'DangKy_Log', ['LogId'], unique=False)
-    op.drop_table('DieuKienTienQuyet')
+    op.execute('DROP TABLE IF EXISTS "DieuKienTienQuyet"')
     op.add_column('DangKy', sa.Column('userId', sa.String(), nullable=False))
     op.alter_column('DangKy', 'MaSV',
                existing_type=sa.VARCHAR(),

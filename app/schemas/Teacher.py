@@ -48,6 +48,7 @@ class TeacherUpdate(BaseModel):
     MaKhoa: Optional[str] = None
     TrangThai: Optional[TeacherStatus] = None
     NgayVaoLam: Optional[date] = None
+    MaCoSo: Optional[str] = Field(None, max_length=50, description="Mã cơ sở (để xác định DB site khi update)")
 
 class TeacherStatusUpdate(BaseModel):
     """Request body cập nhật trạng thái giảng viên"""

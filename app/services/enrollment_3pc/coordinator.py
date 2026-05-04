@@ -6,6 +6,7 @@ from fastapi import HTTPException, status
 from configs.db import SessionLocals
 from enums.status import EnrollmentAction, EnrollmentTransactionState, LogStatus
 from models.CourseSections import CourseSection
+from models.Students import Student
 from repositories.EnrollmentLogRepo import EnrollmentLogRepo
 from repositories.EnrollmentTransactionRepo import EnrollmentTransactionRepo
 from schemas.Enrollment import EnrollmentCreate, RegistrationResult
@@ -63,8 +64,14 @@ class Enrollment3PCCoordinator:
                     action=EnrollmentAction.REGISTER.value,
                 )
 
+            # Get MaSV from student table
+            home_session = sessions.get(site_home)
+            student = home_session.query(Student).filter(Student.userId == user.userId).first() if home_session else None
+            ma_sv = student.MaSV if student else None
+
             ctx = Enrollment3PCCoordinator._build_register_context(
                 user_id=user.userId,
+                ma_sv=ma_sv,
                 ghi_chu=enroll_in.GhiChu,
                 site_home=site_home,
                 site_new=site_new,
@@ -442,6 +449,7 @@ class Enrollment3PCCoordinator:
     def _build_register_context(
         *,
         user_id: str,
+        ma_sv: str | None,
         ghi_chu: str | None,
         site_home: str,
         site_new: str,
@@ -455,6 +463,7 @@ class Enrollment3PCCoordinator:
             coordinator_site=site_home,
             action=EnrollmentAction.SWITCH if existing_enrollment else EnrollmentAction.REGISTER,
             user_id=user_id,
+            ma_sv=ma_sv,
             site_home=site_home,
             site_new=site_new,
             site_old=site_old,

@@ -4,6 +4,14 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 
 
+CORS_HEADERS = {
+    "Access-Control-Allow-Origin": "http://localhost:3000",
+    "Access-Control-Allow-Credentials": "true",
+    "Access-Control-Allow-Methods": "*",
+    "Access-Control-Allow-Headers": "*",
+}
+
+
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     errors = exc.errors()
     first_error = errors[0] if errors else {"msg": "Validation error"}
@@ -23,6 +31,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             "data": None,
             "errorr": safe_errors,
         },
+        headers=CORS_HEADERS,
     )
 
 
@@ -39,6 +48,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
                 "details": exc.detail,
             },
         },
+        headers=CORS_HEADERS,
     )
 
 
@@ -55,6 +65,7 @@ async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError):
                 "details": str(exc.__class__.__name__),
             },
         },
+        headers=CORS_HEADERS,
     )
 
 
@@ -71,6 +82,7 @@ async def general_exception_handler(request: Request, exc: Exception):
                 "details": str(exc.__class__.__name__),
             },
         },
+        headers=CORS_HEADERS,
     )
 
 

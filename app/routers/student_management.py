@@ -30,9 +30,9 @@ async def get_all_students(
     keyword: Optional[str] = Query(None, description="Tim kiem theo ma, ho ten"),
     skip: int = Query(0, ge=0, description="So ban ghi bo qua"),
     limit: int = Query(20, ge=1, le=100, description="So ban ghi lay"),
-    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    db = open_db_by_branch(maCoSo or current_user.MaCoSo)
     try:
         filters = StudentFilter(
             MaCoSo=maCoSo,

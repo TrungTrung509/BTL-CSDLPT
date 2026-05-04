@@ -1,8 +1,8 @@
 {
   "current_primary_site": "HADONG",
-  "previous_primary_site": "NGOCTRUC",
-  "last_failover_mode": "auto",
-  "last_failover_reason": "Primary site 'NGOCTRUC' is unavailable",
-  "last_failover_at": "2026-04-25T19:05:04.386812",
+  "previous_primary_site": null,
+  "last_failover_mode": "default",
+  "last_failover_reason": null,
+  "last_failover_at": null,
   "auto_failover_enabled": true
 }

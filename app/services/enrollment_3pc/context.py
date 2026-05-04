@@ -9,15 +9,16 @@ class Enrollment3PCContext:
     coordinator_site: str
     action: EnrollmentAction
     user_id: str
-    site_home: str
-    site_new: str
-    site_old: str | None
-    target_ma_lop_hp: str
-    target_ma_hp: str
-    target_ma_hoc_ky: str
-    old_ma_lop_hp: str | None
-    ghi_chu: str | None
-    lock_sites: list[str]
+    ma_sv: str | None = None  # MaSV of the student for enrollment records
+    site_home: str = ""
+    site_new: str = ""
+    site_old: str | None = None
+    target_ma_lop_hp: str = ""
+    target_ma_hp: str = ""
+    target_ma_hoc_ky: str = ""
+    old_ma_lop_hp: str | None = None
+    ghi_chu: str | None = None
+    lock_sites: list[str] = None
 
     @property
     def participant_sites(self) -> list[str]:
@@ -41,6 +42,7 @@ class Enrollment3PCContext:
             "coordinator_site": self.coordinator_site,
             "action": self.action.value,
             "user_id": self.user_id,
+            "ma_sv": self.ma_sv,
             "site_home": self.site_home,
             "site_new": self.site_new,
             "site_old": self.site_old,
@@ -59,6 +61,7 @@ class Enrollment3PCContext:
             coordinator_site=payload["coordinator_site"],
             action=EnrollmentAction(payload["action"]),
             user_id=payload["user_id"],
+            ma_sv=payload.get("ma_sv"),
             site_home=payload["site_home"],
             site_new=payload["site_new"],
             site_old=payload.get("site_old"),
