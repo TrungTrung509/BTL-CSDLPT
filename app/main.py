@@ -26,6 +26,7 @@ from services.ReplicationService import ReplicationService
 REPLICATION_RECOVERY_INTERVAL_SECONDS = 10
 ENROLLMENT_3PC_RECOVERY_INTERVAL_SECONDS = 10
 
+from fastapi.middleware.cors import CORSMiddleware
 for branch_id, engine in engines.items():
     print(f"Initializing database for site: {branch_id}")
     Base.metadata.create_all(bind=engine)
@@ -102,6 +103,16 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 register_exception_handlers(app)
 
 

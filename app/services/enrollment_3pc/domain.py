@@ -142,6 +142,7 @@ class Enrollment3PCDomain:
                     ctx.target_ma_lop_hp,
                     ctx.target_ma_hp,
                     ctx.target_ma_hoc_ky,
+                    ctx.ma_sv,
                     ctx.ghi_chu,
                 )
                 affected_sections.add(ctx.target_ma_lop_hp)
@@ -301,6 +302,7 @@ class Enrollment3PCDomain:
         ma_lop_hp: str,
         ma_hp: str,
         ma_hoc_ky: str,
+        ma_sv: str | None,
         ghi_chu: str | None,
     ) -> int | None:
         enrollment = session.query(Enrollment).filter(
@@ -310,6 +312,7 @@ class Enrollment3PCDomain:
         if enrollment is None:
             enrollment = Enrollment(
                 userId=user_id,
+                MaSV=ma_sv,
                 MaLopHP=ma_lop_hp,
                 MaHP=ma_hp,
                 MaHocKy=ma_hoc_ky,

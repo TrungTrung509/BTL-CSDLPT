@@ -32,7 +32,7 @@ async def get_all_teachers(
     current_user: User = Depends(get_current_user),
 ):
     """Lấy danh sách giảng viên với các filter."""
-    db = open_db_by_branch(current_user.MaCoSo)
+    db = open_db_by_branch(maCoSo or current_user.MaCoSo)
     try:
         filters = TeacherFilter(
             MaCoSo=maCoSo,
@@ -112,7 +112,7 @@ async def update_teacher(
     current_user: User = Depends(get_current_active_user),
 ):
     """Cập nhật thông tin giảng viên (Admin only)"""
-    db = open_db_by_branch(current_user.MaCoSo)
+    db = open_db_by_branch(teacher_in.MaCoSo or current_user.MaCoSo)
     try:
         teacher = TeacherManagementService.update_teacher(
             db, ma_gv, teacher_in, current_user

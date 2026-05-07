@@ -119,8 +119,9 @@ CREATE INDEX IF NOT EXISTS idx_lichhoc_phong_thu_tiet ON "LichHoc"("MaPhong", "T
 CREATE INDEX IF NOT EXISTS idx_lichhoc_ngay ON "LichHoc"("NgayBatDau", "NgayKetThuc");
 
 -- ---- DangKy ----
--- Index theo sinh viên (tra cứu đăng ký của SV)
-CREATE INDEX IF NOT EXISTS idx_dangky_masv ON "DangKy"("MaSV");
+-- Index theo userId (tra cứu đăng ký của user - khớp với Enrollment.userId FK)
+-- MaSV là nullable, chỉ dùng để in ấn. Query chính dùng userId.
+CREATE INDEX IF NOT EXISTS idx_dangky_userid ON "DangKy"("userId");
 
 -- Index theo lớp học phần (tra cứu SV đăng ký lớp)
 CREATE INDEX IF NOT EXISTS idx_dangky_malophp ON "DangKy"("MaLopHP");
@@ -128,8 +129,8 @@ CREATE INDEX IF NOT EXISTS idx_dangky_malophp ON "DangKy"("MaLopHP");
 -- Index theo trạng thái (lọc đăng ký đang hiệu lực)
 CREATE INDEX IF NOT EXISTS idx_dangky_trangthai ON "DangKy"("TrangThaiDangKy");
 
--- Index tổ hợp: SV + Lớp HP (kiểm tra trùng đăng ký - UNIQUE)
-CREATE INDEX IF NOT EXISTS idx_dangky_sv_lhp ON "DangKy"("MaSV", "MaLopHP");
+-- Index tổ hợp: userId + MaHP + MaHocKy (khớp với UniqueConstraint trong Enrollment model)
+CREATE INDEX IF NOT EXISTS idx_dangky_userid_hp_hk ON "DangKy"("userId", "MaHP", "MaHocKy");
 
 -- Index để đếm sĩ số nhanh
 CREATE INDEX IF NOT EXISTS idx_dangky_demsiso ON "DangKy"("MaLopHP") WHERE "TrangThaiDangKy" = 'DaDangKy';

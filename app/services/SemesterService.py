@@ -46,42 +46,35 @@ class SemesterService:
                 trang_thai=semester_in.TrangThaiHocKy,
             )
 
+            # Chỉ check ở publisher
             if SemesterRepo.get_by_id(primary_session, semester_code):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Ma hoc ky '{semester_code}' da ton tai",
                 )
 
-            representative = None
-            for site_name, session in sessions.items():
-                semester = Semester(
-                    MaHocKy=semester_code,
-                    NamHoc=semester_in.NamHoc,
-                    KySo=semester_in.KySo,
-                    NgayBatDau=semester_in.NgayBatDau,
-                    NgayKetThuc=semester_in.NgayKetThuc,
-                    TrangThaiHocKy=semester_in.TrangThaiHocKy,
-                )
-                session.add(semester)
-                if site_name == primary_site:
-                    representative = semester
+            semester = Semester(
+                MaHocKy=semester_code,
+                NamHoc=semester_in.NamHoc,
+                KySo=semester_in.KySo,
+                NgayBatDau=semester_in.NgayBatDau,
+                NgayKetThuc=semester_in.NgayKetThuc,
+                TrangThaiHocKy=semester_in.TrangThaiHocKy,
+            )
 
-            for session in sessions.values():
-                session.commit()
+            # Chỉ ghi vào publisher
+            primary_session.add(semester)
+            primary_session.commit()
+            primary_session.refresh(semester)
 
-            if representative is None:
-                raise HTTPException(status_code=500, detail="Distributed write failed")
-
-            primary_session.refresh(representative)
-            return SemesterResponse.model_validate(representative)
+            return SemesterResponse.model_validate(semester)
         except Exception as e:
-            for session in sessions.values():
-                session.rollback()
+            primary_session.rollback()
             if isinstance(e, HTTPException):
                 raise e
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Distributed write failed: {str(e)}",
+                detail=f"Create semester failed at publisher {primary_site}: {str(e)}",
             )
         finally:
             SemesterService._close_sessions(sessions)
