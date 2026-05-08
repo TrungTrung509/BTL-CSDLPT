@@ -6,6 +6,14 @@ from fastapi.encoders import jsonable_encoder
 T = TypeVar("T")
 
 
+CORS_HEADERS = {
+    "Access-Control-Allow-Origin": "http://localhost:3000",
+    "Access-Control-Allow-Credentials": "true",
+    "Access-Control-Allow-Methods": "*",
+    "Access-Control-Allow-Headers": "*",
+}
+
+
 class APIResponse(BaseModel, Generic[T]):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -31,7 +39,8 @@ def success_response(data: Any = None, message: str = "Success", status: int = 2
             "message": message,
             "data": data,
             "errorr": None
-        })
+        }),
+        headers=CORS_HEADERS,
     )
 
 
@@ -57,7 +66,8 @@ def error_response(
             "message": message,
             "data": data,
             "errorr": error_data
-        })
+        }),
+        headers=CORS_HEADERS,
     )
 
 

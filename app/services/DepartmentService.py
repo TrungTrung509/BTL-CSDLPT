@@ -31,3 +31,21 @@ class DepartmentService:
             TrangThai=dept_in.TrangThai
         )
         return DepartmentRepo.create(db, db_dept)
+    @staticmethod
+    async def get_all_departments(db: Session):
+        return db.query(Departments).all()
+    @staticmethod
+    async def get_department_by_id(db: Session, MaKhoa: str):
+        return db.query(Departments).filter(Departments.MaKhoa == MaKhoa).first()
+    @staticmethod
+    async def update_department(db: Session, MaKhoa: str, dept_in: DepartmentCreate):
+        db_dept = db.query(Departments).filter(Departments.MaKhoa == MaKhoa).first()
+        if not db_dept:
+            raise HTTPException(status_code=404, detail="Department not found")
+        db_dept.TenKhoa = dept_in.TenKhoa
+        db_dept.MoTa = dept_in.MoTa
+        db_dept.NgayThanhLap = dept_in.NgayThanhLap
+        db_dept.TrangThai = dept_in.TrangThai
+        db.commit()
+        db.refresh(db_dept)
+        return db_dept

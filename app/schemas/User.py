@@ -1,5 +1,5 @@
 from enums.status import UserStatus
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from typing import Optional
 from enums.user_role import UserRole
 
@@ -15,8 +15,11 @@ class UserResponse(UserBase):
     userId: str
     model_config = ConfigDict(from_attributes=True)
 
-class UserCreate(UserBase):
-    password: str
+class UserCreate(BaseModel):
+    username: str = Field(..., min_length=3, max_length=50)
+    email: str = Field(..., max_length=255)
+    password: str = Field(..., min_length=6, max_length=255)
+    status: UserStatus = UserStatus.Active
 
 class UserSelfUpdate(BaseModel):
     """Người dùng tự cập nhật thông tin cá nhân"""

@@ -21,8 +21,9 @@ from repositories.EnrollmentRepo import EnrollmentRepo
 from repositories.ClassSectionRepo import ClassSectionRepo
 from configs.db import open_db_by_branch, get_log_session
 from schemas.Enrollment import (
-    EnrollmentCreate,
     EligibilityResponse,
+    EnrollmentCreate,
+    EnrollmentHistoryResponse,
     RegistrationResult,
     EnrollmentHistoryResponse,
 )

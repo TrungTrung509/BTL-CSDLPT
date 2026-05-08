@@ -37,7 +37,6 @@ class TeacherManagementService:
     ) -> Tuple[List[Teacher], int]:
         """Lấy danh sách giảng viên với filter."""
         query = db.query(Teacher)
-
         if filters:
             if filters.MaCoSo:
                 query = query.filter(Teacher.MaCoSo == filters.MaCoSo.upper())

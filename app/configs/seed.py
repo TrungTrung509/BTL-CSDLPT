@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime
 
 from sqlalchemy import text
@@ -8,111 +7,119 @@ from configs.db import SessionLocals
 
 
 def seed_common_data(db):
-    """Seed data cho các bảng common (CoSo, Khoa)"""
-    # 1. Seed CoSo
-    coso_data = [
+    """Seed common reference data."""
+    branch_data = [
         (
             "HADONG",
-            "Cơ sở Hà Đông",
-            "Số 10 Trần Phú, Hà Đông, Hà Nội",
+            "Co so Ha Dong",
+            "So 10 Tran Phu, Ha Dong, Ha Noi",
             "024.12345678",
             "hadong@ptit.edu.vn",
         ),
         (
             "HOALAC",
-            "Cơ sở Hòa Lạc",
-            "Khu công nghệ cao Hòa Lạc, Thạch Thất, Hà Nội",
+            "Co so Hoa Lac",
+            "Khu cong nghe cao Hoa Lac, Thach That, Ha Noi",
             "024.87654321",
             "hoalac@ptit.edu.vn",
         ),
         (
             "NGOCTRUC",
-            "Cơ sở Ngọc Trục",
-            "Đại Mỗ, Nam Từ Liêm, Hà Nội",
+            "Co so Ngoc Truc",
+            "Dai Mo, Nam Tu Liem, Ha Noi",
             "024.11112222",
             "ngoctruc@ptit.edu.vn",
         ),
     ]
 
-    for ma, ten, dc, sdt, email in coso_data:
-        check_sql = text('SELECT 1 FROM "CoSo" WHERE "MaCoSo" = :ma')
-        if not db.execute(check_sql, {"ma": ma}).fetchone():
-            insert_sql = text("""
+    for code, name, address, phone, email in branch_data:
+        exists = text('SELECT 1 FROM "CoSo" WHERE "MaCoSo" = :code')
+        if not db.execute(exists, {"code": code}).fetchone():
+            insert_sql = text(
+                """
                 INSERT INTO "CoSo" ("MaCoSo", "TenCoSo", "DiaChi", "SoDienThoai", "Email")
-                VALUES (:ma, :ten, :dc, :sdt, :email)
-            """)
+                VALUES (:code, :name, :address, :phone, :email)
+                """
+            )
             db.execute(
-                insert_sql, {"ma": ma, "ten": ten, "dc": dc, "sdt": sdt, "email": email}
+                insert_sql,
+                {
+                    "code": code,
+                    "name": name,
+                    "address": address,
+                    "phone": phone,
+                    "email": email,
+                },
             )
 
-    # 2. Seed Khoa
-    khoa_data = [
-        ("CNTT", "Công nghệ thông tin", "Khoa CNTT - Viện CNTT&TT"),
-        ("DPT", "Đa phương tiện", "Khoa Thiết kế & Sáng tạo nội dung số"),
-        ("VT", "Viễn thông", "Khoa Kỹ thuật Viễn thông"),
+    department_data = [
+        ("CNTT", "Cong nghe thong tin", "Khoa CNTT - Vien CNTT&TT"),
+        ("DPT", "Da phuong tien", "Khoa Thiet ke va Sang tao noi dung so"),
+        ("VT", "Vien thong", "Khoa Ky thuat Vien thong"),
     ]
-    for ma, ten, mota in khoa_data:
-        check_sql = text('SELECT 1 FROM "Khoa" WHERE "MaKhoa" = :ma')
-        if not db.execute(check_sql, {"ma": ma}).fetchone():
+
+    for code, name, description in department_data:
+        exists = text('SELECT 1 FROM "Khoa" WHERE "MaKhoa" = :code')
+        if not db.execute(exists, {"code": code}).fetchone():
             insert_sql = text(
-                'INSERT INTO "Khoa" ("MaKhoa", "TenKhoa", "MoTa") VALUES (:ma, :ten, :mota)'
+                'INSERT INTO "Khoa" ("MaKhoa", "TenKhoa", "MoTa") VALUES (:code, :name, :description)'
             )
-            db.execute(insert_sql, {"ma": ma, "ten": ten, "mota": mota})
+            db.execute(
+                insert_sql,
+                {"code": code, "name": name, "description": description},
+            )
 
     db.commit()
 
 
 def seed_admin(sessions):
-    """Seed tài khoản Admin đồng bộ trên tất cả các site"""
+    """Seed the default admin account on every site."""
     admin_id = "AD1"
     username = "admin"
-    password = "admin123"
-    hashed_pwd = pwd_context.hash(password)
+    hashed_password = pwd_context.hash("admin123")
 
-    for site, SessionFactory in sessions.items():
-        db = SessionFactory()
+    for site, session_factory in sessions.items():
+        db = session_factory()
         try:
-            # Kiểm tra xem admin đã tồn tại chưa
-            check_sql = text('SELECT 1 FROM users WHERE "userId" = :id OR username = :uname')
-            if not db.execute(check_sql, {"id": admin_id, "uname": username}).fetchone():
-                insert_sql = text("""
-                    INSERT INTO users ("userId", username, password, role, email, "MaCoSo", status, "NgayTao")
-                    VALUES (:id, :uname, :pwd, :role, :email, :coso, :status, :date)
-                """)
-                db.execute(insert_sql, {
-                    "id": admin_id,
-                    "uname": username,
-                    "pwd": hashed_pwd,
-                    "role": "Admin",
-                    "email": "admin@system.com",
-                    "coso": "HADONG",
-                    "status": "Active",
-                    "date": datetime.now().isoformat()
-                })
+            exists = text('SELECT 1 FROM "users" WHERE "username" = :username')
+            if not db.execute(exists, {"username": username}).fetchone():
+                insert_sql = text(
+                    """
+                    INSERT INTO "users" ("userId", "username", "password", "role", "email", "MaCoSo", "status", "NgayTao")
+                    VALUES (:user_id, :username, :password, :role, :email, :branch_code, :status, :created_at)
+                    """
+                )
+                db.execute(
+                    insert_sql,
+                    {
+                        "user_id": admin_id,
+                        "username": username,
+                        "password": hashed_password,
+                        "role": "Admin",
+                        "email": "admin@system.com",
+                        "branch_code": "HADONG",
+                        "status": "Active",
+                        "created_at": datetime.now().isoformat(),
+                    },
+                )
                 db.commit()
-                print(f"[{site}] Seeded admin '{username}' successfully.")
-        except Exception as e:
-            db.rollback()
-            print(f"[{site}] Error seeding admin: {e}")
+                print(f"[{site}] Default admin created.")
         finally:
             db.close()
 
 
 def seed_all():
-    """Seed dữ liệu khởi tạo cho toàn bộ các site"""
+    """Seed data for all sites."""
     sessions = SessionLocals
 
-    # 1. Seed Common Data (CoSo, Khoa)
-    for site, Session in sessions.items():
-        db = Session()
+    for _, session_factory in sessions.items():
+        db = session_factory()
         try:
             seed_common_data(db)
         finally:
             db.close()
 
-    # 2. Seed Admin (Distributed)
     seed_admin(sessions)
-
     print("System initialization complete.")
 
 

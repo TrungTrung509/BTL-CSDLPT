@@ -52,8 +52,9 @@ truncate_site() {
 		SET session_replication_role = replica;
 
 		-- Truncate các bảng theo thứ tự (FK constraints)
-		TRUNCATE TABLE "DangKyLog" CASCADE;
-		TRUNCATE TABLE "AuditLog" CASCADE;
+		-- DangKy_Log: audit log thuộc site home của user (không replicate)
+		TRUNCATE TABLE "DangKy_Log" CASCADE;
+		-- DangKy: thuộc site mở lớp (không replicate)
 		TRUNCATE TABLE "DangKy" CASCADE;
 		TRUNCATE TABLE "LichHoc" CASCADE;
 		TRUNCATE TABLE "LopHocPhan" CASCADE;
