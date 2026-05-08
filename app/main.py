@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from configs.db import Base, engines
 from configs.seed import seed_all
 from exceptions import register_exception_handlers
-from routers import auth, branch, class_section, classroom, course, department, teacher, schedule, semester, student_management, user, enrollment
+from routers import auth, branch, class_section, classroom, course, department, teacher, schedule, semester, student_management, user, enrollment, report
 
 for branch_id, engine in engines.items():
     print(f"Initializing database for site: {branch_id}")
@@ -32,6 +32,7 @@ app.include_router(schedule.router)
 app.include_router(student_management.router)
 app.include_router(teacher.router)
 app.include_router(enrollment.router)
+app.include_router(report.router)
 
 
 @app.get("/", tags=["Health Check"])

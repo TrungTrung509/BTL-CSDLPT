@@ -9,6 +9,10 @@ class EnrollmentCreate(BaseModel):
     MaLopHP: str = Field(..., description="Mã lớp học phần đăng ký")
     GhiChu: Optional[str] = None
 
+class SwapEnrollmentRequest(BaseModel):
+    old_ma_lop_hp: str = Field(..., description="Mã lớp học phần muốn đổi đi")
+    new_ma_lop_hp: str = Field(..., description="Mã lớp học phần muốn đổi sang")
+
 class EligibilityResponse(BaseModel):
     is_eligible: bool
     reasons: List[str] = Field(default_factory=list, description="Lý do nếu không đủ điều kiện")
@@ -18,6 +22,8 @@ class RegistrationResult(BaseModel):
     MaLopHP: str
     status: str  # 'Success', 'Failed'
     message: Optional[str] = None
+    error_code: Optional[str] = None
+    reasons: List[str] = Field(default_factory=list)
     enrollment_id: Optional[int] = None
     action: Optional[str] = None # 'REGISTER', 'SWITCH'
     old_ma_lop_hp: Optional[str] = None
@@ -32,3 +38,27 @@ class EnrollmentHistoryResponse(BaseModel):
     NgayDangKy: datetime
     TrangThaiDangKy: EnrollmentStatus
     MaCoSo: str
+
+class ScheduleResponse(BaseModel):
+    MaLich: str
+    MaLopHP: str
+    TenLopHP: Optional[str] = None
+    MaHP: str
+    TenHocPhan: Optional[str] = None
+    MaPhong: str
+    ThuTrongTuan: int
+    TietBatDau: int
+    SoTiet: int
+    NgayBatDau: Optional[datetime] = None
+    NgayKetThuc: Optional[datetime] = None
+    GhiChu: Optional[str] = None
+
+class StudentInClassResponse(BaseModel):
+    MaSV: str
+    Ho: str
+    Ten: str
+    NgaySinh: Optional[datetime] = None
+    GioiTinh: Optional[str] = None
+    MaLop: Optional[str] = None
+    NgayDangKy: datetime
+    TrangThaiDangKy: EnrollmentStatus

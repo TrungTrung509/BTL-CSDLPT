@@ -69,49 +69,31 @@ def seed_admin(sessions):
     password = "admin123"
     hashed_pwd = pwd_context.hash(password)
 
-    for site, db in sessions.items():
-        # Kiểm tra xem admin đã tồn tại chưa
-        check_sql = text('SELECT 1 FROM users WHERE "userId" = :id OR username = :uname')
-        if not db.execute(check_sql, {"id": admin_id, "uname": username}).fetchone():
-            insert_sql = text("""
-                INSERT INTO users ("userId", username, password, role, "MaCoSo", status, "NgayTao")
-                VALUES (:id, :uname, :pwd, :role, :coso, :status, :date)
-            """)
-            db.execute(insert_sql, {
-                "id": admin_id,
-                "uname": username,
-                "pwd": hashed_pwd,
-                "role": "Admin",
-                "coso": "HADONG",
-                "status": "Active",
-                "date": datetime.now().isoformat()
-            })
-            db.commit()
-            print(f"Seeded admin '{username}' on site {site}")
-    for site, Session in sessions.items():
-        db = Session()
+    for site, SessionFactory in sessions.items():
+        db = SessionFactory()
         try:
-            check_sql = text('SELECT 1 FROM "users" WHERE "username" = :username')
-            if not db.execute(check_sql, {"username": username}).fetchone():
-                sql = text("""
-                    INSERT INTO "users" ("userId", "username", "password", "role", "email", "MaCoSo", "status", "NgayTao")
-                    VALUES (:userId, :username, :password, :role, :email, :MaCoSo, :status, :NgayTao)
+            # Kiểm tra xem admin đã tồn tại chưa
+            check_sql = text('SELECT 1 FROM users WHERE "userId" = :id OR username = :uname')
+            if not db.execute(check_sql, {"id": admin_id, "uname": username}).fetchone():
+                insert_sql = text("""
+                    INSERT INTO users ("userId", username, password, role, email, "MaCoSo", status, "NgayTao")
+                    VALUES (:id, :uname, :pwd, :role, :email, :coso, :status, :date)
                 """)
-                db.execute(
-                    sql,
-                    {
-                        "userId": admin_id,
-                        "username": username,
-                        "password": hashed_pwd,
-                        "role": "Admin",
-                        "email": "admin@system.com",
-                        "MaCoSo": "HADONG",
-                        "status": "Active",
-                        "NgayTao": datetime.now().isoformat(),
-                    },
-                )
+                db.execute(insert_sql, {
+                    "id": admin_id,
+                    "uname": username,
+                    "pwd": hashed_pwd,
+                    "role": "Admin",
+                    "email": "admin@system.com",
+                    "coso": "HADONG",
+                    "status": "Active",
+                    "date": datetime.now().isoformat()
+                })
                 db.commit()
-                print(f"[{site}] Default admin created.")
+                print(f"[{site}] Seeded admin '{username}' successfully.")
+        except Exception as e:
+            db.rollback()
+            print(f"[{site}] Error seeding admin: {e}")
         finally:
             db.close()
 

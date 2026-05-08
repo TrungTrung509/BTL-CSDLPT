@@ -9,7 +9,7 @@ from .Semesters import Semester
 from .Students import Student
 from .Teachers import Teacher
 from .Users import User
-from .EnrollmentLogs import EnrollmentLog
+from .NhatKyThaoTac import NhatKyThaoTac
 
 __all__ = [
     "Branch",
@@ -23,5 +23,5 @@ __all__ = [
     "Student",
     "Teacher",
     "User",
-    "EnrollmentLog",
+    "NhatKyThaoTac",
 ]

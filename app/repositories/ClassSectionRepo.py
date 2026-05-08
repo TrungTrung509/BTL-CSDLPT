@@ -16,6 +16,12 @@ class ClassSectionRepo:
         return db.query(CourseSection).filter(CourseSection.MaLopHP == ma_lop_hp).first()
 
     @staticmethod
+    def get_by_id_for_update(db: Session, ma_lop_hp: str) -> CourseSection | None:
+        from sqlalchemy import text
+        sql = text('SELECT * FROM "LopHocPhan" WHERE "MaLopHP" = :ma_lop_hp FOR UPDATE')
+        return db.query(CourseSection).from_statement(sql).params(ma_lop_hp=ma_lop_hp).first()
+
+    @staticmethod
     def list_schedules(db: Session, ma_lop_hp: str) -> list[Schedule]:
         return (
             db.query(Schedule)

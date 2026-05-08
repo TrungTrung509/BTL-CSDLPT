@@ -15,6 +15,9 @@ class UserResponse(UserBase):
     userId: str
     model_config = ConfigDict(from_attributes=True)
 
+class UserCreate(UserBase):
+    password: str
+
 class UserSelfUpdate(BaseModel):
     """Người dùng tự cập nhật thông tin cá nhân"""
     SDT: Optional[str] = None

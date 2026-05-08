@@ -46,12 +46,18 @@ class GeneralStatus(str, Enum):
     HoatDong = "HoatDong"
     NgungHoatDong = "NgungHoatDong"
 
-class EnrollmentAction(str, Enum):
-    REGISTER = "REGISTER"
-    CANCEL = "CANCEL"
-    SWITCH = "SWITCH"
 
-class LogStatus(str, Enum):
-    SUCCESS = "SUCCESS"
-    FAILED = "FAILED"
-    PENDING = "PENDING"
+class TrangThaiGiaoTac(str, Enum):
+    DANG_CHAY = "DANG_CHAY"
+    THANH_CONG = "THANH_CONG"
+    THAT_BAI = "THAT_BAI"
+
+class BuocGiaoTac(str, Enum):
+    BEGIN = "BEGIN"
+    KIEM_TRA_LICH_HOC = "KIEM_TRA_LICH_HOC"
+    DA_KHOA = "DA_KHOA"
+    KIEM_TRA_SI_SO = "KIEM_TRA_SI_SO"
+    INSERT = "INSERT"
+    COMMIT = "COMMIT"
+    ROLLBACK = "ROLLBACK"
+    RETRY = "RETRY"

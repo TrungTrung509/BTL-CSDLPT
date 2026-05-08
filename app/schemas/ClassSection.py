@@ -50,7 +50,7 @@ class EnrollmentResponse(BaseModel):
 
 
 class CourseSectionBase(BaseModel):
-    MaLopHP: str = Field(..., min_length=5, max_length=20)
+    MaLopHP: str = Field(..., min_length=5, max_length=50)
     MaHocPhan: str = Field(..., min_length=2, max_length=20)
     MaHocKy: str = Field(..., min_length=2, max_length=20)
     MaCoSo: str = Field(..., min_length=2, max_length=10)
