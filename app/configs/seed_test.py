@@ -28,7 +28,7 @@ def seed_test_data():
                 username = f"{prefix}26CNTT00{i}"
                 existing_user = db.query(User).filter(User.username == username).first()
                 if not existing_user:
-                    uid = f"USR_{username}"
+                    uid = username
                     user = User(
                         userId=uid,
                         username=username,
@@ -51,53 +51,77 @@ def seed_test_data():
                     )
                     db.add(student)
             
-            # 2. Tạo Lớp học phần mẫu
+            # 2. Tạo Lớp học phần mẫu 1 và 2
             class_code = f"{site}_CSDLPT_01"
-            existing_class = db.query(CourseSection).filter(CourseSection.MaLopHP == class_code).first()
-            if not existing_class:
-                new_class = CourseSection(
-                    MaLopHP=class_code,
-                    MaHP="CSDLPT",
-                    MaHocKy="HK1-2025",
+            class_code_2 = f"{site}_CSDLPT_02"
+            
+            for code, ten in [(class_code, "Cơ sở dữ liệu phân tán (Nhóm 01)"), (class_code_2, "Cơ sở dữ liệu phân tán (Nhóm 02)")]:
+                existing_class = db.query(CourseSection).filter(CourseSection.MaLopHP == code).first()
+                if not existing_class:
+                    new_class = CourseSection(
+                        MaLopHP=code,
+                        MaHP="CSDLPT",
+                        MaHocKy="HK1-2025",
+                        MaCoSo=site,
+                        MaGV="GV001",
+                        TenLopHP=ten,
+                        SiSoToiDa=40,
+                        SiSoHienTai=0,
+                        TrangThaiLop=ClassSectionStatus.Mo
+                    )
+                    db.add(new_class)
+                    db.flush()
+
+            # 2.5 Ensure P101 exists
+            from models.Classrooms import Classroom
+            existing_room = db.query(Classroom).filter(Classroom.MaPhong == "P101").first()
+            if not existing_room:
+                room = Classroom(
+                    MaPhong="P101",
+                    TenPhong="Phong 101",
+                    ToaNha="A1",
+                    Tang=1,
+                    SucChua=60,
+                    LoaiPhong="LyThuyet",
                     MaCoSo=site,
-                    MaGV="GV001",
-                    TenLopHP="Cơ sở dữ liệu phân tán (Nhóm 01)",
-                    SiSoToiDa=40,
-                    SiSoHienTai=0,
-                    TrangThaiLop=ClassSectionStatus.Mo
+                    TrangThai="HoatDong"
                 )
-                db.add(new_class)
+                db.add(room)
                 db.flush()
 
             # 3. Tạo Lịch học mẫu
-            existing_schedule = db.query(Schedule).filter(Schedule.MaLopHP == class_code).first()
-            if not existing_schedule:
-                new_schedule = Schedule(
-                    MaLich=f"SCH_{class_code}",
-                    MaLopHP=class_code,
-                    MaPhong="P101",
-                    ThuTrongTuan=2,
-                    TietBatDau=1,
-                    SoTiet=3,
-                    NgayBatDau=datetime(2025, 1, 1),
-                    NgayKetThuc=datetime(2025, 5, 30),
-                    GhiChu="Lịch học mẫu"
-                )
-                db.add(new_schedule)
+            for code in [class_code, class_code_2]:
+                existing_schedule = db.query(Schedule).filter(Schedule.MaLopHP == code).first()
+                if not existing_schedule:
+                    new_schedule = Schedule(
+                        MaLich=f"SCH_{code}",
+                        MaLopHP=code,
+                        MaPhong="P101",
+                        ThuTrongTuan=2,
+                        TietBatDau=1,
+                        SoTiet=3,
+                        NgayBatDau=datetime(2025, 1, 1),
+                        NgayKetThuc=datetime(2025, 5, 30),
+                        GhiChu="Lịch học mẫu"
+                    )
+                    db.add(new_schedule)
 
-            # 4. Tạo Đăng ký mẫu cho sinh viên đầu tiên
+            # 4. Tạo Đăng ký mẫu cho sinh viên 1 (vào lớp 1) và sinh viên 2 (vào lớp 2)
             first_sv = f"{prefix}26CNTT001"
-            existing_enroll = db.query(Enrollment).filter(Enrollment.userId == f"USR_{first_sv}", Enrollment.MaLopHP == class_code).first()
-            if not existing_enroll:
-                new_enroll = Enrollment(
-                    userId=f"USR_{first_sv}",
-                    MaSV=first_sv,
-                    MaLopHP=class_code,
-                    MaHP="CSDLPT",
-                    MaHocKy="HK1-2025",
-                    TrangThaiDangKy="DaDangKy"
-                )
-                db.add(new_enroll)
+            second_sv = f"{prefix}26CNTT002"
+            
+            for sv, c_code in [(first_sv, class_code), (second_sv, class_code_2)]:
+                existing_enroll = db.query(Enrollment).filter(Enrollment.userId == sv, Enrollment.MaHP == "CSDLPT", Enrollment.MaHocKy == "HK1-2025").first()
+                if not existing_enroll:
+                    new_enroll = Enrollment(
+                        userId=sv,
+                        MaSV=sv,
+                        MaLopHP=c_code,
+                        MaHP="CSDLPT",
+                        MaHocKy="HK1-2025",
+                        TrangThaiDangKy="DaDangKy"
+                    )
+                    db.add(new_enroll)
             
             db.commit()
             print(f"--- Done site: {site} ---")

@@ -3,13 +3,16 @@ from uuid import uuid4
 
 from fastapi import HTTPException, status
 
-from configs.db import SessionLocals
-from enums.status import EnrollmentAction, EnrollmentTransactionState, LogStatus
+from configs.db import SessionLocals, get_log_session
+from enums.status import EnrollmentAction, EnrollmentTransactionState, LogStatus, BuocGiaoTac, TrangThaiGiaoTac
+from sqlalchemy.exc import OperationalError, InternalError
 from models.CourseSections import CourseSection
 from models.Students import Student
 from repositories.EnrollmentLogRepo import EnrollmentLogRepo
 from repositories.EnrollmentTransactionRepo import EnrollmentTransactionRepo
 from schemas.Enrollment import EnrollmentCreate, RegistrationResult
+
+from services.utils import retry_on_deadlock, _log_step
 
 from .context import Enrollment3PCContext
 from .db import Enrollment3PCDB
@@ -20,6 +23,7 @@ class Enrollment3PCCoordinator:
     RECOVERY_STALE_SECONDS = 30
 
     @staticmethod
+    @retry_on_deadlock(max_retries=3)
     def register(user, enroll_in: EnrollmentCreate) -> RegistrationResult:
         Enrollment3PCDB.ensure_sites_alive(
             SessionLocals.keys(),
@@ -81,9 +85,17 @@ class Enrollment3PCCoordinator:
                 lock_sites=list(sessions.keys()),
             )
 
+            Enrollment3PCCoordinator._log_3pc_step(site_new, ctx.txn_id, ctx.target_ma_lop_hp, ma_sv, "BEGIN", "Bắt đầu giao dịch 3PC", "DANG_CHAY")
+
+            Enrollment3PCDomain.snapshot_check_eligibility(ctx, sessions)
+            Enrollment3PCCoordinator._log_3pc_step(site_new, ctx.txn_id, ctx.target_ma_lop_hp, ma_sv, "KIEM_TRA_LICH_HOC", "Xác thực lịch học không bị trùng", "DANG_CHAY")
+
             acquired_locks = Enrollment3PCDB.acquire_locks(ctx, sessions)
+            Enrollment3PCCoordinator._log_3pc_step(site_new, ctx.txn_id, ctx.target_ma_lop_hp, ma_sv, "DA_KHOA", "Đã khóa bản ghi liên quan", "DANG_CHAY")
+
             EnrollmentTransactionRepo.create_or_reset_rows(ctx, sessions)
             Enrollment3PCDomain.prepare_register(ctx, sessions)
+            Enrollment3PCCoordinator._log_3pc_step(site_new, ctx.txn_id, ctx.target_ma_lop_hp, ma_sv, "KIEM_TRA_SI_SO", "Xác thực điều kiện hợp lệ", "DANG_CHAY")
             EnrollmentTransactionRepo.set_state(
                 ctx,
                 sessions,
@@ -96,6 +108,7 @@ class Enrollment3PCCoordinator:
                 EnrollmentTransactionState.PRECOMMIT,
                 "Coordinator da chuyen sang pha pre-commit",
             )
+            Enrollment3PCCoordinator._log_3pc_step(site_new, ctx.txn_id, ctx.target_ma_lop_hp, ma_sv, "INSERT", "Bắt đầu ghi nhận dữ liệu vào CSDL", "DANG_CHAY")
 
             enrollment_id, failed_sites = Enrollment3PCCoordinator._commit_register(ctx, sessions)
             if failed_sites:
@@ -139,6 +152,7 @@ class Enrollment3PCCoordinator:
                 status=LogStatus.SUCCESS,
                 message="Doi lop thanh cong" if ctx.old_ma_lop_hp else "Dang ky thanh cong",
             )
+            Enrollment3PCCoordinator._log_3pc_step(site_new, ctx.txn_id, ctx.target_ma_lop_hp, ma_sv, "COMMIT", "Đăng ký thành công", "THANH_CONG")
 
             return RegistrationResult(
                 MaLopHP=ctx.target_ma_lop_hp,
@@ -149,6 +163,8 @@ class Enrollment3PCCoordinator:
                 old_ma_lop_hp=ctx.old_ma_lop_hp,
             )
         except HTTPException as exc:
+            if exc.status_code == status.HTTP_409_CONFLICT and "giao dich khac su dung" in exc.detail:
+                raise
             if ctx is not None:
                 EnrollmentTransactionRepo.mark_aborted(ctx, sessions, exc.detail)
                 Enrollment3PCCoordinator._record_business_log(
@@ -167,6 +183,10 @@ class Enrollment3PCCoordinator:
                 message=exc.detail,
             )
         except Exception as exc:
+            if isinstance(exc, (OperationalError, InternalError)):
+                err_msg = str(exc).lower()
+                if "deadlock detected" in err_msg or "40p01" in err_msg:
+                    raise
             if ctx is not None:
                 EnrollmentTransactionRepo.mark_aborted(ctx, sessions, str(exc))
                 Enrollment3PCCoordinator._record_business_log(
@@ -189,6 +209,7 @@ class Enrollment3PCCoordinator:
             Enrollment3PCDB.close_pinned_sessions(sessions, connections)
 
     @staticmethod
+    @retry_on_deadlock(max_retries=3)
     def cancel(user_id: str, ma_lop_hp: str, site_home: str) -> None:
         normalized_home = Enrollment3PCDB.normalize_site(site_home)
         alive_sites = [site for site in SessionLocals if Enrollment3PCDB.is_site_alive(site)]
@@ -525,3 +546,11 @@ class Enrollment3PCCoordinator:
             session.rollback()
         finally:
             session.close()
+
+    @staticmethod
+    def _log_3pc_step(site: str, tx_id: str, ma_lop_hp: str, ma_sv: str | None, buoc: str, chi_tiet: str, trang_thai: str):
+        try:
+            with get_log_session(site) as log_db:
+                _log_step(log_db, tx_id, ma_lop_hp, str(ma_sv), getattr(BuocGiaoTac, buoc), chi_tiet, getattr(TrangThaiGiaoTac, trang_thai))
+        except Exception as e:
+            print(f"Log 3PC error: {e}")

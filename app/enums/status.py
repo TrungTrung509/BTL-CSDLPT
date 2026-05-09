@@ -73,3 +73,8 @@ class EnrollmentTransactionState(str, Enum):
     PRECOMMIT = "PRECOMMIT"
     COMMITTED = "COMMITTED"
     ABORTED = "ABORTED"
+
+class EnrollmentAction(str, Enum):
+    REGISTER = "REGISTER"
+    SWITCH = "SWITCH"
+    CANCEL = "CANCEL"
