@@ -6,7 +6,6 @@ from sqlalchemy.exc import InternalError, OperationalError
 from functools import wraps
 import time
 import random
-
 from models.Enrollments import Enrollment
 from models.CourseSections import CourseSection
 from models.Users import User
@@ -28,77 +27,9 @@ from schemas.Enrollment import (
     EnrollmentHistoryResponse,
 )
 
-
-# DECORATOR - RETRY DEADLOCK
-def retry_on_deadlock(max_retries=3, initial_wait=0.1):
-    """Tự động thử lại khi gặp Deadlock và ghi log kể chuyện (Stop/Retry) vào DB."""
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            retries = 0
-            # Trích xuất thông tin định danh để ghi log (best-effort)
-            ma_sv = kwargs.get("ma_sv") or (args[0] if len(args) > 0 and isinstance(args[0], str) else "UNKNOWN")
-            ma_lop = kwargs.get("ma_lop_hp") or (args[2] if len(args) > 2 else "UNKNOWN")
-            tx_id = kwargs.get("tx_id") or f"RETRY-LOG-{int(time.time())}"
-
-            while retries < max_retries:
-                try:
-                    return func(*args, **kwargs)
-                except (InternalError, OperationalError) as e:
-                    err_msg = str(e).lower()
-                    if ("deadlock detected" in err_msg or "40p01" in err_msg) and retries < max_retries - 1:
-                        retries += 1
-                        wait_time = initial_wait * (2 ** retries) + random.uniform(0, 0.1)
-                        
-                        # Ghi log kể chuyện vào DB
-                        try:
-                            from configs.db import get_log_session
-                            with get_log_session(_site_of(str(ma_lop))) as log_db:
-                                # Bước 1: Thông báo DỪNG
-                                _log_step(log_db, tx_id, str(ma_lop), str(ma_sv), BuocGiaoTac.ROLLBACK, 
-                                         f"STOP: Phát hiện Deadlock. Đang hủy giao dịch hiện tại để giải phóng tài nguyên.", 
-                                         TrangThaiGiaoTac.THAT_BAI)
-                                
-                                # Bước 2: Thông báo THỬ LẠI
-                                _log_step(log_db, tx_id, str(ma_lop), str(ma_sv), BuocGiaoTac.RETRY, 
-                                         f"RETRY: Bắt đầu thực hiện lại lần {retries+1} sau {wait_time:.2f}s nghỉ.", 
-                                         TrangThaiGiaoTac.DANG_CHAY)
-                        except: pass
-
-                        print(f"⚠️ [RETRY] Deadlock, thử lại lần {retries} sau {wait_time:.2f}s")
-                        time.sleep(wait_time)
-                        continue
-                    raise
-            return func(*args, **kwargs)
-        return wrapper
-    return decorator
+from services.utils import retry_on_deadlock, _site_of, _log_step
 
 
-# HELPER FUNCTIONS
-def _site_of(ma_lop_hp: str) -> str:
-    """Giải mã tên site từ MaLopHP. Ví dụ: 'HADONG_CS001' → 'HADONG'."""
-    if not ma_lop_hp or "_" not in ma_lop_hp:
-        return "UNKNOWN"
-    return ma_lop_hp.split("_")[0].upper()
-
-
-def _log_step(log_db: Session, tx_id: str, ma_lop_hp: str, ma_sv: str,
-              buoc: BuocGiaoTac, chi_tiet: Optional[str] = None,
-              trang_thai: TrangThaiGiaoTac = TrangThaiGiaoTac.DANG_CHAY) -> None:
-    """Ghi một bước vào NhatKyThaoTac (session autocommit, không ảnh hưởng đến TX chính)."""
-    try:
-        log_db.add(NhatKyThaoTac(
-            MaGiaoTac=tx_id,
-            MaLopHP=ma_lop_hp,
-            MaSV=ma_sv,
-            Buoc=buoc,
-            ChiTiet=chi_tiet,
-            ThoiGian=datetime.now(timezone.utc),
-            TrangThai=trang_thai,
-        ))
-        log_db.commit()
-    except Exception as e:
-        print(f"⚠️ _log_step fail [{buoc}]: {e}")
 
 
 # ENROLLMENT SERVICE
@@ -145,102 +76,10 @@ class EnrollmentService:
 
     # 2. ĐĂNG KÝ HỌC PHẦN
     @staticmethod
-    @retry_on_deadlock(max_retries=3)
     def register(user: User, enroll_in: EnrollmentCreate, **kwargs) -> RegistrationResult:
-        """
-        Đăng ký học phần hoặc đổi lớp (nếu đã có lớp cùng môn cùng kỳ).
-        Ghi nhật ký từng bước qua log session độc lập.
-        """
-        ma_lop_hp = enroll_in.MaLopHP
-        site_section = _site_of(ma_lop_hp)
-        site_home = user.MaCoSo
-        ma_sv = getattr(user, "MaSV", user.userId)
-        tx_id = f"REG-{user.userId}-{int(time.time() * 1000)}"
-
-        try:
-            with open_db_by_branch(site_section) as db_section, \
-                 open_db_by_branch(site_home) as db_home:
-
-                # Phase 0: tải thông tin lớp, phát hiện đổi lớp
-                section = ClassSectionRepo.get_by_id(db_section, ma_lop_hp)
-                if not section:
-                    raise HTTPException(404, f"Lớp học phần '{ma_lop_hp}' không tồn tại")
-
-                old_en = EnrollmentRepo.find_active_enrollment(
-                    db_home, user.userId, section.MaHP, section.MaHocKy
-                )
-                exclude_lop = old_en.MaLopHP if old_en else None
-                action = "SWITCH" if old_en else "REGISTER"
-
-                # Phase 1: Kiểm tra nhanh (snapshot)
-                eligibility = EnrollmentService.check_eligibility(
-                    user.userId, section, db_home, exclude_lop=exclude_lop
-                )
-                if not eligibility.is_eligible:
-                    return RegistrationResult(
-                        MaLopHP=ma_lop_hp,
-                        status="Failed",
-                        message="; ".join(eligibility.reasons),
-                        action=action.value,
-                    )
-
-                # Phase 2: Transaction có khóa tại site lớp
-                log_db = get_log_session(site_section)
-                try:
-                    enrollment_id = EnrollmentService._execute_registration(
-                        db_section, db_home, log_db, tx_id, user.userId, ma_sv,
-                        ma_lop_hp, section, exclude_lop, action, enroll_in.GhiChu
-                    )
-                finally:
-                    log_db.close()
-
-                # Phase 3: Đồng bộ về site sinh viên (best-effort)
-                if site_section != site_home:
-                    EnrollmentService._sync_to_home(
-                        db_home, user.userId, ma_sv, ma_lop_hp,
-                        section.MaHP, section.MaHocKy, exclude_lop, enroll_in.GhiChu
-                    )
-
-                # Phase 4: Dọn dẹp lớp cũ (nếu ở site khác)
-                if exclude_lop and _site_of(exclude_lop) != site_section:
-                    EnrollmentService._lazy_cleanup(
-                        site=_site_of(exclude_lop),
-                        user_id=user.userId,
-                        ma_lop_hp=exclude_lop,
-                    )
-
-                # Phase 2: Thực thi giao dịch
-                log_db = get_log_session(site_section)
-                try:
-                    enrollment_id = EnrollmentService._execute_registration(
-                        db_section, db_home, log_db, tx_id, user.userId, ma_sv,
-                        ma_lop_hp, section, exclude_lop, action, enroll_in.GhiChu
-                    )
-                finally:
-                    log_db.close()
-
-                # Phase 3: Đồng bộ về site sinh viên (Best-effort)
-                EnrollmentService._sync_to_home(user.MaCoSo, user.userId, ma_sv, ma_lop_hp, section, enroll_in.GhiChu)
-
-                db_home.commit()
-
-                return RegistrationResult(
-                    MaLopHP=ma_lop_hp,
-                    status="Success",
-                    message="Đăng ký thành công" if action == "REGISTER" else "Đổi lớp thành công",
-                    enrollment_id=enrollment_id,
-                    action=action,
-                    old_ma_lop_hp=exclude_lop,
-                )
-
-        except HTTPException as he:
-            return RegistrationResult(
-                MaLopHP=ma_lop_hp, status="Failed", message=he.detail
-            )
-        except Exception as exc:
-            return RegistrationResult(
-                MaLopHP=ma_lop_hp, status="Failed", message=str(exc)
-            )
+        """Đăng ký học phần qua hệ thống phân tán 3PC."""
+        from services.Enrollment3PCService import Enrollment3PCService
+        return Enrollment3PCService.register(user, enroll_in)
 
     # 3. THỰC THI TRANSACTION (LOCK + INSERT)
     @staticmethod
@@ -335,64 +174,10 @@ class EnrollmentService:
 
     # 4. HỦY ĐĂNG KÝ
     @staticmethod
-    @retry_on_deadlock(max_retries=3)
     def cancel(user_id: str, ma_lop_hp: str, site_home: str):
-        """Hủy đăng ký học phần."""
-        site_section = _site_of(ma_lop_hp)
-        tx_id = f"CANCEL-{user_id}-{int(time.time() * 1000)}"
-
-        with open_db_by_branch(site_section) as db_section, \
-             open_db_by_branch(site_home) as db_home:
-
-            log_db = get_log_session(site_section)
-            sec_ref = None
-
-            try:
-                _log_step(log_db, tx_id, ma_lop_hp, user_id, BuocGiaoTac.BEGIN, "Bắt đầu hủy")
-
-                # Lock lớp bằng Raw SQL thông qua Repo
-                sec = ClassSectionRepo.get_by_id_for_update(db_section, ma_lop_hp)
-                if not sec:
-                    raise HTTPException(404, "Lớp không tồn tại")
-                _log_step(log_db, tx_id, ma_lop_hp, user_id, BuocGiaoTac.DA_KHOA, f"Đã khóa {ma_lop_hp}")
-
-                en = EnrollmentRepo.get_by_lop_user(db_section, user_id, ma_lop_hp)
-                if not en:
-                    raise HTTPException(404, "Không tìm thấy đăng ký")
-
-                if sec.SiSoHienTai > 0:
-                    sec.SiSoHienTai -= 1
-
-                db_section.delete(en)
-                db_section.commit()
-                sec_ref = sec
-
-                _log_step(log_db, tx_id, ma_lop_hp, user_id, BuocGiaoTac.COMMIT,
-                          "Hủy thành công", TrangThaiGiaoTac.THANH_CONG)
-
-            except HTTPException as he:
-                _log_step(log_db, tx_id, ma_lop_hp, user_id, BuocGiaoTac.ROLLBACK,
-                          str(he.detail), TrangThaiGiaoTac.THAT_BAI)
-                raise
-            except Exception as exc:
-                _log_step(log_db, tx_id, ma_lop_hp, user_id, BuocGiaoTac.ROLLBACK,
-                          str(exc), TrangThaiGiaoTac.THAT_BAI)
-                raise HTTPException(500, str(exc))
-            finally:
-                log_db.close()
-
-            # Xóa bản sao tại site sinh viên
-            try:
-                copy = db_home.query(Enrollment).filter(
-                    Enrollment.userId == user_id,
-                    Enrollment.MaLopHP == ma_lop_hp
-                ).first()
-                if copy:
-                    db_home.delete(copy)
-                    db_home.commit()
-            except Exception as e:
-                db_home.rollback()
-                print(f"⚠️ sync cancel fail: {e}")
+        """Hủy đăng ký học phần qua hệ thống phân tán 3PC."""
+        from services.Enrollment3PCService import Enrollment3PCService
+        return Enrollment3PCService.cancel(user_id, ma_lop_hp, site_home)
 
     # 5. LỊCH SỬ ĐĂNG KÝ
     @staticmethod

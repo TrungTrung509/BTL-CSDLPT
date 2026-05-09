@@ -16,7 +16,7 @@ from .db import Enrollment3PCDB
 
 class Enrollment3PCDomain:
     @staticmethod
-    def prepare_register(ctx: Enrollment3PCContext, sessions: dict[str, Session]) -> None:
+    def snapshot_check_eligibility(ctx: Enrollment3PCContext, sessions: dict[str, Session]) -> None:
         if Enrollment3PCDomain._is_same_section_switch(ctx):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -24,7 +24,7 @@ class Enrollment3PCDomain:
             )
 
         target_session = sessions[ctx.site_new]
-        target_section = Enrollment3PCDomain._get_section_for_update(target_session, ctx.target_ma_lop_hp)
+        target_section = target_session.query(CourseSection).filter(CourseSection.MaLopHP == ctx.target_ma_lop_hp).first()
         if target_section is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -43,14 +43,64 @@ class Enrollment3PCDomain:
                 detail="Lop hoc da day si so",
             )
 
+        if Enrollment3PCDomain._has_other_course_enrollment(ctx, sessions):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Sinh vien da dang ky hoc phan {ctx.target_ma_hp} trong hoc ky {ctx.target_ma_hoc_ky}",
+            )
+
+        conflicts = Enrollment3PCDomain._check_schedule_conflict(
+            sessions,
+            ctx.user_id,
+            target_section,
+            ctx.old_ma_lop_hp,
+        )
+        if conflicts:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="; ".join(conflicts),
+            )
+
+    @staticmethod
+    def prepare_register(ctx: Enrollment3PCContext, sessions: dict[str, Session]) -> None:
+        if Enrollment3PCDomain._is_same_section_switch(ctx):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Sinh vien da dang ky lop hoc phan nay",
+            )
+
+        sections_to_lock = [(ctx.site_new, ctx.target_ma_lop_hp)]
         if ctx.site_old and ctx.old_ma_lop_hp:
-            old_session = sessions[ctx.site_old]
-            old_section = Enrollment3PCDomain._get_section_for_update(old_session, ctx.old_ma_lop_hp)
-            if old_section is None:
+            # Cố tình add theo thứ tự target trước, old sau để dễ tạo Deadlock chéo (A->B và B->A) khi demo
+            sections_to_lock.append((ctx.site_old, ctx.old_ma_lop_hp))
+        
+        locked_sections = {}
+        for site, ma_lop_hp in sections_to_lock:
+            sec = Enrollment3PCDomain._get_section_for_update(sessions[site], ma_lop_hp)
+            if sec is None:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Khong tim thay lop hoc phan cu: {ctx.old_ma_lop_hp}",
+                    detail=f"Khong tim thay lop hoc phan: {ma_lop_hp}",
                 )
+            locked_sections[ma_lop_hp] = sec
+
+        target_section = locked_sections[ctx.target_ma_lop_hp]
+
+        if target_section.TrangThaiLop != ClassSectionStatus.Mo:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Lop hoc dang o trang thai: {target_section.TrangThaiLop}",
+            )
+
+        active_count = ClassSectionRepo.count_active_enrollments(sessions[ctx.site_new], target_section.MaLopHP)
+        if active_count >= target_section.SiSoToiDa:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Lop hoc da day si so",
+            )
+
+        if ctx.site_old and ctx.old_ma_lop_hp:
+            old_session = sessions[ctx.site_old]
             old_enrollment = Enrollment3PCDomain._get_enrollment_for_update(
                 old_session,
                 ctx.user_id,
@@ -127,16 +177,18 @@ class Enrollment3PCDomain:
         affected_sections: set[str] = set()
 
         if ctx.action == EnrollmentAction.CANCEL:
-            if site == ctx.site_new:
+            if site == ctx.site_new or site == ctx.site_home:
                 Enrollment3PCDomain._delete_enrollment_if_exists(session, ctx.user_id, ctx.target_ma_lop_hp)
-                affected_sections.add(ctx.target_ma_lop_hp)
+                if site == ctx.site_new:
+                    affected_sections.add(ctx.target_ma_lop_hp)
         else:
-            if site == ctx.site_old and ctx.old_ma_lop_hp:
+            if (site == ctx.site_old or site == ctx.site_home) and ctx.old_ma_lop_hp:
                 Enrollment3PCDomain._delete_enrollment_if_exists(session, ctx.user_id, ctx.old_ma_lop_hp)
-                affected_sections.add(ctx.old_ma_lop_hp)
+                if site == ctx.site_old:
+                    affected_sections.add(ctx.old_ma_lop_hp)
 
-            if site == ctx.site_new:
-                enrollment_id = Enrollment3PCDomain._ensure_enrollment_exists(
+            if site == ctx.site_new or site == ctx.site_home:
+                current_id = Enrollment3PCDomain._ensure_enrollment_exists(
                     session,
                     ctx.user_id,
                     ctx.target_ma_lop_hp,
@@ -145,7 +197,9 @@ class Enrollment3PCDomain:
                     ctx.ma_sv,
                     ctx.ghi_chu,
                 )
-                affected_sections.add(ctx.target_ma_lop_hp)
+                if site == ctx.site_new:
+                    enrollment_id = current_id
+                    affected_sections.add(ctx.target_ma_lop_hp)
 
         for ma_lop_hp in sorted(affected_sections):
             Enrollment3PCDomain._sync_section_capacity(session, ma_lop_hp)

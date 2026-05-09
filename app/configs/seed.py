@@ -74,7 +74,7 @@ def seed_common_data(db):
 
 def seed_admin(sessions):
     """Seed the default admin account on every site."""
-    admin_id = "AD1"
+    admin_id = "ADMIN1"
     username = "admin"
     hashed_password = pwd_context.hash("admin123")
 
