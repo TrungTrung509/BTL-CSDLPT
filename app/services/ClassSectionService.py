@@ -126,7 +126,13 @@ class ClassSectionService:
         session = ClassSectionService._open_session_for_site(site)
 
         try:
-            section_code = section_in.MaLopHP.upper()
+            input_code = section_in.MaLopHP.upper()
+            # Tự động thêm tiền tố site nếu chưa có để tối ưu định tuyến DB
+            if not input_code.startswith(f"{site}_"):
+                section_code = f"{site}_{input_code}"
+            else:
+                section_code = input_code
+
             if ClassSectionRepo.get_by_id(session, section_code):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -743,6 +749,17 @@ class ClassSectionService:
         ma_lop_hp: str,
     ) -> tuple[str, Session, CourseSection]:
         section_code = ma_lop_hp.upper()
+        
+        # Tối ưu hóa: Nếu mã có chứa prefix [SITE]_, truy cập thẳng site đó
+        if "_" in section_code:
+            site_prefix = section_code.split("_")[0]
+            if site_prefix in sessions:
+                session = sessions[site_prefix]
+                section = ClassSectionRepo.get_by_id(session, section_code)
+                if section:
+                    return site_prefix, session, section
+
+        # Fallback: Quét tất cả các site (cho các mã cũ hoặc không đúng định dạng prefix)
         for site, session in sessions.items():
             section = ClassSectionRepo.get_by_id(session, section_code)
             if section:

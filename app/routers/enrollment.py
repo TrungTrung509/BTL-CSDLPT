@@ -1,92 +1,125 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
 
-from configs.db import get_db, open_db_by_branch
-from models.Students import Student
 from models.Users import User
 from schemas.Enrollment import (
     EnrollmentCreate,
-    EligibilityResponse,
-    RegistrationResult,
-    EnrollmentHistoryResponse
+    EnrollmentHistoryResponse,
+    ScheduleResponse,
+    StudentInClassResponse,
+    SwapEnrollmentRequest
 )
 from schemas.api_response import error_response, success_response
-from security import get_current_user, get_current_active_user
+from security import get_current_active_user
 from enums.user_role import UserRole
 from services.EnrollmentService import EnrollmentService
-
 
 router = APIRouter(
     prefix="/enrollments",
     tags=["Enrollments"],
 )
 
-
 @router.post("/register")
 async def register_course(
     enroll_in: EnrollmentCreate,
     current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
 ):
-    """Đăng ký một lớp học phần (Dành cho sinh viên)"""
     if current_user.role != UserRole.SinhVien:
-        return error_response(message="Chỉ sinh viên mới được đăng ký học phần.", status=403, error_code="FORBIDDEN")
-        
-    try:
-        result = EnrollmentService.register(current_user, enroll_in)
-        if result.status == "Success":
-            return success_response(
-                data=result.model_dump(),
-                message=result.message,
-                status=201
-            )
-        else:
-            return error_response(
-                message=result.message,
-                status=400,
-                error_code="REGISTRATION_FAILED"
-            )
-    except Exception as e:
-        return error_response(
-            message=str(e),
-            status=500,
-            error_code="INTERNAL_SERVER_ERROR"
+        raise HTTPException(status_code=403, detail="Chỉ sinh viên mới được đăng ký học phần.")
+
+    result = EnrollmentService.register(current_user, enroll_in)
+
+    if result.status == "Success":
+        return success_response(
+            data=result.model_dump(),
+            message=result.message,
+            status=201
         )
 
+    return error_response(
+        message=result.message or "Đăng ký thất bại",
+        status=400,
+        error_code=result.error_code or "REGISTRATION_FAILED",
+        details="; ".join(result.reasons) if result.reasons else result.message
+    )
 
 @router.get("/history", response_model=List[EnrollmentHistoryResponse])
 async def get_enrollment_history(
-    maHocKy: Optional[str] = Query(None, description="Lọc theo mã học kỳ (Để trống để lấy tất cả)"),
+    maHocKy: Optional[str] = Query(None),
     current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
 ):
-    """Lấy danh sách các học phần đã đăng ký (Có thể lọc theo học kỳ)"""
     if current_user.role != UserRole.SinhVien:
-        raise HTTPException(status_code=403, detail="Chỉ sinh viên mới được xem lịch sử đăng ký của bản thân.")
-        
-    try:
-        history = EnrollmentService.get_history(current_user.userId, maHocKy)
-        return history
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=403, detail="Chỉ sinh viên mới được xem lịch sử.")
 
+    return EnrollmentService.get_history(
+        current_user.userId,
+        current_user.MaCoSo,
+        maHocKy
+    )
 
 @router.delete("/cancel")
 async def cancel_registration(
-    maLopHP: str = Query(..., description="Mã lớp học phần muốn hủy"),
+    maLopHP: str = Query(...),
     current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
 ):
-    """Hủy đăng ký học phần (Dành cho sinh viên)"""
     if current_user.role != UserRole.SinhVien:
-        raise HTTPException(status_code=403, detail="Chỉ sinh viên mới được quyền hủy đăng ký học phần của bản thân.")
-        
+        raise HTTPException(status_code=403, detail="Chỉ sinh viên mới được hủy đăng ký.")
+
     try:
-        EnrollmentService.cancel(current_user.userId, maLopHP, current_user.MaCoSo)
-        return success_response(data=None, message="Hủy đăng ký thành công")
-    except HTTPException as e:
-        raise e
+        EnrollmentService.cancel(
+            current_user.userId,
+            maLopHP,
+            current_user.MaCoSo
+        )
+        return success_response(message="Hủy đăng ký thành công")
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/timetable", response_model=List[ScheduleResponse])
+async def get_my_timetable(
+    maHocKy: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_active_user),
+):
+    if current_user.role != UserRole.SinhVien:
+        raise HTTPException(status_code=403, detail="Chỉ sinh viên mới có thời khóa biểu.")
+
+    return EnrollmentService.get_student_timetable(
+        current_user.userId,
+        current_user.MaCoSo,
+        maHocKy
+    )
+
+@router.get("/class-students", response_model=List[StudentInClassResponse])
+async def get_class_students(
+    maLopHP: str = Query(...),
+    current_user: User = Depends(get_current_active_user),
+):
+    if current_user.role not in [UserRole.Admin, UserRole.GiangVien]:
+        raise HTTPException(status_code=403, detail="Bạn không có quyền xem danh sách sinh viên lớp này.")
+
+    return EnrollmentService.get_students_by_class(maLopHP)
+
+@router.post("/swap")
+async def swap_course(
+    swap_data: SwapEnrollmentRequest,
+    current_user: User = Depends(get_current_active_user),
+):
+    if current_user.role != UserRole.SinhVien:
+        raise HTTPException(status_code=403, detail="Chỉ sinh viên mới được đổi lớp.")
+
+    ma_sv = getattr(current_user, "MaSV", current_user.userId)
+    
+    success = EnrollmentService.swap_class(
+        ma_sv,
+        swap_data.old_ma_lop_hp,
+        swap_data.new_ma_lop_hp
+    )
+    
+    if success:
+        return success_response(message="Đổi lớp thành công")
+    
+    return error_response(message="Đổi lớp thất bại", status=400)

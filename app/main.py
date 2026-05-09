@@ -27,6 +27,8 @@ REPLICATION_RECOVERY_INTERVAL_SECONDS = 10
 ENROLLMENT_3PC_RECOVERY_INTERVAL_SECONDS = 10
 
 from fastapi.middleware.cors import CORSMiddleware
+from routers import auth, branch, class_section, classroom, course, department, teacher, schedule, semester, student_management, user, enrollment, report
+
 for branch_id, engine in engines.items():
     print(f"Initializing database for site: {branch_id}")
     Base.metadata.create_all(bind=engine)
@@ -164,6 +166,7 @@ app.include_router(student_management.router)
 app.include_router(teacher.router)
 app.include_router(enrollment.router)
 app.include_router(failover.router)
+app.include_router(report.router)
 
 
 @app.get("/", tags=["Health Check"])
