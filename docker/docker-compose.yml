@@ -410,6 +410,9 @@ services:
   kafka:
     image: apache/kafka:3.7.0
     container_name: csdlpt_kafka
+    # Official image runs as uid 1000 (appuser); on some Docker Desktop setups
+    # the named volume is created root-owned, so Kafka cannot format KRaft logs.
+    user: "0:0"
     ports:
       - "${KAFKA_PORT:-9092}:9092"
     environment:
@@ -425,6 +428,7 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_LOG_DIRS: /tmp/kafka-logs
     volumes:
       - kafka_data:/tmp/kafka-logs
     networks:
