@@ -151,6 +151,46 @@ class EnrollmentTransactionRepo:
         return pending_commit, stale_abort
 
     @staticmethod
+    def find_stale_for_resource(
+        user_id: str,
+        cutoff: datetime,
+    ) -> tuple[set[str], set[str]]:
+        """
+        Tìm các giao dịch in-doubt liên quan đến user_id.
+        - pending_commit: trạng thái PRECOMMIT → phải ép commit bất kể thời gian.
+        - stale_abort:   trạng thái INIT/PREPARED quá hạn cutoff → có thể abort.
+        Dùng cho lazy cleanup trước khi bắt đầu giao dịch mới.
+        """
+        pending_commit: set[str] = set()
+        stale_abort: set[str] = set()
+
+        for site in SessionLocals:
+            if not Enrollment3PCDB.is_site_alive(site):
+                continue
+            session = SessionLocals[site]()
+            try:
+                precommit_rows = session.query(EnrollmentTransaction).filter(
+                    EnrollmentTransaction.State == EnrollmentTransactionState.PRECOMMIT,
+                    EnrollmentTransaction.UserId == user_id,
+                ).all()
+                pending_commit.update(row.TxnId for row in precommit_rows)
+
+                stale_rows = session.query(EnrollmentTransaction).filter(
+                    EnrollmentTransaction.State.in_([
+                        EnrollmentTransactionState.INIT,
+                        EnrollmentTransactionState.PREPARED,
+                    ]),
+                    EnrollmentTransaction.UserId == user_id,
+                    EnrollmentTransaction.UpdatedAt < cutoff,
+                ).all()
+                stale_abort.update(row.TxnId for row in stale_rows)
+            finally:
+                session.close()
+
+        stale_abort.difference_update(pending_commit)
+        return pending_commit, stale_abort
+
+    @staticmethod
     def get_by_txn_and_site(
         session: Session,
         txn_id: str,

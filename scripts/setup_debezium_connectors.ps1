@@ -50,7 +50,7 @@ $template = @{
                 MaGiaoTac = @{ type = "keyword" }
                 MaSV      = @{ type = "keyword" }
                 MaLopHP   = @{ type = "keyword" }
-                Buoc      = @{ type = "keyword" }
+                MaCoSo    = @{ type = "keyword" }
                 TrangThai = @{ type = "keyword" }
                 ChiTiet   = @{ type = "text" }
             }

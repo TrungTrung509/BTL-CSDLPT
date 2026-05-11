@@ -114,7 +114,7 @@ async def swap_course(
     ma_sv = getattr(current_user, "MaSV", current_user.userId)
     
     success = EnrollmentService.swap_class(
-        ma_sv,
+        current_user,
         swap_data.old_ma_lop_hp,
         swap_data.new_ma_lop_hp
     )

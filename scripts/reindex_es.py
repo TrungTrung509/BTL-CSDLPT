@@ -277,8 +277,15 @@ def bulk_index(es: Elasticsearch, documents: List[Dict], index_name: str) -> boo
             }
         }
 
-        es.indices.create(index=index_name, ignore=400, **index_settings)
-        log_info(f"Đã tạo/update index: {index_name}")
+        try:
+            es.indices.create(index=index_name, **index_settings)
+            log_info(f"Đã tạo index mới: {index_name}")
+        except Exception as e:
+            # Nếu index đã tồn tại thì bỏ qua lỗi, hoặc báo log
+            if "resource_already_exists_exception" in str(e):
+                log_info(f"Index '{index_name}' đã tồn tại, tiếp tục cập nhật dữ liệu.")
+            else:
+                log_warning(f"Lưu ý khi tạo index: {e}")
 
         success, failed = bulk(
             es,

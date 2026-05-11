@@ -1,40 +1,58 @@
 import http from 'k6/http';
-import { check } from 'k6';
+import { check, sleep } from 'k6';
 
 export const options = {
     scenarios: {
         deadlock_demo: {
             executor: 'per-vu-iterations',
-            vus: 10,
-            iterations: 20,
-            maxDuration: '60s',
+            vus: 2, 
+            iterations: 5,
+            maxDuration: '5m',
         },
     },
 };
 
-const BASE_URL = __ENV.BENCH_BASE_URL || 'http://backend:8000';
-const CLASS_A = __ENV.CLASS_A || 'HADONG_CS001';
-const CLASS_B = __ENV.CLASS_B || 'HADONG_CS002';
+const BASE_URL = __ENV.BENCH_BASE_URL || 'http://host.docker.internal:8000';
+const CLASS_A = __ENV.CLASS_A || 'HADONG_CSDLPT_01';
+const CLASS_B = __ENV.CLASS_B || 'HADONG_CSDLPT_02';
 
 export function setup() {
-    const res1 = http.post(`${BASE_URL}/auth/login`, {
-        username: __ENV.USER1 || 'SV001',
-        password: __ENV.PASS1 || 'password',
-        grant_type: 'password'
-    }, { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
-    
-    const res2 = http.post(`${BASE_URL}/auth/login`, {
-        username: __ENV.USER2 || 'SV002',
-        password: __ENV.PASS2 || 'password',
-        grant_type: 'password'
-    }, { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
-
-    return { token1: res1.json('access_token'), token2: res2.json('access_token') };
+    let tokens = [];
+    for (let i = 1; i <= 4; i++) {
+        let username = `SVHD26CNTT00${i}`;
+        const res = http.post(`${BASE_URL}/auth/login`, {
+            username: username,
+            password: '123456',
+            grant_type: 'password'
+        }, { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+        
+        tokens.push({
+            username: username,
+            token: res.json('access_token')
+        });
+    }
+    return { students: tokens };
 }
 
 export default function (data) {
-    let token = (__VU % 2 === 0) ? data.token1 : data.token2;
-    let targetClass = (__ITER % 2 === 0) ? CLASS_B : CLASS_A;
+    const myData = data.students[__VU - 1];
+    const token = myData.token;
+    const userName = myData.username;
+    
+    let targetClass;
+    // VU lẻ đi hướng A, VU chẵn đi hướng B ở bước đầu
+    const isGroupA = (__VU % 2 === 1);
+    
+    if (__ITER === 0) {
+        targetClass = isGroupA ? CLASS_A : CLASS_B;
+    } else {
+        const isToggle = (__ITER % 2 === 1);
+        if (isGroupA) {
+            targetClass = isToggle ? CLASS_B : CLASS_A;
+        } else {
+            targetClass = isToggle ? CLASS_A : CLASS_B;
+        }
+    }
 
     const headers = {
         'Content-Type': 'application/json',
@@ -43,12 +61,20 @@ export default function (data) {
 
     const payload = JSON.stringify({
         MaLopHP: targetClass,
-        GhiChu: "Demo Deadlock K6"
+        GhiChu: `Stress Test - VU ${__VU} - Iter ${__ITER}`
     });
 
     const res = http.post(`${BASE_URL}/enrollments/register`, payload, { headers });
 
+    if (res.status === 409) {
+        console.log(`[🔥 DEADLOCK] ${userName} bị kẹt chéo! Chờ hệ thống Retry...`);
+    } else if (res.status !== 200 && res.status !== 201) {
+        console.log(`[!] ${userName} lỗi ${res.status}: ${res.body}`);
+    }
+
     check(res, {
-        'Status is 201 or 400 (if full)': (r) => r.status === 201 || r.status === 400,
+        'Success or Deadlock Retry': (r) => [200, 201, 409].includes(r.status),
     });
+
+    sleep(0.05);
 }

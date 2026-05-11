@@ -10,6 +10,7 @@ class NhatKyThaoTac(Base):
     MaGiaoTac = Column(String(50), nullable=False)
     MaLopHP = Column(String(20), nullable=False)
     MaSV = Column(String(20), nullable=False)
+    MaCoSo = Column(String(20), nullable=True)   # Site nguồn của bước giao tác
     Buoc = Column(Enum(BuocGiaoTac), nullable=False)
     ChiTiet = Column(Text, nullable=True)
     ThoiGian = Column(DateTime, default=datetime.utcnow, nullable=False)
