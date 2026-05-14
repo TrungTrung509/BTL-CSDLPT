@@ -23,7 +23,7 @@ class Enrollment3PCContext:
     @property
     def participant_sites(self) -> list[str]:
         ordered: list[str] = []
-        for site in (self.site_old, self.site_new):
+        for site in (self.site_old, self.site_new, self.site_home):
             if site and site not in ordered:
                 ordered.append(site)
         return ordered

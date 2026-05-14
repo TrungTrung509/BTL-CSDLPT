@@ -57,7 +57,7 @@ curl -s -X PUT "$ES_URL/_index_template/nhatky_template" -H "Content-Type: appli
         "MaGiaoTac": { "type": "keyword" },
         "MaSV": { "type": "keyword" },
         "MaLopHP": { "type": "keyword" },
-        "Buoc": { "type": "keyword" },
+        "MaCoSo": { "type": "keyword" },
         "TrangThai": { "type": "keyword" },
         "ChiTiet": { "type": "text" }
       }
@@ -68,7 +68,7 @@ sleep 2
 
 # --- Bước 5: Tạo Connectors (Sửa slot name thành gạch dưới _) ---
 create_source_connector() {
-  local site=$1; local host=$2; local db=$3
+  site=$1; host=$2; db=$3
   # Dùng gạch dưới cho slot name
   curl -s -X POST "$CONNECT_URL" -H "Content-Type: application/json" -d '{"name":"src-'"$site"'-ind","config":{"connector.class":"io.debezium.connector.postgresql.PostgresConnector","database.hostname":"'"$host"'","database.port":"5432","database.user":"csdlpt_user","database.password":"csdlpt_pass","database.dbname":"'"$db"'","database.server.name":"'"$site"'","topic.prefix":"'"$site"'","table.include.list":"public.nhatkythaotac","plugin.name":"pgoutput","slot.name":"dbz_'"$site"'_ind","publication.name":"dbz_pub_'"$site"'_ind"}}'
   

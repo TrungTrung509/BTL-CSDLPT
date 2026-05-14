@@ -13,7 +13,8 @@ from .Students import Student
 from .Teachers import Teacher
 from .Users import User
 from .NhatKyThaoTac import NhatKyThaoTac
-from .EnrollmentLogs import EnrollmentLog
+from .RecoveryLogs import RecoveryLog
+from .EnrollmentTransfers import EnrollmentTransfer
 
 __all__ = [
     "Branch",
@@ -31,5 +32,7 @@ __all__ = [
     "Teacher",
     "User",
     "NhatKyThaoTac",
-    "EnrollmentLog",
+    "RecoveryLog",
+    "EnrollmentTransfer",
 ]
+

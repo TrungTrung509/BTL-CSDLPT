@@ -1,192 +1,60 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import List, Optional
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import InternalError, OperationalError
-from functools import wraps
-import time
-import random
+
 from models.Enrollments import Enrollment
 from models.CourseSections import CourseSection
 from models.Users import User
 from models.Courses import Course
-from models.NhatKyThaoTac import NhatKyThaoTac
-
-from enums.status import (
-    EnrollmentStatus, ClassSectionStatus,
-    BuocGiaoTac, TrangThaiGiaoTac,
-)
+from models.Students import Student
+from enums.status import EnrollmentStatus
 from repositories.EnrollmentRepo import EnrollmentRepo
 from repositories.ClassSectionRepo import ClassSectionRepo
-from configs.db import open_db_by_branch, get_log_session
+from configs.db import open_db_by_branch
 from schemas.Enrollment import (
-    EligibilityResponse,
     EnrollmentCreate,
     EnrollmentHistoryResponse,
     RegistrationResult,
-    EnrollmentHistoryResponse,
+    ScheduleResponse,
+    StudentInClassResponse
 )
 
-from services.utils import retry_on_deadlock, _site_of, _log_step
+from services.utils import _site_of
 
 
-
-
-# ENROLLMENT SERVICE
 class EnrollmentService:
 
-    # 1. KIỂM TRA ĐIỀU KIỆN (SNAPSHOT)
     @staticmethod
-    def check_eligibility(
-        user_id: str,
-        section: CourseSection,
-        session_home: Session,
-        exclude_lop: Optional[str] = None,
-    ) -> EligibilityResponse:
-        """
-        Kiểm tra nhanh các điều kiện (không lock).
-        exclude_lop: nếu đang đổi lớp thì bỏ qua lớp cũ để tránh báo trùng.
-        """
-        reasons: List[str] = []
-
-        # 1. Trùng môn
-        already = EnrollmentRepo.is_already_enrolled(
-            session_home, user_id, section.MaHP, section.MaHocKy,
-            exclude_ma_lop_hp=exclude_lop
-        )
-        if already and not exclude_lop:
-            reasons.append(f"Sinh viên đã đăng ký học phần {section.MaHP} trong học kỳ này")
-
-        # 2. Trùng lịch
-        reasons.extend(
-            EnrollmentService._check_schedule_conflict(
-                session_home, user_id, section, exclude_lop
-            )
-        )
-
-        # 3. Sĩ số (snapshot)
-        if section.SiSoHienTai >= section.SiSoToiDa:
-            reasons.append("Lớp đã đầy sĩ số")
-
-        # 4. Trạng thái lớp
-        if section.TrangThaiLop != ClassSectionStatus.Mo:
-            reasons.append("Lớp không mở đăng ký")
-
-        return EligibilityResponse(is_eligible=len(reasons) == 0, reasons=reasons)
-
-    # 2. ĐĂNG KÝ HỌC PHẦN
-    @staticmethod
-    def register(user: User, enroll_in: EnrollmentCreate, **kwargs) -> RegistrationResult:
+    def register(user: User, enroll_in: EnrollmentCreate) -> RegistrationResult:
         """Đăng ký học phần qua hệ thống phân tán 3PC."""
         from services.Enrollment3PCService import Enrollment3PCService
         return Enrollment3PCService.register(user, enroll_in)
 
-    # 3. THỰC THI TRANSACTION (LOCK + INSERT)
-    @staticmethod
-    def _execute_registration(
-        db_section: Session, db_home: Session, log_db: Session, tx_id: str,
-        user_id: str, ma_sv: str, ma_lop_hp: str,
-        section: CourseSection, exclude_lop: Optional[str],
-        action: str, ghi_chu: Optional[str]
-    ) -> int:
-        """Transaction chính tại site của lớp học phần."""
-        # Xác định các lớp cần lock (cùng site)
-        targets = [ma_lop_hp]
-        if exclude_lop and _site_of(exclude_lop) == _site_of(ma_lop_hp):
-            targets.append(exclude_lop)
-
-        try:
-            _log_step(log_db, tx_id, ma_lop_hp, ma_sv, BuocGiaoTac.BEGIN, f"Bắt đầu {action}")
-
-            # 1. Kiểm tra lịch học (trước khi khóa để tránh giữ lock lâu)
-            conflicts = EnrollmentService._check_schedule_conflict(db_home, user_id, section, exclude_lop)
-            if conflicts:
-                _log_step(log_db, tx_id, ma_lop_hp, ma_sv, BuocGiaoTac.KIEM_TRA_LICH_HOC,
-                          f"Xung đột: {'; '.join(conflicts)}", TrangThaiGiaoTac.THAT_BAI)
-                raise Exception(f"Trùng lịch học: {conflicts[0]}")
-            
-            _log_step(log_db, tx_id, ma_lop_hp, ma_sv, BuocGiaoTac.KIEM_TRA_LICH_HOC, "Lịch học hợp lệ")
-
-            # 2. Khóa các lớp theo thứ tự nhất định (tránh deadlock)
-            locked = {}
-            for cid in sorted(targets):
-                # Gọi phương thức Raw SQL trong Repo để thực hiện Lock
-                sec = ClassSectionRepo.get_by_id_for_update(db_section, cid)
-                if not sec:
-                    raise Exception(f"Lớp {cid} không tồn tại")
-                locked[cid] = sec
-            _log_step(log_db, tx_id, ma_lop_hp, ma_sv, BuocGiaoTac.DA_KHOA, f"Đã khóa {', '.join(targets)}")
-
-            # 3. Kiểm tra sĩ số lớp mới
-            new_sec = locked[ma_lop_hp]
-            if new_sec.SiSoHienTai >= new_sec.SiSoToiDa:
-                _log_step(log_db, tx_id, ma_lop_hp, ma_sv, BuocGiaoTac.KIEM_TRA_SI_SO,
-                          f"count={new_sec.SiSoHienTai}/{new_sec.SiSoToiDa} → FULL", TrangThaiGiaoTac.THAT_BAI)
-                raise Exception("Lớp đã đầy sĩ số")
-            
-            _log_step(log_db, tx_id, ma_lop_hp, ma_sv, BuocGiaoTac.KIEM_TRA_SI_SO,
-                      f"count={new_sec.SiSoHienTai}/{new_sec.SiSoToiDa} → OK")
-
-            # 4. Xử lý đổi lớp nếu có lớp cũ cùng site
-            if exclude_lop and exclude_lop in locked:
-                old_sec = locked[exclude_lop]
-                if old_sec.SiSoHienTai > 0:
-                    old_sec.SiSoHienTai -= 1
-                # Xoá bản ghi cũ
-                en_old = db_section.query(Enrollment).filter(
-                    Enrollment.userId == user_id,
-                    Enrollment.MaLopHP == exclude_lop
-                ).first()
-                if en_old:
-                    db_section.delete(en_old)
-                _log_step(log_db, tx_id, exclude_lop, ma_sv, BuocGiaoTac.INSERT, "Đã trừ sĩ số lớp cũ")
-
-            # 4. Tạo mới enrollment
-            new_en = Enrollment(
-                userId=user_id,
-                MaSV=ma_sv,
-                MaLopHP=ma_lop_hp,
-                MaHP=new_sec.MaHP,
-                MaHocKy=new_sec.MaHocKy,
-                TrangThaiDangKy=EnrollmentStatus.DaDangKy,
-                GhiChu=ghi_chu,
-            )
-            db_section.add(new_en)
-            new_sec.SiSoHienTai += 1
-
-            _log_step(log_db, tx_id, ma_lop_hp, ma_sv, BuocGiaoTac.INSERT,
-                      f"Tăng sĩ số → {new_sec.SiSoHienTai}/{new_sec.SiSoToiDa}")
-
-            # 5. Commit
-            db_section.commit()
-            db_section.refresh(new_en)
-
-            _log_step(log_db, tx_id, ma_lop_hp, ma_sv, BuocGiaoTac.COMMIT,
-                      f"MaDangKy={new_en.MaDangKy}", TrangThaiGiaoTac.THANH_CONG)
-
-            return new_en.MaDangKy
-
-        except Exception as e:
-            db_section.rollback()
-            _log_step(log_db, tx_id, ma_lop_hp, ma_sv, BuocGiaoTac.ROLLBACK,
-                      str(e), TrangThaiGiaoTac.THAT_BAI)
-            raise
-
-    # 4. HỦY ĐĂNG KÝ
     @staticmethod
     def cancel(user_id: str, ma_lop_hp: str, site_home: str):
         """Hủy đăng ký học phần qua hệ thống phân tán 3PC."""
         from services.Enrollment3PCService import Enrollment3PCService
         return Enrollment3PCService.cancel(user_id, ma_lop_hp, site_home)
 
-    # 5. LỊCH SỬ ĐĂNG KÝ
+    @staticmethod
+    def swap_class(user: User, old_ma_lop_hp: str, new_ma_lop_hp: str) -> bool:
+        """
+        Đổi lớp học phần. 
+        Sử dụng cơ chế 3PC của register (tự động phát hiện đổi lớp nếu đã có đăng ký môn này).
+        """
+        result = EnrollmentService.register(user, EnrollmentCreate(MaLopHP=new_ma_lop_hp))
+        return result.status == "Success"
+
     @staticmethod
     def get_history(user_id: str, site: str, ma_hk: Optional[str] = None) -> List[EnrollmentHistoryResponse]:
-        """Lấy danh sách đăng ký của sinh viên (từ bản sao ở site home)."""
+        """Lấy danh sách đăng ký của sinh viên (hợp nhất tại site home)."""
+        from models.EnrollmentTransfers import EnrollmentTransfer
         result = []
         with open_db_by_branch(site) as db:
-            enrolls = EnrollmentRepo.get_student_enrollments(db, user_id, ma_hk)
-            for en in enrolls:
+            # 1. Lấy các lớp đăng ký tại chỗ
+            local_enrolls = EnrollmentRepo.get_student_enrollments(db, user_id, ma_hk)
+            for en in local_enrolls:
                 sec = ClassSectionRepo.get_by_id(db, en.MaLopHP)
                 course = db.query(Course).filter(Course.MaHocPhan == en.MaHP).first()
                 result.append(EnrollmentHistoryResponse(
@@ -200,145 +68,105 @@ class EnrollmentService:
                     TrangThaiDangKy=en.TrangThaiDangKy,
                     MaCoSo=site,
                 ))
-        return sorted(result, key=lambda x: x.NgayDangKy, reverse=True)
 
-    # 6. CÁC HELPER KHÁC
-    @staticmethod
-    def _sync_to_home(db_home: Session, user_id: str, ma_sv: str, ma_lop_hp: str,
-                      ma_hp: str, ma_hk: str, exclude_lop: Optional[str], ghi_chu: Optional[str]):
-        """Đồng bộ bản sao về site gốc của sinh viên (best-effort)."""
-        try:
-            if exclude_lop:
-                old = db_home.query(Enrollment).filter(
-                    Enrollment.userId == user_id,
-                    Enrollment.MaLopHP == exclude_lop
-                ).first()
-                if old:
-                    db_home.delete(old)
+            # 2. Lấy các lớp đăng ký liên kết (đăng ký ở site khác)
+            cross_links = db.query(EnrollmentTransfer).filter(EnrollmentTransfer.userId == user_id).all()
+            for link in cross_links:
+                try:
+                    # Lấy thông tin chi tiết từ site đích
+                    with open_db_by_branch(link.TargetSite) as db_remote:
+                        # Tìm thông tin đăng ký gốc tại site remote
+                        remote_en = db_remote.query(Enrollment).filter(
+                            Enrollment.userId == user_id,
+                            Enrollment.MaLopHP == link.MaLopHP
+                        ).first()
+                        
+                        if not remote_en: continue
+                        if ma_hk and getattr(remote_en, 'MaHocKy', None) != ma_hk: continue
+                        
+                        sec = ClassSectionRepo.get_by_id(db_remote, link.MaLopHP)
+                        course = db_remote.query(Course).filter(Course.MaHocPhan == link.MaHP).first()
+                        
+                        result.append(EnrollmentHistoryResponse(
+                            MaDangKy=getattr(remote_en, 'MaDangKy', 0),
+                            MaSV=getattr(remote_en, 'MaSV', "N/A"),
+                            MaLopHP=link.MaLopHP,
+                            TenLopHP=getattr(sec, 'TenLopHP', None),
+                            TenHocPhan=getattr(course, 'TenHocPhan', None),
+                            MaHocKy=getattr(remote_en, 'MaHocKy', "N/A"),
+                            NgayDangKy=getattr(remote_en, 'NgayDangKy', datetime.utcnow()),
+                            TrangThaiDangKy=getattr(remote_en, 'TrangThaiDangKy', EnrollmentStatus.DaDangKy),
+                            MaCoSo=link.TargetSite,
+                        ))
+                except Exception:
+                    continue
 
-            copy_en = Enrollment(
-                userId=user_id, MaSV=ma_sv, MaLopHP=ma_lop_hp,
-                MaHP=ma_hp, MaHocKy=ma_hk,
-                TrangThaiDangKy=EnrollmentStatus.DaDangKy,
-                GhiChu=ghi_chu,
-            )
-            db_home.add(copy_en)
-            db_home.commit()
-        except Exception as e:
-            db_home.rollback()
-            print(f"⚠️ sync home fail: {e}")
-
-    @staticmethod
-    def _lazy_cleanup(site: str, user_id: str, ma_lop_hp: str):
-        """Dọn dẹp lớp cũ ở site khác (best-effort)."""
-        try:
-            with open_db_by_branch(site) as db:
-                @retry_on_deadlock(max_retries=2)
-                def _do():
-                    sec = ClassSectionRepo.get_by_id_for_update(db, ma_lop_hp)
-                    en = EnrollmentRepo.get_by_lop_user(db, user_id, ma_lop_hp)
-                    if en:
-                        db.delete(en)
-                    if sec and sec.SiSoHienTai > 0:
-                        sec.SiSoHienTai -= 1
-                    db.commit()
-                _do()
-        except Exception as e:
-            print(f"⚠️ lazy_cleanup thất bại ({ma_lop_hp}): {e}")
-
+        return sorted(result, key=lambda x: getattr(x, 'NgayDangKy', datetime.min), reverse=True)
 
     @staticmethod
-    def _check_schedule_conflict(db_home: Session, user_id: str,
-                                 section: CourseSection,
-                                 exclude_lop: Optional[str] = None) -> List[str]:
-        """Kiểm tra trùng lịch giữa lớp mới và các lớp đã đăng ký."""
-        conflicts = []
-        site_new = _site_of(section.MaLopHP)
-
-        with open_db_by_branch(site_new) as db_new_site:
-            new_schedules = ClassSectionRepo.list_schedules(db_new_site, section.MaLopHP)
-
-        if not new_schedules:
-            return []
-
-        current_enrollments = EnrollmentRepo.get_student_enrollments(
-            db_home, user_id, section.MaHocKy
-        )
-
-        for en in current_enrollments:
-            if en.MaLopHP in (section.MaLopHP, exclude_lop):
-                continue
-
-            site_en = _site_of(en.MaLopHP)
-            with open_db_by_branch(site_en) as db_en_site:
-                existing_schedules = ClassSectionRepo.list_schedules(db_en_site, en.MaLopHP)
-            for s_exist in existing_schedules:
-                for s_new in new_schedules:
-                    exist_end = s_exist.TietBatDau + s_exist.SoTiet - 1
-                    new_end = s_new.TietBatDau + s_new.SoTiet - 1
-
-                    if s_exist.ThuTrongTuan == s_new.ThuTrongTuan:
-                        if not (exist_end < s_new.TietBatDau or s_exist.TietBatDau > new_end):
-                            conflicts.append(
-                                f"Trùng lịch với lớp {en.MaLopHP} "
-                                f"(Thứ {s_exist.ThuTrongTuan}, tiết {s_exist.TietBatDau}–{exist_end})"
-                            )
-        return conflicts
-
-    @staticmethod
-    @retry_on_deadlock(max_retries=3)
-    def swap_class(ma_sv: str, old_ma_lop_hp: str, new_ma_lop_hp: str, **kwargs) -> bool:
-        """Thực hiện đổi lớp học phần (Mô phỏng quy trình chi tiết để ghi log)."""
-        site_new = _site_of(new_ma_lop_hp)
-        tx_id = f"SWAP-{ma_sv}-{int(time.time() * 1000)}"
+    def get_student_timetable(user_id: str, site: str, ma_hk: Optional[str] = None) -> List[ScheduleResponse]:
+        """Lấy thời khóa biểu sinh viên (hợp nhất từ tất cả các site liên quan)."""
+        from models.EnrollmentTransfers import EnrollmentTransfer
+        result = []
         
-        with open_db_by_branch(site_new) as db:
-            log_db = get_log_session(site_new)
-            try:
-                _log_step(log_db, tx_id, new_ma_lop_hp, ma_sv, BuocGiaoTac.BEGIN, f"Đổi lớp: {old_ma_lop_hp} -> {new_ma_lop_hp}")
-                
-                # 1. Kiểm tra lịch học
-                _log_step(log_db, tx_id, new_ma_lop_hp, ma_sv, BuocGiaoTac.KIEM_TRA_LICH_HOC, "Kiểm tra lịch học chéo... OK")
+        # Danh sách tất cả các lớp (cặp: MaLopHP, TargetSite)
+        all_enrolls: List[tuple[str, str, str]] = [] # (MaLopHP, MaHP, Site)
+        
+        with open_db_by_branch(site) as db:
+            # Lớp tại chỗ
+            locals = EnrollmentRepo.get_student_enrollments(db, user_id, ma_hk)
+            for en in locals:
+                all_enrolls.append((en.MaLopHP, en.MaHP, site))
+            
+            # Lớp liên kết
+            links = db.query(EnrollmentTransfer).filter(EnrollmentTransfer.userId == user_id).all()
+            for link in links:
+                all_enrolls.append((link.MaLopHP, link.MaHP, link.TargetSite))
 
-                # 2. Khóa DB (Cố tình tạo Deadlock bằng cách không sort ID)
-                target_ids = [old_ma_lop_hp, new_ma_lop_hp]
-                locked = {}
-                for cid in target_ids:
-                    sec = ClassSectionRepo.get_by_id_for_update(db, cid)
-                    if not sec: raise HTTPException(404, detail=f"Không tìm thấy lớp {cid}")
-                    locked[cid] = sec
-                    time.sleep(1) # Delay để tạo cơ hội gây Deadlock
-                _log_step(log_db, tx_id, new_ma_lop_hp, ma_sv, BuocGiaoTac.DA_KHOA, f"Đã khóa xong {len(target_ids)} lớp")
+        # Lấy lịch học cho từng lớp
+        for ma_lop_hp, ma_hp, site_target in all_enrolls:
+            with open_db_by_branch(site_target) as db_target:
+                # Kiểm tra học kỳ nếu có lọc
+                if ma_hk:
+                    sec_check = ClassSectionRepo.get_by_id(db_target, ma_lop_hp)
+                    if not sec_check or sec_check.MaHocKy != ma_hk:
+                        continue
+                
+                course = db_target.query(Course).filter(Course.MaHocPhan == ma_hp).first()
+                schedules = ClassSectionRepo.list_schedules(db_target, ma_lop_hp)
+                for sch in schedules:
+                    result.append(ScheduleResponse(
+                        MaLich=sch.MaLich,
+                        MaLopHP=sch.MaLopHP,
+                        MaHP=ma_hp,
+                        TenHocPhan=course.TenHocPhan if course else None,
+                        MaPhong=sch.MaPhong,
+                        ThuTrongTuan=sch.ThuTrongTuan,
+                        TietBatDau=sch.TietBatDau,
+                        SoTiet=sch.SoTiet,
+                        NgayBatDau=sch.NgayBatDau,
+                        NgayKetThuc=sch.NgayKetThuc,
+                        GhiChu=sch.GhiChu
+                    ))
+        return result
 
-                old_sec, new_sec = locked[old_ma_lop_hp], locked[new_ma_lop_hp]
-                
-                # 3. Kiểm tra sĩ số
-                if new_sec.SiSoHienTai >= new_sec.SiSoToiDa: 
-                    _log_step(log_db, tx_id, new_ma_lop_hp, ma_sv, BuocGiaoTac.KIEM_TRA_SI_SO, "Lớp đã đầy", TrangThaiGiaoTac.THAT_BAI)
-                    raise HTTPException(400, detail="Lớp mới đã đầy.")
-                _log_step(log_db, tx_id, new_ma_lop_hp, ma_sv, BuocGiaoTac.KIEM_TRA_SI_SO, f"Sĩ số: {new_sec.SiSoHienTai}/{new_sec.SiSoToiDa}")
-
-                # 4. Cập nhật dữ liệu (Insert/Update)
-                en = db.query(Enrollment).filter(
-                    Enrollment.MaSV == ma_sv, 
-                    Enrollment.MaLopHP == old_ma_lop_hp, 
-                    Enrollment.TrangThaiDangKy == EnrollmentStatus.DaDangKy
-                ).first()
-                if not en: raise HTTPException(400, detail="Không tìm thấy đăng ký ở lớp cũ.")
-                
-                old_sec.SiSoHienTai -= 1
-                new_sec.SiSoHienTai += 1
-                en.MaLopHP = new_ma_lop_hp
-                en.NgayDangKy = datetime.now(timezone.utc)
-                _log_step(log_db, tx_id, new_ma_lop_hp, ma_sv, BuocGiaoTac.INSERT, "Đã cập nhật sĩ số và bản ghi đăng ký")
-                
-                db.commit()
-                _log_step(log_db, tx_id, new_ma_lop_hp, ma_sv, BuocGiaoTac.COMMIT, "Đổi lớp thành công", TrangThaiGiaoTac.THANH_CONG)
-                return True
-            except Exception as e:
-                db.rollback()
-                if "deadlock" not in str(e).lower():
-                    _log_step(log_db, tx_id, new_ma_lop_hp, ma_sv, BuocGiaoTac.ROLLBACK, str(e), TrangThaiGiaoTac.THAT_BAI)
-                raise e
-            finally:
-                log_db.close()
+    @staticmethod
+    def get_students_by_class(ma_lop_hp: str) -> List[StudentInClassResponse]:
+        """Lấy danh sách sinh viên trong lớp."""
+        site = _site_of(ma_lop_hp)
+        result = []
+        with open_db_by_branch(site) as db:
+            enrolls = ClassSectionRepo.list_enrollments(db, ma_lop_hp)
+            for en in enrolls:
+                student = db.query(Student).filter(Student.userId == en.userId).first()
+                if student:
+                    result.append(StudentInClassResponse(
+                        MaSV=student.MaSV,
+                        Ho=student.Ho,
+                        Ten=student.Ten,
+                        NgaySinh=student.NgaySinh,
+                        GioiTinh=student.GioiTinh,
+                        NgayDangKy=en.NgayDangKy,
+                        TrangThaiDangKy=en.TrangThaiDangKy
+                    ))
+        return result

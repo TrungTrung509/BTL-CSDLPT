@@ -124,20 +124,24 @@ class Enrollment3PCDB:
         for site in ctx.lock_sites:
             entries.append((site, Enrollment3PCDB._lock_key(user_scope)))
 
-        entries.append(
-            (
-                ctx.site_new,
-                Enrollment3PCDB._lock_key(f"section:{ctx.site_new}:{ctx.target_ma_lop_hp}"),
-            )
-        )
-        if ctx.site_old and ctx.old_ma_lop_hp:
-            entries.append(
-                (
-                    ctx.site_old,
-                    Enrollment3PCDB._lock_key(f"section:{ctx.site_old}:{ctx.old_ma_lop_hp}"),
-                )
-            )
-        return sorted(set(entries), key=lambda item: (item[0], item[1]))
+        # #Sort để ngăn chặn deadlock
+        # entries.append(
+        #     (
+        #         ctx.site_new,
+        #         Enrollment3PCDB._lock_key(f"section:{ctx.site_new}:{ctx.target_ma_lop_hp}"),
+        #     )
+        # )
+        # if ctx.site_old and ctx.old_ma_lop_hp:
+        #     entries.append(
+        #         (
+        #             ctx.site_old,
+        #             Enrollment3PCDB._lock_key(f"section:{ctx.site_old}:{ctx.old_ma_lop_hp}"),
+        #         )
+        #     )
+        # return sorted(set(entries), key=lambda item: (item[0], item[1]))
+
+        # Không sort
+        return list(set(entries))
 
     @staticmethod
     def _lock_key(value: str) -> int:

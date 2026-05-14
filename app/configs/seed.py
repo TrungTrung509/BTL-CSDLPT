@@ -8,6 +8,8 @@ from configs.db import SessionLocals
 
 def seed_common_data(db):
     """Seed common reference data."""
+    # DO NOT truncate. Let ON CONFLICT handle updates.
+
     branch_data = [
         (
             "HADONG",

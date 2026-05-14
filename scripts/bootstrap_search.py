@@ -33,6 +33,7 @@ ES_HOST = os.environ.get("ES_HOST", "http://localhost:9200")
 ES_TIMEOUT = 30  # seconds
 ES_INDEX_NAME = "hocphan"
 ES_TEMPLATE_FILE = Path(__file__).parent.parent / "search" / "index_templates" / "hocphan_template.json"
+args = None
 
 # Màu sắc cho terminal
 class Colors:
@@ -88,14 +89,14 @@ def wait_for_elasticsearch(es: Elasticsearch, max_retries: int = 30, delay: int 
     return False
 
 
-def check_and_create_index(es: Elasticsearch, index_name: str, template_path: Path) -> bool:
+def check_and_create_index(es: Elasticsearch, index_name: str, template_path: Path, args=None) -> bool:
     """Tạo index mới nếu chưa có"""
     try:
         # Kiểm tra index đã tồn tại
         if es.indices.exists(index=index_name):
             log_warning(f"Index '{index_name}' đã tồn tại")
 
-            if args.force:
+            if args and args.force:
                 log_info(f"Force mode: Xóa index cũ...")
                 es.indices.delete(index=index_name)
                 log_success(f"Đã xóa index '{index_name}'")
@@ -307,7 +308,7 @@ def main():
     # Bước 2: Tạo index
     print()
     log_info("Bước 2/3: Tạo index...")
-    if not check_and_create_index(es, args.index, Path(args.template)):
+    if not check_and_create_index(es, args.index, Path(args.template), args):
         sys.exit(1)
 
     # Bước 3: Verify

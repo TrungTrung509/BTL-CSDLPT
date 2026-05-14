@@ -4,12 +4,12 @@ from uuid import uuid4
 from fastapi import HTTPException, status
 
 from configs.db import SessionLocals, get_log_session
-from enums.status import EnrollmentAction, EnrollmentTransactionState, LogStatus, BuocGiaoTac, TrangThaiGiaoTac
+from enums.status import EnrollmentAction, EnrollmentTransactionState, LogStatus, BuocGiaoTac, TrangThaiGiaoTac, RecoveryAction
 from sqlalchemy.exc import OperationalError, InternalError
 from models.CourseSections import CourseSection
-from models.Students import Student
-from repositories.EnrollmentLogRepo import EnrollmentLogRepo
+from repositories.RecoveryLogRepo import RecoveryLogRepo
 from repositories.EnrollmentTransactionRepo import EnrollmentTransactionRepo
+
 from schemas.Enrollment import EnrollmentCreate, RegistrationResult
 
 from services.utils import retry_on_deadlock, _log_step
@@ -49,29 +49,7 @@ class Enrollment3PCCoordinator:
                 section_new.MaHP,
                 section_new.MaHocKy,
             )
-            if existing_enrollment and existing_enrollment.MaLopHP == section_new.MaLopHP:
-                message = "Sinh vien da dang ky lop hoc phan nay"
-                Enrollment3PCCoordinator._record_business_log(
-                    site=site_home,
-                    user_id=user.userId,
-                    ma_lop_hp=section_new.MaLopHP,
-                    ma_hp=section_new.MaHP,
-                    action=EnrollmentAction.REGISTER,
-                    target_site=site_new,
-                    status=LogStatus.FAILED,
-                    message=message,
-                )
-                return RegistrationResult(
-                    MaLopHP=section_new.MaLopHP,
-                    status="Failed",
-                    message=message,
-                    action=EnrollmentAction.REGISTER.value,
-                )
-
-            # Get MaSV from student table
-            home_session = sessions.get(site_home)
-            student = home_session.query(Student).filter(Student.userId == user.userId).first() if home_session else None
-            ma_sv = student.MaSV if student else None
+            ma_sv = user.userId
 
             ctx = Enrollment3PCCoordinator._build_register_context(
                 user_id=user.userId,
@@ -85,17 +63,22 @@ class Enrollment3PCCoordinator:
                 lock_sites=list(sessions.keys()),
             )
 
+
             Enrollment3PCCoordinator._log_3pc_step(site_new, ctx.txn_id, ctx.target_ma_lop_hp, ma_sv, "BEGIN", "Bắt đầu giao dịch 3PC", "DANG_CHAY")
 
+            Enrollment3PCCoordinator._log_3pc_step(site_new, ctx.txn_id, ctx.target_ma_lop_hp, ma_sv, "KIEM_TRA_SO_BO", "Đang xác thực điều kiện đăng ký sơ bộ", "DANG_CHAY")
             Enrollment3PCDomain.snapshot_check_eligibility(ctx, sessions)
-            Enrollment3PCCoordinator._log_3pc_step(site_new, ctx.txn_id, ctx.target_ma_lop_hp, ma_sv, "KIEM_TRA_LICH_HOC", "Xác thực lịch học không bị trùng", "DANG_CHAY")
 
+            Enrollment3PCCoordinator._log_3pc_step(site_new, ctx.txn_id, ctx.target_ma_lop_hp, ma_sv, "KHOA_PHAN_TAN", "Đang lấy Advisory Lock phân tán trên tất cả site", "DANG_CHAY")
             acquired_locks = Enrollment3PCDB.acquire_locks(ctx, sessions)
-            Enrollment3PCCoordinator._log_3pc_step(site_new, ctx.txn_id, ctx.target_ma_lop_hp, ma_sv, "DA_KHOA", "Đã khóa bản ghi liên quan", "DANG_CHAY")
 
             EnrollmentTransactionRepo.create_or_reset_rows(ctx, sessions)
-            Enrollment3PCDomain.prepare_register(ctx, sessions)
-            Enrollment3PCCoordinator._log_3pc_step(site_new, ctx.txn_id, ctx.target_ma_lop_hp, ma_sv, "KIEM_TRA_SI_SO", "Xác thực điều kiện hợp lệ", "DANG_CHAY")
+
+            Enrollment3PCCoordinator._log_3pc_step(site_new, ctx.txn_id, ctx.target_ma_lop_hp, ma_sv, "KHOA_LOP_HP_DB", "Đang thực hiện Row Lock các lớp học phần", "DANG_CHAY")
+            locked_section = Enrollment3PCDomain.prepare_lock_rows(ctx, sessions)
+
+            Enrollment3PCCoordinator._log_3pc_step(site_new, ctx.txn_id, ctx.target_ma_lop_hp, ma_sv, "KIEM_TRA_SI_SO_CUOI", "Đang xác thực sĩ số và trạng thái cuối cùng", "DANG_CHAY")
+            Enrollment3PCDomain.prepare_validate(locked_section)
             EnrollmentTransactionRepo.set_state(
                 ctx,
                 sessions,
@@ -108,23 +91,10 @@ class Enrollment3PCCoordinator:
                 EnrollmentTransactionState.PRECOMMIT,
                 "Coordinator da chuyen sang pha pre-commit",
             )
-            Enrollment3PCCoordinator._log_3pc_step(site_new, ctx.txn_id, ctx.target_ma_lop_hp, ma_sv, "INSERT", "Bắt đầu ghi nhận dữ liệu vào CSDL", "DANG_CHAY")
+            Enrollment3PCCoordinator._log_3pc_step(site_new, ctx.txn_id, ctx.target_ma_lop_hp, ma_sv, "INSERT", "Bắt đầu ghi vào CSDL", "DANG_CHAY")
 
             enrollment_id, failed_sites = Enrollment3PCCoordinator._commit_register(ctx, sessions)
             if failed_sites:
-                Enrollment3PCCoordinator._record_business_log(
-                    site=ctx.coordinator_site,
-                    user_id=ctx.user_id,
-                    ma_lop_hp=ctx.target_ma_lop_hp,
-                    ma_hp=ctx.target_ma_hp,
-                    action=ctx.action,
-                    target_site=ctx.site_new,
-                    status=LogStatus.PENDING,
-                    message=(
-                        "Giao dich da vao pha pre-commit, dang cho recovery tai: "
-                        + ", ".join(failed_sites)
-                    ),
-                )
                 return RegistrationResult(
                     MaLopHP=ctx.target_ma_lop_hp,
                     status="Success",
@@ -136,23 +106,30 @@ class Enrollment3PCCoordinator:
                     action=ctx.action.value,
                     old_ma_lop_hp=ctx.old_ma_lop_hp,
                 )
+
             EnrollmentTransactionRepo.set_state(
                 ctx,
                 sessions,
                 EnrollmentTransactionState.COMMITTED,
                 "Tat ca participant da commit thanh cong",
             )
-            Enrollment3PCCoordinator._record_business_log(
-                site=ctx.coordinator_site,
-                user_id=ctx.user_id,
-                ma_lop_hp=ctx.target_ma_lop_hp,
-                ma_hp=ctx.target_ma_hp,
-                action=ctx.action,
-                target_site=ctx.site_new,
-                status=LogStatus.SUCCESS,
-                message="Doi lop thanh cong" if ctx.old_ma_lop_hp else "Dang ky thanh cong",
-            )
-            Enrollment3PCCoordinator._log_3pc_step(site_new, ctx.txn_id, ctx.target_ma_lop_hp, ma_sv, "COMMIT", "Đăng ký thành công", "THANH_CONG")
+            
+            try:
+                target_sec = sessions[ctx.site_new].query(CourseSection).filter(CourseSection.MaLopHP == ctx.target_ma_lop_hp).first()
+                new_sz = target_sec.SiSoHienTai if target_sec else 1
+                old_sz = new_sz - 1
+                log_detail = f"{ctx.target_ma_lop_hp} ({old_sz} -> {new_sz})."
+                
+                if ctx.old_ma_lop_hp and ctx.site_old:
+                    old_sec = sessions[ctx.site_old].query(CourseSection).filter(CourseSection.MaLopHP == ctx.old_ma_lop_hp).first()
+                    if old_sec:
+                        old_new_sz = old_sec.SiSoHienTai
+                        old_old_sz = old_new_sz + 1
+                        log_detail = f" {ctx.target_ma_lop_hp} ({old_sz} -> {new_sz}), {ctx.old_ma_lop_hp} ({old_old_sz} -> {old_new_sz})."
+            except Exception:
+                log_detail = "Đăng ký/Đổi lớp thành công."
+                
+            Enrollment3PCCoordinator._log_3pc_step(site_new, ctx.txn_id, ctx.target_ma_lop_hp, ma_sv, "COMMIT", log_detail, "THANH_CONG")
 
             return RegistrationResult(
                 MaLopHP=ctx.target_ma_lop_hp,
@@ -167,16 +144,7 @@ class Enrollment3PCCoordinator:
                 raise
             if ctx is not None:
                 EnrollmentTransactionRepo.mark_aborted(ctx, sessions, exc.detail)
-                Enrollment3PCCoordinator._record_business_log(
-                    site=ctx.coordinator_site,
-                    user_id=ctx.user_id,
-                    ma_lop_hp=ctx.target_ma_lop_hp,
-                    ma_hp=ctx.target_ma_hp,
-                    action=ctx.action,
-                    target_site=ctx.site_new,
-                    status=LogStatus.FAILED,
-                    message=exc.detail,
-                )
+
             return RegistrationResult(
                 MaLopHP=enroll_in.MaLopHP.upper(),
                 status="Failed",
@@ -189,16 +157,7 @@ class Enrollment3PCCoordinator:
                     raise
             if ctx is not None:
                 EnrollmentTransactionRepo.mark_aborted(ctx, sessions, str(exc))
-                Enrollment3PCCoordinator._record_business_log(
-                    site=ctx.coordinator_site,
-                    user_id=ctx.user_id,
-                    ma_lop_hp=ctx.target_ma_lop_hp,
-                    ma_hp=ctx.target_ma_hp,
-                    action=ctx.action,
-                    target_site=ctx.site_new,
-                    status=LogStatus.FAILED,
-                    message=str(exc),
-                )
+
             return RegistrationResult(
                 MaLopHP=enroll_in.MaLopHP.upper(),
                 status="Failed",
@@ -265,8 +224,14 @@ class Enrollment3PCCoordinator:
                 lock_sites=sorted(required_sites),
             )
 
+            Enrollment3PCCoordinator._log_3pc_step(ctx.site_new, ctx.txn_id, ctx.target_ma_lop_hp, user_id, "BEGIN", "Bắt đầu giao dịch hủy đăng ký", "DANG_CHAY")
+
+            Enrollment3PCCoordinator._log_3pc_step(ctx.site_new, ctx.txn_id, ctx.target_ma_lop_hp, user_id, "KHOA_PHAN_TAN", "Đang lấy Advisory Lock phân tán để hủy đăng ký", "DANG_CHAY")
             acquired_locks = Enrollment3PCDB.acquire_locks(ctx, sessions)
+
             EnrollmentTransactionRepo.create_or_reset_rows(ctx, sessions)
+
+            Enrollment3PCCoordinator._log_3pc_step(ctx.site_new, ctx.txn_id, ctx.target_ma_lop_hp, user_id, "KHOA_LOP_HP_DB", "Đang thực hiện Row Lock bản ghi để hủy", "DANG_CHAY")
             Enrollment3PCDomain.prepare_cancel(ctx, sessions)
             EnrollmentTransactionRepo.set_state(
                 ctx,
@@ -281,51 +246,32 @@ class Enrollment3PCCoordinator:
                 "Coordinator da chuyen sang pha pre-commit",
             )
 
+            Enrollment3PCCoordinator._log_3pc_step(ctx.site_new, ctx.txn_id, ctx.target_ma_lop_hp, user_id, "INSERT", "Bắt đầu xóa dữ liệu khỏi CSDL", "DANG_CHAY")
             _, failed_sites = Enrollment3PCCoordinator._commit_cancel(ctx, sessions)
             if failed_sites:
-                Enrollment3PCCoordinator._record_business_log(
-                    site=ctx.coordinator_site,
-                    user_id=ctx.user_id,
-                    ma_lop_hp=ctx.target_ma_lop_hp,
-                    ma_hp=ctx.target_ma_hp,
-                    action=EnrollmentAction.CANCEL,
-                    target_site=ctx.site_new,
-                    status=LogStatus.PENDING,
-                    message=(
-                        "Giao dich da vao pha pre-commit, dang cho recovery tai: "
-                        + ", ".join(failed_sites)
-                    ),
-                )
                 return
+
             EnrollmentTransactionRepo.set_state(
                 ctx,
                 sessions,
                 EnrollmentTransactionState.COMMITTED,
                 "Tat ca participant da commit thanh cong",
             )
-            Enrollment3PCCoordinator._record_business_log(
-                site=ctx.coordinator_site,
-                user_id=ctx.user_id,
-                ma_lop_hp=ctx.target_ma_lop_hp,
-                ma_hp=ctx.target_ma_hp,
-                action=EnrollmentAction.CANCEL,
-                target_site=ctx.site_new,
-                status=LogStatus.SUCCESS,
-                message="Huy dang ky thanh cong",
-            )
+            
+            try:
+                target_sec = sessions[ctx.site_new].query(CourseSection).filter(CourseSection.MaLopHP == ctx.target_ma_lop_hp).first()
+                new_sz = target_sec.SiSoHienTai if target_sec else 0
+                old_sz = new_sz + 1
+                log_detail = f"Hủy thành công.  {ctx.target_ma_lop_hp} ({old_sz} -> {new_sz})."
+            except Exception:
+                log_detail = "Hủy đăng ký thành công."
+                
+            Enrollment3PCCoordinator._log_3pc_step(ctx.site_new, ctx.txn_id, ctx.target_ma_lop_hp, user_id, "COMMIT", log_detail, "THANH_CONG")
+
         except Exception:
             if ctx is not None:
                 EnrollmentTransactionRepo.mark_aborted(ctx, sessions, "Huy dang ky that bai")
-                Enrollment3PCCoordinator._record_business_log(
-                    site=ctx.coordinator_site,
-                    user_id=ctx.user_id,
-                    ma_lop_hp=ctx.target_ma_lop_hp,
-                    ma_hp=ctx.target_ma_hp,
-                    action=EnrollmentAction.CANCEL,
-                    target_site=ctx.site_new,
-                    status=LogStatus.FAILED,
-                    message="Huy dang ky that bai",
-                )
+
             raise
         finally:
             Enrollment3PCDB.release_locks(sessions, acquired_locks)
@@ -361,7 +307,7 @@ class Enrollment3PCCoordinator:
 
         for site in ctx.participant_sites:
             try:
-                current_id = Enrollment3PCDomain.commit_site(ctx, sessions[site])
+                current_id = Enrollment3PCDomain.commit_site(ctx, sessions[site], site)
                 if site == ctx.site_new and current_id is not None:
                     enrollment_id = current_id
             except Exception:
@@ -378,7 +324,7 @@ class Enrollment3PCCoordinator:
         failed_sites: list[str] = []
         for site in ctx.participant_sites:
             try:
-                Enrollment3PCDomain.commit_site(ctx, sessions[site])
+                Enrollment3PCDomain.commit_site(ctx, sessions[site], site)
             except Exception:
                 sessions[site].rollback()
                 failed_sites.append(site)
@@ -411,17 +357,23 @@ class Enrollment3PCCoordinator:
                 EnrollmentTransactionState.COMMITTED,
                 "Recovery da hoan tat commit cho tat ca participant",
             )
-            Enrollment3PCCoordinator._record_business_log(
-                site=ctx.coordinator_site,
-                user_id=ctx.user_id,
-                ma_lop_hp=ctx.target_ma_lop_hp,
-                ma_hp=ctx.target_ma_hp,
-                action=ctx.action,
-                target_site=ctx.site_new,
-                status=LogStatus.SUCCESS,
-                message="Recovery da hoan tat giao dich dang ky hoc phan",
-            )
+            
+            # Ghi log recovery vào bảng NhatKyPhucHoi
+            with SessionLocals[ctx.coordinator_site]() as db:
+                RecoveryLogRepo.append_recovery_log(
+                    db,
+                    txn_id=ctx.txn_id,
+                    user_id=ctx.user_id,
+                    ma_lop_hp=ctx.target_ma_lop_hp,
+                    action=RecoveryAction.FORCED_COMMIT,
+                    ma_co_so=ctx.coordinator_site,
+                    status=LogStatus.SUCCESS,
+                    message="Recovery thành công: Ép Commit giao dịch In-doubt (Pre-commit)"
+                )
+
             return True
+
+
         finally:
             Enrollment3PCDB.release_locks(sessions, acquired_locks)
             Enrollment3PCDB.close_pinned_sessions(sessions, connections)
@@ -452,19 +404,26 @@ class Enrollment3PCCoordinator:
                 row.State = EnrollmentTransactionState.ABORTED
                 row.Message = "Recovery da abort giao dich do bi tre o pha prepare"
                 session.commit()
-            Enrollment3PCCoordinator._record_business_log(
-                site=ctx.coordinator_site,
-                user_id=ctx.user_id,
-                ma_lop_hp=ctx.target_ma_lop_hp,
-                ma_hp=ctx.target_ma_hp,
-                action=ctx.action,
-                target_site=ctx.site_new,
-                status=LogStatus.FAILED,
-                message="Recovery da abort giao dich dang ky hoc phan",
-            )
+
+            # Ghi log recovery vào bảng NhatKyPhucHoi
+            with SessionLocals[ctx.coordinator_site]() as db:
+                RecoveryLogRepo.append_recovery_log(
+                    db,
+                    txn_id=ctx.txn_id,
+                    user_id=ctx.user_id,
+                    ma_lop_hp=ctx.target_ma_lop_hp,
+                    action=RecoveryAction.FORCED_ABORT,
+                    ma_co_so=ctx.coordinator_site,
+                    status=LogStatus.SUCCESS,
+                    message="Recovery thành công: Hủy bỏ giao dịch treo (Timeout/Stale)"
+                )
+
             return True
+
+
         finally:
             Enrollment3PCDB.close_pinned_sessions(sessions, connections)
+
 
     @staticmethod
     def _build_register_context(
@@ -501,56 +460,9 @@ class Enrollment3PCCoordinator:
         return uuid4().hex
 
     @staticmethod
-    def _record_business_log(
-        *,
-        site: str,
-        user_id: str,
-        ma_lop_hp: str,
-        ma_hp: str,
-        action: EnrollmentAction,
-        target_site: str,
-        status: LogStatus,
-        message: str | None,
-    ) -> None:
-        normalized_site = Enrollment3PCDB.normalize_site(site)
-        if normalized_site not in SessionLocals:
-            return
-
-        session = SessionLocals[normalized_site]()
-        try:
-            if status != LogStatus.PENDING:
-                resolved = EnrollmentLogRepo.resolve_latest_pending(
-                    session,
-                    user_id=user_id,
-                    ma_lop_hp=ma_lop_hp,
-                    ma_hp=ma_hp,
-                    action=action,
-                    target_site=target_site,
-                    status=status,
-                    message=message,
-                )
-                if resolved is not None:
-                    return
-
-            EnrollmentLogRepo.append(
-                session,
-                user_id=user_id,
-                ma_lop_hp=ma_lop_hp,
-                ma_hp=ma_hp,
-                action=action,
-                target_site=target_site,
-                status=status,
-                message=message,
-            )
-        except Exception:
-            session.rollback()
-        finally:
-            session.close()
-
-    @staticmethod
     def _log_3pc_step(site: str, tx_id: str, ma_lop_hp: str, ma_sv: str | None, buoc: str, chi_tiet: str, trang_thai: str):
         try:
             with get_log_session(site) as log_db:
-                _log_step(log_db, tx_id, ma_lop_hp, str(ma_sv), getattr(BuocGiaoTac, buoc), chi_tiet, getattr(TrangThaiGiaoTac, trang_thai))
-        except Exception as e:
-            print(f"Log 3PC error: {e}")
+                _log_step(log_db, tx_id, ma_lop_hp, str(ma_sv), getattr(BuocGiaoTac, buoc), chi_tiet, getattr(TrangThaiGiaoTac, trang_thai), ma_co_so=site)
+        except Exception:
+            pass

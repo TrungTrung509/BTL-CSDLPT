@@ -1,5 +1,8 @@
+from datetime import datetime
+from dataclasses import replace
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
+import time
 
 from enums.status import ClassSectionStatus, EnrollmentAction, EnrollmentTransactionState
 from models.CourseSections import CourseSection
@@ -12,7 +15,7 @@ from services.ClassSectionService import ClassSectionService
 
 from .context import Enrollment3PCContext
 from .db import Enrollment3PCDB
-
+from models.EnrollmentTransfers import EnrollmentTransfer
 
 class Enrollment3PCDomain:
     @staticmethod
@@ -62,49 +65,35 @@ class Enrollment3PCDomain:
             )
 
     @staticmethod
-    def prepare_register(ctx: Enrollment3PCContext, sessions: dict[str, Session]) -> None:
-        if Enrollment3PCDomain._is_same_section_switch(ctx):
+    def prepare_lock_rows(ctx: Enrollment3PCContext, sessions: dict[str, Session]) -> CourseSection:
+        """
+        Bước 1 của pha Prepare: Row Lock (SELECT FOR UPDATE).
+        """
+        # Lock lớp mới
+        target_section = Enrollment3PCDomain._get_section_for_update(
+            sessions[ctx.site_new], ctx.target_ma_lop_hp
+        )
+        if target_section is None:
             raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Sinh vien da dang ky lop hoc phan nay",
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Khong tim thay lop hoc phan: {ctx.target_ma_lop_hp}",
             )
-
-        sections_to_lock = [(ctx.site_new, ctx.target_ma_lop_hp)]
-        if ctx.site_old and ctx.old_ma_lop_hp:
-            # Cố tình add theo thứ tự target trước, old sau để dễ tạo Deadlock chéo (A->B và B->A) khi demo
-            sections_to_lock.append((ctx.site_old, ctx.old_ma_lop_hp))
         
-        locked_sections = {}
-        for site, ma_lop_hp in sections_to_lock:
-            sec = Enrollment3PCDomain._get_section_for_update(sessions[site], ma_lop_hp)
-            if sec is None:
+        # Nghỉ rất ngắn (thay vì 3s của demo)
+        time.sleep(0.1)
+
+        # Lock lớp cũ + kiểm tra bản ghi đăng ký cũ (khi đổi lớp)
+        if ctx.site_old and ctx.old_ma_lop_hp:
+            old_section = Enrollment3PCDomain._get_section_for_update(
+                sessions[ctx.site_old], ctx.old_ma_lop_hp
+            )
+            if old_section is None:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Khong tim thay lop hoc phan: {ma_lop_hp}",
+                    detail=f"Khong tim thay lop hoc phan: {ctx.old_ma_lop_hp}",
                 )
-            locked_sections[ma_lop_hp] = sec
-
-        target_section = locked_sections[ctx.target_ma_lop_hp]
-
-        if target_section.TrangThaiLop != ClassSectionStatus.Mo:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Lop hoc dang o trang thai: {target_section.TrangThaiLop}",
-            )
-
-        active_count = ClassSectionRepo.count_active_enrollments(sessions[ctx.site_new], target_section.MaLopHP)
-        if active_count >= target_section.SiSoToiDa:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Lop hoc da day si so",
-            )
-
-        if ctx.site_old and ctx.old_ma_lop_hp:
-            old_session = sessions[ctx.site_old]
             old_enrollment = Enrollment3PCDomain._get_enrollment_for_update(
-                old_session,
-                ctx.user_id,
-                ctx.old_ma_lop_hp,
+                sessions[ctx.site_old], ctx.user_id, ctx.old_ma_lop_hp
             )
             if old_enrollment is None:
                 raise HTTPException(
@@ -112,22 +101,23 @@ class Enrollment3PCDomain:
                     detail="Dang ky cu da bi thay doi trong luc xu ly",
                 )
 
-        if Enrollment3PCDomain._has_other_course_enrollment(ctx, sessions):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Sinh vien da dang ky hoc phan {ctx.target_ma_hp} trong hoc ky {ctx.target_ma_hoc_ky}",
-            )
+        return target_section
 
-        conflicts = Enrollment3PCDomain._check_schedule_conflict(
-            sessions,
-            ctx.user_id,
-            target_section,
-            ctx.old_ma_lop_hp,
-        )
-        if conflicts:
+    @staticmethod
+    def prepare_validate(target_section: CourseSection) -> None:
+        """
+        Bước 2 của pha Prepare: Re-validate sĩ số và trạng thái dưới Row Lock.
+        """
+        if target_section.TrangThaiLop != ClassSectionStatus.Mo:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="; ".join(conflicts),
+                detail=f"Lop hoc dang o trang thai: {target_section.TrangThaiLop}",
+            )
+        # Sử dụng thuộc tính SiSoHienTai đã có (đã được Row Lock bảo vệ)
+        if target_section.SiSoHienTai >= target_section.SiSoToiDa:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Lop hoc da day si so",
             )
 
     @staticmethod
@@ -152,8 +142,8 @@ class Enrollment3PCDomain:
             )
 
     @staticmethod
-    def commit_site(ctx: Enrollment3PCContext, session: Session) -> int | None:
-        site = Enrollment3PCDB.current_site(session)
+    def commit_site(ctx: Enrollment3PCContext, session: Session, site_name: str) -> int | None:
+        site = site_name.upper()
         tx_row = EnrollmentTransactionRepo.get_by_txn_and_site(
             session,
             ctx.txn_id,
@@ -174,20 +164,33 @@ class Enrollment3PCDomain:
             )
 
         enrollment_id: int | None = None
-        affected_sections: set[str] = set()
 
         if ctx.action == EnrollmentAction.CANCEL:
-            if site == ctx.site_new or site == ctx.site_home:
+            # Site quản lý lớp: Xóa bản ghi gốc
+            if site == ctx.site_new:
                 Enrollment3PCDomain._delete_enrollment_if_exists(session, ctx.user_id, ctx.target_ma_lop_hp)
-                if site == ctx.site_new:
-                    affected_sections.add(ctx.target_ma_lop_hp)
+                Enrollment3PCDomain._update_section_capacity(session, ctx.target_ma_lop_hp, -1)
+            
+            # Site nhà của SV: Cập nhật liên kết chéo cơ sở khi hủy
+            if site == ctx.site_home and site != ctx.site_new:
+                Enrollment3PCDomain._sync_cross_site_link(session, ctx)
         else:
-            if (site == ctx.site_old or site == ctx.site_home) and ctx.old_ma_lop_hp:
-                Enrollment3PCDomain._delete_enrollment_if_exists(session, ctx.user_id, ctx.old_ma_lop_hp)
+            # 1. Nếu đổi lớp 
+            if ctx.old_ma_lop_hp:
+                # Site quản lý lớp cũ: Xóa bản ghi gốc
                 if site == ctx.site_old:
-                    affected_sections.add(ctx.old_ma_lop_hp)
+                    Enrollment3PCDomain._delete_enrollment_if_exists(session, ctx.user_id, ctx.old_ma_lop_hp)
+                    Enrollment3PCDomain._update_section_capacity(session, ctx.old_ma_lop_hp, -1)
+                
+                # Site SV: Cập nhật liên kết chéo cơ sở lớp cũ
+                if site == ctx.site_home and site != ctx.site_old:
+                    # Tạo context tạm để sync CANCEL cho lớp cũ
+                    old_ctx = replace(ctx, action=EnrollmentAction.CANCEL, target_ma_lop_hp=ctx.old_ma_lop_hp)
+                    Enrollment3PCDomain._sync_cross_site_link(session, old_ctx)
 
-            if site == ctx.site_new or site == ctx.site_home:
+            # 2. Xử lý lớp mới
+            # Site quản lý lớp mới: Ghi bản ghi gốc
+            if site == ctx.site_new:
                 current_id = Enrollment3PCDomain._ensure_enrollment_exists(
                     session,
                     ctx.user_id,
@@ -197,12 +200,12 @@ class Enrollment3PCDomain:
                     ctx.ma_sv,
                     ctx.ghi_chu,
                 )
-                if site == ctx.site_new:
-                    enrollment_id = current_id
-                    affected_sections.add(ctx.target_ma_lop_hp)
-
-        for ma_lop_hp in sorted(affected_sections):
-            Enrollment3PCDomain._sync_section_capacity(session, ma_lop_hp)
+                enrollment_id = current_id
+                Enrollment3PCDomain._update_section_capacity(session, ctx.target_ma_lop_hp, 1)
+            
+            # Site SV: Cập nhật liên kết chéo cơ sở
+            if site == ctx.site_home and site != ctx.site_new:
+                Enrollment3PCDomain._sync_cross_site_link(session, ctx)
 
         tx_row.State = EnrollmentTransactionState.COMMITTED
         tx_row.Message = "Local participant da commit thanh cong"
@@ -260,53 +263,39 @@ class Enrollment3PCDomain:
         section: CourseSection,
         exclude_ma_lop_hp: str | None = None,
     ) -> list[str]:
+        """Kiểm tra trùng lịch (Sinh viên và Giảng viên) trên tất cả các cơ sở."""
         conflicts = []
         target_schedules = ClassSectionRepo.list_schedules(sessions[section.MaCoSo], section.MaLopHP)
         if not target_schedules:
             return []
 
-        for target_schedule in target_schedules:
-            for site, db in sessions.items():
-                student_enrollments = EnrollmentRepo.get_student_enrollments(db, user_id, section.MaHocKy)
-                for enrollment in student_enrollments:
-                    if enrollment.MaLopHP in {section.MaLopHP, exclude_ma_lop_hp}:
-                        continue
-                    for enrollment_schedule in ClassSectionRepo.list_schedules(db, enrollment.MaLopHP):
-                        if Enrollment3PCDomain._schedules_overlap(target_schedule, enrollment_schedule):
-                            conflicts.append(f"Trung lich voi lop {enrollment.MaLopHP} tai {site}")
+        for site, db in sessions.items():
+            # Gom cả Đăng ký của sinh viên và Lớp dạy của giảng viên để kiểm tra 1 lượt
+            enrollments = EnrollmentRepo.get_student_enrollments(db, user_id, section.MaHocKy)
+            teacher_sections = db.query(CourseSection).filter(
+                CourseSection.MaGV == section.MaGV,
+                CourseSection.MaHocKy == section.MaHocKy,
+            ).all()
 
-                teacher_classes = db.query(CourseSection).filter(
-                    CourseSection.MaGV == section.MaGV,
-                    CourseSection.MaHocKy == section.MaHocKy,
-                ).all()
-                for teacher_class in teacher_classes:
-                    if teacher_class.MaLopHP in {section.MaLopHP, exclude_ma_lop_hp}:
-                        continue
-                    for teacher_schedule in ClassSectionRepo.list_schedules(db, teacher_class.MaLopHP):
-                        if Enrollment3PCDomain._schedules_overlap(target_schedule, teacher_schedule):
-                            conflicts.append(f"Giang vien bi trung lich day lop {teacher_class.MaLopHP} tai {site}")
+            for item in (enrollments + teacher_sections):
+                other_ma_lop = getattr(item, "MaLopHP")
+                if other_ma_lop in {section.MaLopHP, exclude_ma_lop_hp}:
+                    continue
+
+                for s2 in ClassSectionRepo.list_schedules(db, other_ma_lop):
+                    for s1 in target_schedules:
+                        # Kiểm tra trùng: Cùng thứ + Giao thoa ngày + Giao thoa tiết học
+                        is_overlap = (
+                            s1.ThuTrongTuan == s2.ThuTrongTuan and
+                            not (s1.NgayKetThuc < s2.NgayBatDau or s1.NgayBatDau > s2.NgayKetThuc) and
+                            not (s1.TietBatDau + s1.SoTiet - 1 < s2.TietBatDau or s1.TietBatDau > s2.TietBatDau + s2.SoTiet - 1)
+                        )
+                        if is_overlap:
+                            role = "Sinh viên" if hasattr(item, "MaDangKy") else "Giảng viên"
+                            conflicts.append(f"{role} bị trùng lịch với lớp {other_ma_lop} tại {site}")
 
         return list(dict.fromkeys(conflicts))
 
-    @staticmethod
-    def _schedules_overlap(first_schedule: Schedule, second_schedule: Schedule) -> bool:
-        if first_schedule.ThuTrongTuan != second_schedule.ThuTrongTuan:
-            return False
-        if not ClassSectionService._date_ranges_overlap(
-            first_schedule.NgayBatDau,
-            first_schedule.NgayKetThuc,
-            second_schedule.NgayBatDau,
-            second_schedule.NgayKetThuc,
-        ):
-            return False
-        first_end = first_schedule.TietBatDau + first_schedule.SoTiet - 1
-        second_end = second_schedule.TietBatDau + second_schedule.SoTiet - 1
-        return ClassSectionService._period_ranges_overlap(
-            first_schedule.TietBatDau,
-            first_end,
-            second_schedule.TietBatDau,
-            second_end,
-        )
 
     @staticmethod
     def _has_other_course_enrollment(
@@ -391,10 +380,14 @@ class Enrollment3PCDomain:
             session.flush()
 
     @staticmethod
-    def _sync_section_capacity(session: Session, ma_lop_hp: str) -> None:
+    def _update_section_capacity(session: Session, ma_lop_hp: str, delta: int) -> None:
+        """Cập nhật sĩ số bằng cách cộng/trừ trực tiếp (nhanh và an toàn vì đã có Row Lock)."""
         section = Enrollment3PCDomain._get_section_for_update(session, ma_lop_hp)
         if section is not None:
-            section.SiSoHienTai = ClassSectionRepo.count_active_enrollments(session, ma_lop_hp)
+            section.SiSoHienTai += delta
+            # Đảm bảo sĩ số không âm (phòng trường hợp hy hữu)
+            if section.SiSoHienTai < 0:
+                section.SiSoHienTai = 0
 
     @staticmethod
     def _existing_enrollment_id(session: Session, ctx: Enrollment3PCContext) -> int | None:
@@ -403,3 +396,38 @@ class Enrollment3PCDomain:
             Enrollment.MaLopHP == ctx.target_ma_lop_hp,
         ).first()
         return enrollment.MaDangKy if enrollment else None
+
+    @staticmethod
+    def _sync_cross_site_link(
+        session: Session,
+        ctx: Enrollment3PCContext,
+    ) -> None:
+        """Đồng bộ bản ghi liên kết tại site của sinh viên."""
+        
+        if ctx.action == EnrollmentAction.CANCEL:
+            # hủy đăng ký
+            session.query(EnrollmentTransfer).filter(
+                EnrollmentTransfer.userId == ctx.user_id,
+                EnrollmentTransfer.MaLopHP == ctx.target_ma_lop_hp
+            ).delete()
+        else:
+            # Upsert liên kết khi đăng ký mới hoặc đổi lớp
+            link = session.query(EnrollmentTransfer).filter(
+                EnrollmentTransfer.userId == ctx.user_id,
+                EnrollmentTransfer.MaLopHP == ctx.target_ma_lop_hp
+            ).first()
+            
+            if not link:
+                link = EnrollmentTransfer(
+                    userId=ctx.user_id,
+                    MaLopHP=ctx.target_ma_lop_hp,
+                    MaHP=ctx.target_ma_hp,
+                    TargetSite=ctx.site_new
+                )
+                session.add(link)
+            else:
+                link.MaHP = ctx.target_ma_hp
+                link.TargetSite = ctx.site_new
+                link.Timestamp = datetime.utcnow()
+        
+        session.flush()
