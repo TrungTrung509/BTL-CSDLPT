@@ -1,0 +1,4 @@
+SELECT 'CoSo' AS t, COUNT(*) FROM "CoSo"
+UNION ALL SELECT 'SinhVien', COUNT(*) FROM "SinhVien"
+UNION ALL SELECT 'LopHocPhan', COUNT(*) FROM "LopHocPhan"
+UNION ALL SELECT 'DangKy', COUNT(*) FROM "DangKy";

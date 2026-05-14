@@ -235,3 +235,113 @@ export function formatTimeSlot(tietBatDau, soTiet) {
   const end = soTiet ? tietBatDau + soTiet - 1 : tietBatDau;
   return `Tiết ${tietBatDau}–${end}`;
 }
+
+// ============================================================
+// QUY UOC TIET HOC – 50 phut/tiet, nghi trua 12:00–13:00
+// ============================================================
+
+/**
+ * Thoi gian bat dau thuc cua tung tiet (gio:phut)
+ */
+const LESSON_TIME_START = {
+  1: '07:00', 2: '08:00', 3: '09:00', 4: '10:00', 5: '11:00',
+  6: '13:00', 7: '14:00', 8: '15:00', 9: '16:00', 10: '17:00',
+};
+
+/**
+ * Thoi gian ket thuc thuc cua tung tiet (gio:phut)
+ * Moi tiet 50 phut, gio ket thuc = gio bat dau + 50 phut
+ */
+const LESSON_TIME_END = {
+  1: '07:50', 2: '08:50', 3: '09:50', 4: '10:50', 5: '11:50',
+  6: '13:50', 7: '14:50', 8: '15:50', 9: '16:50', 10: '17:50',
+};
+
+/**
+ * Mang tra ve gio bat dau + gio ket thuc cua tiet
+ * @param {number} tietBatDau - Tiết bắt đầu (1-10)
+ * @param {number} soTiet - Số tiết liên tiếp
+ * @returns {{ start: string, end: string }}
+ */
+export function getLessonTimeRange(tietBatDau, soTiet) {
+  if (!tietBatDau) return { start: '—', end: '—' };
+  const start = LESSON_TIME_START[tietBatDau] || `${tietBatDau}:00`;
+  // Tinh tiet ket thuc
+  const endTiet = soTiet ? tietBatDau + soTiet - 1 : tietBatDau;
+  // Neu tiet ket thuc > 5 -> chuyen sang buoi chieu
+  const end = endTiet <= 5
+    ? LESSON_TIME_END[endTiet] || `${endTiet + 1}:00`
+    : LESSON_TIME_END[endTiet] || `${endTiet}:00`;
+  return { start, end };
+}
+
+/**
+ * Tra ve chuoi thoi gian "HH:MM – HH:MM"
+ * @param {number} tietBatDau
+ * @param {number} soTiet
+ * @returns {string}
+ */
+export function formatLessonTime(tietBatDau, soTiet) {
+  const { start, end } = getLessonTimeRange(tietBatDau, soTiet);
+  return `${start} – ${end}`;
+}
+
+/**
+ * Map thu trong tuan (2-8) -> label "Thu Hai", "Thu Ba"...
+ */
+export function getWeekdayLabel(thu) {
+  const map = {
+    2: 'Thứ Hai',
+    3: 'Thứ Ba',
+    4: 'Thứ Tư',
+    5: 'Thứ Năm',
+    6: 'Thứ Sáu',
+    7: 'Thứ Bảy',
+    8: 'Chủ Nhật',
+  };
+  return map[thu] || `T${thu}`;
+}
+
+/**
+ * Tra ve css color cho tung tiet hoc
+ * Buoi sang (tiet 1-5): xanh duong nhat
+ * Buoi chieu (tiet 6-10): cam
+ */
+export function getLessonSlotColor(tietBatDau) {
+  if (tietBatDau >= 1 && tietBatDau <= 5) return '#1677ff';
+  return '#fa8c16';
+}
+
+/**
+ * Tra ve badge status color cho thu trong tuan
+ * T2-T5: xanh duong, T6-T7: cam, CN: do
+ */
+export function getWeekdayColor(thu) {
+  const map = {
+    2: 'blue',
+    3: 'cyan',
+    4: 'geekblue',
+    5: 'purple',
+    6: 'orange',
+    7: 'gold',
+    8: 'red',
+  };
+  return map[thu] || 'default';
+}
+
+/**
+ * Build noi dung Popover cho 1 buoi hoc
+ * Tra ve component-ready data
+ */
+export function buildSchedulePopoverItem(item) {
+  const thuLabel = getWeekdayLabel(item.ThuTrongTuan);
+  const weekdayColor = getWeekdayColor(item.ThuTrongTuan);
+  const timeRange = formatLessonTime(item.TietBatDau, item.SoTiet);
+  const tietLabel = item.SoTiet > 1
+    ? `${item.TietBatDau}–${item.TietBatDau + item.SoTiet - 1}`
+    : `${item.TietBatDau}`;
+  const phong = item.TenPhong || item.MaPhong || '—';
+  const ghiChu = item.GhiChu;
+
+  return { thuLabel, weekdayColor, timeRange, tietLabel, phong, ghiChu };
+}

@@ -20,6 +20,7 @@ import {
   Empty,
   message,
   Popconfirm,
+  Popover,
   Row,
   Col,
 } from 'antd';
@@ -41,6 +42,10 @@ import {
   getEnrollmentStatusProps,
   getStudyFormLabel,
   formatDate,
+  getWeekdayLabel,
+  getWeekdayColor,
+  formatLessonTime,
+  buildSchedulePopoverItem,
 } from '@/utils/formatters';
 import styles from './StudentPage.module.scss';
 
@@ -237,6 +242,106 @@ export default function StudentClassSectionsPage() {
       render: (status) => {
         const props = getClassSectionStatusProps(status);
         return <Tag color={props.color}>{props.label}</Tag>;
+      },
+    },
+    {
+      title: 'Lịch học',
+      key: 'lichHoc',
+      width: 150,
+      render: (_, record) => {
+        const lichHoc = record.LichHoc || [];
+
+        // Lop khong co lich
+        if (lichHoc.length === 0) {
+          return <Text type="secondary" style={{ fontSize: 12 }}>Chưa có lịch</Text>;
+        }
+
+        // Mot lich hoc -> hien thi truc tiep voi gio thuc
+        if (lichHoc.length === 1) {
+          const item = lichHoc[0];
+          const thuLabel = getWeekdayLabel(item.ThuTrongTuan);
+          const timeRange = formatLessonTime(item.TietBatDau, item.SoTiet);
+          return (
+            <Space direction="vertical" size={3} style={{ width: '100%' }}>
+              <Space size={4}>
+                <Tag color={getWeekdayColor(item.ThuTrongTuan)}>{thuLabel}</Tag>
+              </Space>
+              <Text style={{ fontSize: 12, color: '#1677ff', fontWeight: 500 }}>
+                {timeRange}
+              </Text>
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                {item.TenPhong || item.MaPhong || '—'}
+              </Text>
+            </Space>
+          );
+        }
+
+        // Nhieu lich hoc -> Popover
+        const sorted = [...lichHoc].sort((a, b) => {
+          if (a.ThuTrongTuan !== b.ThuTrongTuan) return a.ThuTrongTuan - b.ThuTrongTuan;
+          return a.TietBatDau - b.TietBatDau;
+        });
+
+        const popoverContent = (
+          <div style={{ minWidth: 280 }}>
+            <Text strong style={{ display: 'block', marginBottom: 10, fontSize: 13, color: '#1d39c4' }}>
+              {sorted.length} buoi hoc
+            </Text>
+            {sorted.map((item, idx) => {
+              const { thuLabel, weekdayColor, timeRange, phong, ghiChu } = buildSchedulePopoverItem(item);
+              return (
+                <div
+                  key={item.MaLich || idx}
+                  style={{
+                    padding: '8px 0',
+                    borderBottom: idx < sorted.length - 1 ? '1px solid #f0f0f0' : 'none',
+                  }}
+                >
+                  <Space direction="vertical" size={3}>
+                    <Space size={4}>
+                      <Tag color={weekdayColor}>{thuLabel}</Tag>
+                      <Text style={{ fontSize: 12, color: '#1677ff', fontWeight: 500 }}>
+                        {timeRange}
+                      </Text>
+                    </Space>
+                    <Text style={{ fontSize: 12 }}>
+                      <Text type="secondary">Phong: </Text>
+                      {phong}
+                    </Text>
+                    <Text style={{ fontSize: 12 }}>
+                      <Text type="secondary">Ngay: </Text>
+                      {item.NgayBatDau && item.NgayKetThuc
+                        ? `${formatDate(item.NgayBatDau)} — ${formatDate(item.NgayKetThuc)}`
+                        : '—'}
+                    </Text>
+                    {ghiChu && (
+                      <Text type="secondary" style={{ fontSize: 12, fontStyle: 'italic' }}>
+                        {ghiChu}
+                      </Text>
+                    )}
+                  </Space>
+                </div>
+              );
+            })}
+          </div>
+        );
+
+        return (
+          <Popover
+            content={popoverContent}
+            title="Lich hoc cua lop"
+            trigger="click"
+            placement="left"
+            overlayStyle={{ maxWidth: 340 }}
+          >
+            <Tag
+              color="processing"
+              style={{ cursor: 'pointer', userSelect: 'none' }}
+            >
+              {lichHoc.length} buoi hoc
+            </Tag>
+          </Popover>
+        );
       },
     },
     {
@@ -472,7 +577,7 @@ export default function StudentClassSectionsPage() {
           rowKey="MaLopHP"
           loading={sectionsLoading}
           pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t, r) => `${r[0]}-${r[1]} trong ${t}`, pageSizeOptions: ['10', '20', '50'] }}
-          scroll={{ x: 1400 }}
+          scroll={{ x: 1550 }}
           size="middle"
           locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Không có lớp học phần nào phù hợp" /> }}
         />
