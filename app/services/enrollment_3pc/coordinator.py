@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta
 from uuid import uuid4
+from sqlalchemy import text
 
 from fastapi import HTTPException, status
 
-from configs.db import SessionLocals, get_log_session
+from configs.db import SessionLocals, engines
 from enums.status import EnrollmentAction, EnrollmentTransactionState, LogStatus, BuocGiaoTac, TrangThaiGiaoTac, RecoveryAction
 from sqlalchemy.exc import OperationalError, InternalError
 from models.CourseSections import CourseSection
@@ -11,8 +12,7 @@ from repositories.RecoveryLogRepo import RecoveryLogRepo
 from repositories.EnrollmentTransactionRepo import EnrollmentTransactionRepo
 
 from schemas.Enrollment import EnrollmentCreate, RegistrationResult
-
-from services.utils import retry_on_deadlock, _log_step
+from services.utils import retry_on_deadlock
 
 from .context import Enrollment3PCContext
 from .db import Enrollment3PCDB
@@ -27,20 +27,24 @@ class Enrollment3PCCoordinator:
     def register(user, enroll_in: EnrollmentCreate) -> RegistrationResult:
         Enrollment3PCDB.ensure_sites_alive(
             SessionLocals.keys(),
-            detail="Khong the dang ky hoc phan khi mot co so dang offline",
+            detail="Không thể đăng ký học phần khi một cơ sở đang offline",
         )
 
         sessions, connections = Enrollment3PCDB.open_pinned_sessions(SessionLocals.keys())
         acquired_locks: list[tuple[str, int]] = []
         ctx: Enrollment3PCContext | None = None
 
+        ma_sv = enroll_in.MaSV if hasattr(enroll_in, 'MaSV') else user.userId
+        txn_id = Enrollment3PCCoordinator._new_txn_id()
+        site_new = "HADONG" # Default site để ghi log nếu chưa tìm thấy site thực tế
+        
         try:
             site_new, _, section_new = Enrollment3PCDomain.find_section_context(sessions, enroll_in.MaLopHP)
             site_home = Enrollment3PCDB.normalize_site(user.MaCoSo)
             if site_home not in sessions:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"MaCoSo khong hop le: {site_home}",
+                    detail=f"Mã cơ sở không hợp lệ: {site_home}",
                 )
 
             existing_enrollment, site_old = Enrollment3PCDomain.find_existing_enrollment(
@@ -49,9 +53,9 @@ class Enrollment3PCCoordinator:
                 section_new.MaHP,
                 section_new.MaHocKy,
             )
-            ma_sv = user.userId
 
             ctx = Enrollment3PCCoordinator._build_register_context(
+                txn_id=txn_id,
                 user_id=user.userId,
                 ma_sv=ma_sv,
                 ghi_chu=enroll_in.GhiChu,
@@ -83,13 +87,13 @@ class Enrollment3PCCoordinator:
                 ctx,
                 sessions,
                 EnrollmentTransactionState.PREPARED,
-                "Tat ca participant da hoan tat prepare",
+                "Tất cả participant đã hoàn tất prepare",
             )
             EnrollmentTransactionRepo.set_state(
                 ctx,
                 sessions,
                 EnrollmentTransactionState.PRECOMMIT,
-                "Coordinator da chuyen sang pha pre-commit",
+                "Coordinator đã chuyển sang pha pre-commit",
             )
             Enrollment3PCCoordinator._log_3pc_step(site_new, ctx.txn_id, ctx.target_ma_lop_hp, ma_sv, "INSERT", "Bắt đầu ghi vào CSDL", "DANG_CHAY")
 
@@ -99,7 +103,7 @@ class Enrollment3PCCoordinator:
                     MaLopHP=ctx.target_ma_lop_hp,
                     status="Success",
                     message=(
-                        "Giao dich da vao pha pre-commit. He thong se tu dong recovery cho cac co so: "
+                        "Giao dịch đã vào pha pre-commit. Hệ thống sẽ tự động recovery cho các cơ sở: "
                         + ", ".join(failed_sites)
                     ),
                     enrollment_id=enrollment_id,
@@ -111,7 +115,7 @@ class Enrollment3PCCoordinator:
                 ctx,
                 sessions,
                 EnrollmentTransactionState.COMMITTED,
-                "Tat ca participant da commit thanh cong",
+                "Tất cả participant đã commit thành công",
             )
             
             try:
@@ -134,14 +138,24 @@ class Enrollment3PCCoordinator:
             return RegistrationResult(
                 MaLopHP=ctx.target_ma_lop_hp,
                 status="Success",
-                message="Doi lop thanh cong" if ctx.old_ma_lop_hp else "Dang ky thanh cong",
+                message="Đổi lớp thành công" if ctx.old_ma_lop_hp else "Đăng ký thành công",
                 enrollment_id=enrollment_id,
                 action=ctx.action.value,
                 old_ma_lop_hp=ctx.old_ma_lop_hp,
             )
         except HTTPException as exc:
-            if exc.status_code == status.HTTP_409_CONFLICT and "giao dich khac su dung" in exc.detail:
+            should_retry = exc.status_code == status.HTTP_409_CONFLICT and (
+                "giao dich khac su dung" in exc.detail
+                or "bị chiếm" in exc.detail
+            )
+
+            # Luôn cập nhật bước đang chạy sang THAT_BAI trước
+            Enrollment3PCCoordinator._fail_current_3pc_step(site_new, txn_id, exc.detail)
+
+            if should_retry:
+                # Không mark_aborted vì sẽ retry bằng txn_id mới
                 raise
+
             if ctx is not None:
                 EnrollmentTransactionRepo.mark_aborted(ctx, sessions, exc.detail)
 
@@ -157,6 +171,9 @@ class Enrollment3PCCoordinator:
                     raise
             if ctx is not None:
                 EnrollmentTransactionRepo.mark_aborted(ctx, sessions, str(exc))
+            
+            # Cập nhật bước hiện tại sang THAT_BAI
+            Enrollment3PCCoordinator._fail_current_3pc_step(site_new, txn_id, str(exc))
 
             return RegistrationResult(
                 MaLopHP=enroll_in.MaLopHP.upper(),
@@ -186,17 +203,17 @@ class Enrollment3PCCoordinator:
                 if len(alive_sites) != len(SessionLocals):
                     raise HTTPException(
                         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                        detail="Khong the xac dinh day du trang thai dang ky khi mot co so dang offline",
+                        detail="Không thể xác định đầy đủ trạng thái đăng ký khi một cơ sở đang offline",
                     )
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Khong tim thay thong tin dang ky",
+                    detail="Không tìm thấy thông tin đăng ký",
                 )
 
             required_sites = {site_target, normalized_home}
             Enrollment3PCDB.ensure_sites_alive(
                 required_sites,
-                detail="Khong the huy dang ky khi co so lien quan dang offline",
+                detail="Không thể hủy đăng ký khi cơ sở liên quan đang offline",
             )
 
             target_section = sessions[site_target].query(CourseSection).filter(
@@ -205,7 +222,7 @@ class Enrollment3PCCoordinator:
             if target_section is None:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Khong tim thay lop hoc phan: {ma_lop_hp.upper()}",
+                    detail=f"Không tìm thấy lớp học phần: {ma_lop_hp.upper()}",
                 )
 
             ctx = Enrollment3PCContext(
@@ -237,13 +254,13 @@ class Enrollment3PCCoordinator:
                 ctx,
                 sessions,
                 EnrollmentTransactionState.PREPARED,
-                "Tat ca participant da hoan tat prepare",
+                "Tất cả participant đã hoàn tất prepare",
             )
             EnrollmentTransactionRepo.set_state(
                 ctx,
                 sessions,
                 EnrollmentTransactionState.PRECOMMIT,
-                "Coordinator da chuyen sang pha pre-commit",
+                "Coordinator đã chuyển sang pha pre-commit",
             )
 
             Enrollment3PCCoordinator._log_3pc_step(ctx.site_new, ctx.txn_id, ctx.target_ma_lop_hp, user_id, "INSERT", "Bắt đầu xóa dữ liệu khỏi CSDL", "DANG_CHAY")
@@ -255,22 +272,24 @@ class Enrollment3PCCoordinator:
                 ctx,
                 sessions,
                 EnrollmentTransactionState.COMMITTED,
-                "Tat ca participant da commit thanh cong",
+                "Tất cả participant đã commit thành công",
             )
             
             try:
                 target_sec = sessions[ctx.site_new].query(CourseSection).filter(CourseSection.MaLopHP == ctx.target_ma_lop_hp).first()
                 new_sz = target_sec.SiSoHienTai if target_sec else 0
                 old_sz = new_sz + 1
-                log_detail = f"Hủy thành công.  {ctx.target_ma_lop_hp} ({old_sz} -> {new_sz})."
+                log_detail = f"Hủy thành công. {ctx.target_ma_lop_hp} ({old_sz} -> {new_sz})."
             except Exception:
                 log_detail = "Hủy đăng ký thành công."
                 
             Enrollment3PCCoordinator._log_3pc_step(ctx.site_new, ctx.txn_id, ctx.target_ma_lop_hp, user_id, "COMMIT", log_detail, "THANH_CONG")
 
-        except Exception:
+        except Exception as exc:
             if ctx is not None:
-                EnrollmentTransactionRepo.mark_aborted(ctx, sessions, "Huy dang ky that bai")
+                EnrollmentTransactionRepo.mark_aborted(ctx, sessions, "Hủy đăng ký thất bại")
+                # Cập nhật bước hiện tại sang THAT_BAI
+                Enrollment3PCCoordinator._fail_current_3pc_step(ctx.site_new, ctx.txn_id, str(exc))
 
             raise
         finally:
@@ -355,7 +374,7 @@ class Enrollment3PCCoordinator:
                 ctx,
                 sessions,
                 EnrollmentTransactionState.COMMITTED,
-                "Recovery da hoan tat commit cho tat ca participant",
+                "Recovery đã hoàn tất commit cho tất cả participant",
             )
             
             # Ghi log recovery vào bảng NhatKyPhucHoi
@@ -402,7 +421,7 @@ class Enrollment3PCCoordinator:
                     continue
 
                 row.State = EnrollmentTransactionState.ABORTED
-                row.Message = "Recovery da abort giao dich do bi tre o pha prepare"
+                row.Message = "Recovery đã abort giao dịch do bị trễ ở pha prepare"
                 session.commit()
 
             # Ghi log recovery vào bảng NhatKyPhucHoi
@@ -428,6 +447,7 @@ class Enrollment3PCCoordinator:
     @staticmethod
     def _build_register_context(
         *,
+        txn_id: str,
         user_id: str,
         ma_sv: str | None,
         ghi_chu: str | None,
@@ -439,7 +459,7 @@ class Enrollment3PCCoordinator:
         lock_sites: list[str],
     ) -> Enrollment3PCContext:
         return Enrollment3PCContext(
-            txn_id=Enrollment3PCCoordinator._new_txn_id(),
+            txn_id=txn_id,
             coordinator_site=site_home,
             action=EnrollmentAction.SWITCH if existing_enrollment else EnrollmentAction.REGISTER,
             user_id=user_id,
@@ -461,8 +481,62 @@ class Enrollment3PCCoordinator:
 
     @staticmethod
     def _log_3pc_step(site: str, tx_id: str, ma_lop_hp: str, ma_sv: str | None, buoc: str, chi_tiet: str, trang_thai: str):
+        """
+        Ghi log vào bảng NhatKyThaoTac sử dụng kết nối trực tiếp (Direct Execution)
+        để đảm bảo AUTOCOMMIT và không bị ảnh hưởng bởi lỗi của Session chính.
+        """
         try:
-            with get_log_session(site) as log_db:
-                _log_step(log_db, tx_id, ma_lop_hp, str(ma_sv), getattr(BuocGiaoTac, buoc), chi_tiet, getattr(TrangThaiGiaoTac, trang_thai), ma_co_so=site)
-        except Exception:
+            engine = engines.get(site.upper())
+            if not engine:
+                print(f"CRITICAL: Engine not found for site {site}")
+                return
+
+            # Sử dụng kết nối trực tiếp với isolation_level AUTOCOMMIT
+            with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+                query = text("""
+                    INSERT INTO "NhatKyThaoTac" 
+                    ("MaGiaoTac", "MaLopHP", "MaSV", "MaCoSo", "Buoc", "ChiTiet", "TrangThai", "ThoiGian")
+                    VALUES (:txn, :ma_lop, :ma_sv, :site, :buoc, :detail, :status, :now)
+                """)
+                conn.execute(query, {
+                    "txn": tx_id,
+                    "ma_lop": ma_lop_hp,
+                    "ma_sv": str(ma_sv),
+                    "site": site,
+                    "buoc": buoc,
+                    "detail": chi_tiet,
+                    "status": trang_thai,
+                    "now": datetime.utcnow()
+                })
+                
+        except Exception as e:
+            print(f"CRITICAL: Failed to write log to {site} via Direct Connection: {e}")
             pass
+
+    @staticmethod
+    def _fail_current_3pc_step(site: str, txn_id: str, error_detail: str) -> None:
+        """
+        Cập nhật bước đang chạy gần nhất (MAX ID) của txn_id sang THAT_BAI.
+        Thay vì insert thêm một dòng 'FAILED', ta UPDATE trực tiếp bước
+        đang DANG_CHAY để log rõ ràng bước nào bị lỗi.
+        """
+        try:
+            engine = engines.get(site.upper())
+            if not engine:
+                return
+
+            with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+                conn.execute(
+                    text("""
+                        UPDATE "NhatKyThaoTac"
+                        SET "TrangThai" = 'THAT_BAI',
+                            "ChiTiet"   = :detail
+                        WHERE "ID" = (
+                            SELECT MAX("ID") FROM "NhatKyThaoTac"
+                            WHERE "MaGiaoTac" = :txn_id
+                        )
+                    """),
+                    {"txn_id": txn_id, "detail": error_detail},
+                )
+        except Exception as e:
+            print(f"CRITICAL: Failed to update log step to THAT_BAI at {site}: {e}")

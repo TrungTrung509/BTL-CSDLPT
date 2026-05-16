@@ -40,7 +40,7 @@ class EnrollmentTransactionRepo:
                 row.State = EnrollmentTransactionState.INIT
                 row.Payload = payload_json
                 row.Message = "Khoi tao lai giao dich 3PC"
-            session.commit()
+            session.flush()
 
     @staticmethod
     def set_state(
@@ -58,7 +58,7 @@ class EnrollmentTransactionRepo:
                 continue
             row.State = state
             row.Message = message
-            session.commit()
+            session.flush()
 
     @staticmethod
     def mark_aborted(
@@ -70,6 +70,11 @@ class EnrollmentTransactionRepo:
             session = sessions.get(site)
             if session is None:
                 continue
+            
+            # 1. Rollback toàn bộ dữ liệu nghiệp vụ (cùng các khóa Row Lock)
+            session.rollback()
+            
+            # 2. Ghi nhận trạng thái ABORTED vào log trên một Transaction mới sạch sẽ
             try:
                 row = EnrollmentTransactionRepo.get_by_txn_and_site(session, ctx.txn_id, site)
                 if row is None or row.State == EnrollmentTransactionState.COMMITTED:

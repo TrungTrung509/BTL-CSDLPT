@@ -87,14 +87,14 @@ def retry_on_deadlock(max_retries=3, initial_wait=0.1):
                         try:
                             site = _site_of(str(ma_lop))
                             with get_log_session(site) as log_db:
-                                # Bước 1: Thông báo DỪNG
-                                _log_step(log_db, tx_id, str(ma_lop), str(ma_sv), BuocGiaoTac.ROLLBACK, 
-                                         f"STOP: Phát hiện xung đột tài nguyên. Đang hủy giao dịch hiện tại để nhường quyền.", 
-                                         TrangThaiGiaoTac.THAT_BAI, ma_co_so=site)
-                                
-                                # Bước 2: Thông báo THỬ LẠI
-                                _log_step(log_db, tx_id, str(ma_lop), str(ma_sv), BuocGiaoTac.RETRY, 
-                                         f"RETRY: Bắt đầu thực hiện lại lần {retries+1} sau {wait_time:.2f}s nghỉ.", 
+                                # Bước 1: ROLLBACK thành công — transaction đã được thu hồi đúng cách
+                                _log_step(log_db, tx_id, str(ma_lop), str(ma_sv), BuocGiaoTac.ROLLBACK,
+                                         f"Giao dịch đã được rollback do xung đột tài nguyên. Sẽ thử lại sau {wait_time:.2f}s.",
+                                         TrangThaiGiaoTac.THANH_CONG, ma_co_so=site)
+
+                                # Bước 2: RETRY — bắt đầu lại từ đầu
+                                _log_step(log_db, tx_id, str(ma_lop), str(ma_sv), BuocGiaoTac.RETRY,
+                                         f"Bắt đầu thực hiện lại lần {retries + 1}/{max_retries}.",
                                          TrangThaiGiaoTac.DANG_CHAY, ma_co_so=site)
                         except Exception:
                             pass

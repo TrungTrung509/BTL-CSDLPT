@@ -21,7 +21,7 @@ router = APIRouter(
 )
 
 @router.post("/register")
-async def register_course(
+def register_course(
     enroll_in: EnrollmentCreate,
     current_user: User = Depends(get_current_active_user),
 ):
@@ -45,7 +45,7 @@ async def register_course(
     )
 
 @router.get("/history", response_model=List[EnrollmentHistoryResponse])
-async def get_enrollment_history(
+def get_enrollment_history(
     maHocKy: Optional[str] = Query(None),
     current_user: User = Depends(get_current_active_user),
 ):
@@ -59,7 +59,7 @@ async def get_enrollment_history(
     )
 
 @router.delete("/cancel")
-async def cancel_registration(
+def cancel_registration(
     maLopHP: str = Query(...),
     current_user: User = Depends(get_current_active_user),
 ):
@@ -80,7 +80,7 @@ async def cancel_registration(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/timetable", response_model=List[ScheduleResponse])
-async def get_my_timetable(
+def get_my_timetable(
     maHocKy: Optional[str] = Query(None),
     current_user: User = Depends(get_current_active_user),
 ):
@@ -94,7 +94,7 @@ async def get_my_timetable(
     )
 
 @router.get("/class-students", response_model=List[StudentInClassResponse])
-async def get_class_students(
+def get_class_students(
     maLopHP: str = Query(...),
     current_user: User = Depends(get_current_active_user),
 ):
@@ -104,7 +104,7 @@ async def get_class_students(
     return EnrollmentService.get_students_by_class(maLopHP)
 
 @router.post("/swap")
-async def swap_course(
+def swap_course(
     swap_data: SwapEnrollmentRequest,
     current_user: User = Depends(get_current_active_user),
 ):
