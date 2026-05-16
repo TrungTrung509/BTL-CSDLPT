@@ -41,16 +41,59 @@ class ClassSectionService:
     @staticmethod
     def get_all_sections() -> tuple[list[CourseSectionListResponse], int]:
         sessions = ClassSectionService._open_all_sessions()
-        items: list[CourseSectionListResponse] = []
 
         try:
-            for session in sessions.values():
+            all_sections: list[tuple[str, Session, CourseSection]] = []
+            for site, session in sessions.items():
                 sections = (
                     ClassSectionRepo.base_query(session)
                     .order_by(CourseSection.MaLopHP.asc())
                     .all()
                 )
-                items.extend(ClassSectionService._build_section_response(session, section) for section in sections)
+                for section in sections:
+                    all_sections.append((site, session, section))
+
+            if not all_sections:
+                return [], 0
+
+            # Batch pre-load schedules per site to avoid N+1
+            schedules_by_site: dict[str, dict[str, list[Schedule]]] = {}
+            for site, session in sessions.items():
+                site_section_ids = [s.MaLopHP for _, _, s in all_sections if s.MaCoSo == site]
+                if site_section_ids:
+                    schedules_by_site[site] = {}
+                    rows = (
+                        session.query(Schedule)
+                        .filter(Schedule.MaLopHP.in_(site_section_ids))
+                        .order_by(Schedule.ThuTrongTuan.asc(), Schedule.TietBatDau.asc())
+                        .all()
+                    )
+                    for row in rows:
+                        schedules_by_site[site].setdefault(row.MaLopHP, []).append(row)
+
+            # Batch pre-load enrollments per site
+            enrollments_by_site: dict[str, dict[str, list[Enrollment]]] = {}
+            for site, session in sessions.items():
+                site_section_ids = [s.MaLopHP for _, _, s in all_sections if s.MaCoSo == site]
+                if site_section_ids:
+                    enrollments_by_site[site] = {}
+                    rows = (
+                        session.query(Enrollment)
+                        .filter(Enrollment.MaLopHP.in_(site_section_ids))
+                        .all()
+                    )
+                    for row in rows:
+                        enrollments_by_site[site].setdefault(row.MaLopHP, []).append(row)
+
+            items = [
+                ClassSectionService._build_section_response_batch(
+                    session,
+                    section,
+                    schedules_by_site.get(site, {}).get(section.MaLopHP, []),
+                    enrollments_by_site.get(site, {}).get(section.MaLopHP, []),
+                )
+                for site, session, section in all_sections
+            ]
 
             items.sort(key=lambda item: item.MaLopHP)
             return items, len(items)
@@ -86,7 +129,35 @@ class ClassSectionService:
                 .order_by(CourseSection.MaLopHP.asc())
                 .all()
             )
-            items = [ClassSectionService._build_section_response(session, section) for section in sections]
+
+            # Batch pre-load schedules and enrollments
+            section_ids = [s.MaLopHP for s in sections]
+            schedules_by_lop = {}
+            if section_ids:
+                rows = (
+                    session.query(Schedule)
+                    .filter(Schedule.MaLopHP.in_(section_ids))
+                    .order_by(Schedule.ThuTrongTuan.asc(), Schedule.TietBatDau.asc())
+                    .all()
+                )
+                for row in rows:
+                    schedules_by_lop.setdefault(row.MaLopHP, []).append(row)
+
+            enrollments_by_lop = {}
+            if section_ids:
+                rows = session.query(Enrollment).filter(Enrollment.MaLopHP.in_(section_ids)).all()
+                for row in rows:
+                    enrollments_by_lop.setdefault(row.MaLopHP, []).append(row)
+
+            items = [
+                ClassSectionService._build_section_response_batch(
+                    session,
+                    section,
+                    schedules_by_lop.get(section.MaLopHP, []),
+                    enrollments_by_lop.get(section.MaLopHP, []),
+                )
+                for section in sections
+            ]
             return items, len(items)
         finally:
             session.close()
@@ -423,8 +494,8 @@ class ClassSectionService:
         course = ClassSectionService._ensure_course_exists(db, section.MaHP)
         semester = ClassSectionService._ensure_semester_exists(db, section.MaHocKy)
         teacher = ClassSectionService._ensure_teacher_exists(db, section.MaGV)
-        schedules = ClassSectionRepo.list_schedules(db, section.MaLopHP)
-        enrollments = ClassSectionRepo.list_enrollments(db, section.MaLopHP)
+        schedules = ClassSectionRepo.list_schedules(db, section.MaLopHP) if include_schedules else []
+        enrollments = ClassSectionRepo.list_enrollments(db, section.MaLopHP) if include_enrollments else []
         active_count = sum(1 for enrollment in enrollments if enrollment.TrangThaiDangKy == EnrollmentStatus.DaDangKy)
 
         return CourseSectionDetailResponse(
@@ -445,8 +516,41 @@ class ClassSectionService:
             TrangThaiLop=section.TrangThaiLop,
             SoLuongLichHoc=len(schedules),
             NgayTao=section.NgayTao,
-            LichHoc=ClassSectionService._build_schedule_responses(db, schedules) if include_schedules else [],
+            LichHoc=ClassSectionService._build_schedule_responses(db, schedules),
             DanhSachDangKy=ClassSectionService._build_enrollment_responses(db, enrollments) if include_enrollments else [],
+        )
+
+    @staticmethod
+    def _build_section_response_batch(
+        db: Session,
+        section: CourseSection,
+        schedules: list[Schedule],
+        enrollments: list[Enrollment],
+    ) -> CourseSectionListResponse:
+        course = ClassSectionService._ensure_course_exists(db, section.MaHP)
+        semester = ClassSectionService._ensure_semester_exists(db, section.MaHocKy)
+        teacher = ClassSectionService._ensure_teacher_exists(db, section.MaGV)
+        active_count = sum(1 for enrollment in enrollments if enrollment.TrangThaiDangKy == EnrollmentStatus.DaDangKy)
+
+        return CourseSectionListResponse(
+            MaLopHP=section.MaLopHP,
+            MaHocPhan=section.MaHP,
+            TenHocPhan=course.TenHocPhan,
+            MaHocKy=section.MaHocKy,
+            NamHoc=semester.NamHoc,
+            KySo=semester.KySo,
+            MaCoSo=section.MaCoSo,
+            MaGV=section.MaGV,
+            TenGiangVien=ClassSectionService._format_teacher_name(teacher),
+            TenLopHP=section.TenLopHP,
+            SiSoToiDa=section.SiSoToiDa,
+            SiSoHienTai=active_count,
+            SoChoConLai=max(section.SiSoToiDa - active_count, 0),
+            HinhThucHoc=section.HinhThucHoc,
+            TrangThaiLop=section.TrangThaiLop,
+            SoLuongLichHoc=len(schedules),
+            NgayTao=section.NgayTao,
+            LichHoc=ClassSectionService._build_schedule_responses(db, schedules),
         )
 
     @staticmethod
