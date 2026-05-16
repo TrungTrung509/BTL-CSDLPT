@@ -87,7 +87,7 @@ class Enrollment3PCDB:
             if session is None:
                 raise HTTPException(
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail=f"Khong mo duoc session de lock tai {site}",
+                    detail=f"Không mở được session tại {site}",
                 )
 
             granted = session.execute(
@@ -98,7 +98,7 @@ class Enrollment3PCDB:
                 Enrollment3PCDB.release_locks(sessions, acquired)
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail="Tai nguyen dang ky dang duoc giao dich khac su dung, vui long thu lai",
+                    detail="Tài nguyên đăng ký đã bị chiếm, vui lòng thử lại",
                 )
             acquired.append((site, lock_key))
         return acquired
@@ -120,28 +120,25 @@ class Enrollment3PCDB:
     @staticmethod
     def _lock_entries(ctx: Enrollment3PCContext) -> list[tuple[str, int]]:
         entries: list[tuple[str, int]] = []
+
+        # Lock theo user (ngăn 1 SV đăng ký đồng thời nhiều lớp cùng học kỳ)
         user_scope = f"user-semester:{ctx.user_id}:{ctx.target_ma_hoc_ky}"
         for site in ctx.lock_sites:
             entries.append((site, Enrollment3PCDB._lock_key(user_scope)))
 
-        # #Sort để ngăn chặn deadlock
-        # entries.append(
-        #     (
-        #         ctx.site_new,
-        #         Enrollment3PCDB._lock_key(f"section:{ctx.site_new}:{ctx.target_ma_lop_hp}"),
-        #     )
-        # )
-        # if ctx.site_old and ctx.old_ma_lop_hp:
-        #     entries.append(
-        #         (
-        #             ctx.site_old,
-        #             Enrollment3PCDB._lock_key(f"section:{ctx.site_old}:{ctx.old_ma_lop_hp}"),
-        #         )
-        #     )
-        # return sorted(set(entries), key=lambda item: (item[0], item[1]))
+        # Lock theo section (ngăn nhiều SV đăng ký cùng 1 lớp gây lost update)
+        entries.append((
+            ctx.site_new,
+            Enrollment3PCDB._lock_key(f"section:{ctx.site_new}:{ctx.target_ma_lop_hp}"),
+        ))
+        if ctx.site_old and ctx.old_ma_lop_hp:
+            entries.append((
+                ctx.site_old,
+                Enrollment3PCDB._lock_key(f"section:{ctx.site_old}:{ctx.old_ma_lop_hp}"),
+            ))
 
-        # Không sort
-        return list(set(entries))
+        # Sort theo (site, key) để tránh deadlock khi nhiều giao dịch lấy lock cùng lúc
+        return sorted(set(entries), key=lambda item: (item[0], item[1]))
 
     @staticmethod
     def _lock_key(value: str) -> int:

@@ -480,13 +480,19 @@ services:
       CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+    volumes:
+      - kafka_connect_plugins:/usr/share/confluent-hub-components
     command: 
       - bash 
       - -c 
       - |
-        echo "Installing Connector plugins..."
-        confluent-hub install --no-prompt confluentinc/kafka-connect-elasticsearch:latest
-        confluent-hub install --no-prompt debezium/debezium-connector-postgresql:2.4.2
+        echo "Checking/Installing Connector plugins..."
+        if [ ! -d "/usr/share/confluent-hub-components/debezium-debezium-connector-postgresql" ]; then
+          confluent-hub install --no-prompt debezium/debezium-connector-postgresql:2.4.2
+        fi
+        if [ ! -d "/usr/share/confluent-hub-components/confluentinc-kafka-connect-elasticsearch" ]; then
+          confluent-hub install --no-prompt confluentinc/kafka-connect-elasticsearch:15.1.2
+        fi
         echo "Starting Kafka Connect..."
         /etc/confluent/docker/run
     networks:
@@ -531,3 +537,4 @@ volumes:
   prometheus_data:
   grafana_data:
   kafka_data:
+  kafka_connect_plugins:
