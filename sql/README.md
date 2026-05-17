@@ -55,6 +55,10 @@ Script cau hinh `postgres_fdw` de truy van lien site.
 
 Truy van phan tan theo yeu cau do an.
 
+Hien tai da co:
+
+- `sql/queries/01_distributed_reports.sql`: 5 truy van phan tan cho thong ke dang ky hoc phan
+
 ### `sql/replication/`
 
 Script cau hinh logical replication cho bang dung chung.
