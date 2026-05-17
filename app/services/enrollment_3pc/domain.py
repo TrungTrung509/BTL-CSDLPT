@@ -2,8 +2,6 @@ from datetime import datetime
 from dataclasses import replace
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
-import time
-
 from enums.status import ClassSectionStatus, EnrollmentAction, EnrollmentTransactionState
 from models.CourseSections import CourseSection
 from models.Enrollments import Enrollment
@@ -23,7 +21,7 @@ class Enrollment3PCDomain:
         if Enrollment3PCDomain._is_same_section_switch(ctx):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Sinh vien da dang ky lop hoc phan nay",
+                detail="Sinh viên đã đăng ký lớp học phần này",
             )
 
         target_session = sessions[ctx.site_new]
@@ -31,27 +29,30 @@ class Enrollment3PCDomain:
         if target_section is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Khong tim thay lop hoc phan: {ctx.target_ma_lop_hp}",
+                detail=f"Không tìm thấy lớp học phần: {ctx.target_ma_lop_hp}",
             )
         if target_section.TrangThaiLop != ClassSectionStatus.Mo:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Lop hoc dang o trang thai: {target_section.TrangThaiLop}",
+                detail=f"Lớp đang ở trạng thái: {target_section.TrangThaiLop}",
             )
 
+        # Kiểm tra sĩ số sơ bộ
         active_count = ClassSectionRepo.count_active_enrollments(target_session, target_section.MaLopHP)
         if active_count >= target_section.SiSoToiDa:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Lop hoc da day si so",
+                detail="Lớp đã đầy",
             )
 
+        # Kiểm tra trùng học phần trong học kỳ
         if Enrollment3PCDomain._has_other_course_enrollment(ctx, sessions):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Sinh vien da dang ky hoc phan {ctx.target_ma_hp} trong hoc ky {ctx.target_ma_hoc_ky}",
+                detail=f"Sinh viên đã đăng ký học phần {ctx.target_ma_hp} trong học kỳ {ctx.target_ma_hoc_ky}",
             )
 
+        # Kiểm tra trùng lịch học
         conflicts = Enrollment3PCDomain._check_schedule_conflict(
             sessions,
             ctx.user_id,
@@ -61,7 +62,7 @@ class Enrollment3PCDomain:
         if conflicts:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="; ".join(conflicts),
+                detail="Trùng lịch học: " + "; ".join(conflicts),
             )
 
     @staticmethod
@@ -69,18 +70,21 @@ class Enrollment3PCDomain:
         """
         Bước 1 của pha Prepare: Row Lock (SELECT FOR UPDATE).
         """
-        # Lock lớp mới
+        target_db = sessions[ctx.site_new]
+
+        # Lock lớp mới — sẽ BLOCK nếu transaction khác đang giữ lock này
         target_section = Enrollment3PCDomain._get_section_for_update(
-            sessions[ctx.site_new], ctx.target_ma_lop_hp
+            target_db, ctx.target_ma_lop_hp
         )
         if target_section is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Khong tim thay lop hoc phan: {ctx.target_ma_lop_hp}",
             )
-        
-        # Nghỉ rất ngắn (thay vì 3s của demo)
-        time.sleep(0.1)
+
+        # Refresh sau khi acquire lock — đảm bảo đọc SiSoHienTai mới nhất từ DB
+        # (tránh stale cache của SQLAlchemy sau khi bị block bởi transaction khác)
+        target_db.refresh(target_section)
 
         # Lock lớp cũ + kiểm tra bản ghi đăng ký cũ (khi đổi lớp)
         if ctx.site_old and ctx.old_ma_lop_hp:
@@ -92,32 +96,21 @@ class Enrollment3PCDomain:
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Khong tim thay lop hoc phan: {ctx.old_ma_lop_hp}",
                 )
-            old_enrollment = Enrollment3PCDomain._get_enrollment_for_update(
-                sessions[ctx.site_old], ctx.user_id, ctx.old_ma_lop_hp
-            )
-            if old_enrollment is None:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="Dang ky cu da bi thay doi trong luc xu ly",
-                )
-
         return target_section
 
     @staticmethod
     def prepare_validate(target_section: CourseSection) -> None:
-        """
-        Bước 2 của pha Prepare: Re-validate sĩ số và trạng thái dưới Row Lock.
-        """
+       
         if target_section.TrangThaiLop != ClassSectionStatus.Mo:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Lop hoc dang o trang thai: {target_section.TrangThaiLop}",
+                detail=f"Lớp đang ở trạng thái: {target_section.TrangThaiLop}",
             )
-        # Sử dụng thuộc tính SiSoHienTai đã có (đã được Row Lock bảo vệ)
+
         if target_section.SiSoHienTai >= target_section.SiSoToiDa:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Lop hoc da day si so",
+                detail="Lớp đã đầy",
             )
 
     @staticmethod
@@ -130,16 +123,7 @@ class Enrollment3PCDomain:
                 detail=f"Khong tim thay lop hoc phan: {ctx.target_ma_lop_hp}",
             )
 
-        target_enrollment = Enrollment3PCDomain._get_enrollment_for_update(
-            target_session,
-            ctx.user_id,
-            ctx.target_ma_lop_hp,
-        )
-        if target_enrollment is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Khong tim thay thong tin dang ky",
-            )
+        return
 
     @staticmethod
     def commit_site(ctx: Enrollment3PCContext, session: Session, site_name: str) -> int | None:
@@ -322,18 +306,6 @@ class Enrollment3PCDomain:
         return (
             session.query(CourseSection)
             .filter(CourseSection.MaLopHP == ma_lop_hp)
-            .with_for_update()
-            .first()
-        )
-
-    @staticmethod
-    def _get_enrollment_for_update(session: Session, user_id: str, ma_lop_hp: str) -> Enrollment | None:
-        return (
-            session.query(Enrollment)
-            .filter(
-                Enrollment.userId == user_id,
-                Enrollment.MaLopHP == ma_lop_hp,
-            )
             .with_for_update()
             .first()
         )

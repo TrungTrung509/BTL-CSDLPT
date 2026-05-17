@@ -63,6 +63,7 @@ class BuocGiaoTac(str, Enum):
     PRE_COMMIT = "PRE_COMMIT"
     COMMIT = "COMMIT"
     ROLLBACK = "ROLLBACK"
+    FAILED = "FAILED"
     RETRY = "RETRY"
 
     # --- Legacy (tương thích với EnrollmentService cũ) ---

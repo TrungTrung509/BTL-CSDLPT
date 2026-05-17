@@ -155,6 +155,30 @@ services:
     restart: unless-stopped
 
   # ============================================================
+  # POSTGRESQL TẬP TRUNG - Dùng cho Benchmark so sánh tập trung/phân tán
+  # ============================================================
+  postgres_centralized:
+    image: postgres:15-alpine
+    container_name: csdlpt_centralized
+    environment:
+      POSTGRES_DB: ${CENTRALIZED_DB:-csdlpt_centralized}
+      POSTGRES_USER: ${CENTRALIZED_USER:-csdlpt_user}
+      POSTGRES_PASSWORD: ${CENTRALIZED_PASSWORD:-csdlpt_pass}
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+    ports:
+      - "${CENTRALIZED_PORT:-5435}:5432"
+    volumes:
+      - postgres_centralized_data:/var/lib/postgresql/data
+    networks:
+      - csdlpt_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${CENTRALIZED_USER:-csdlpt_user} -d ${CENTRALIZED_DB:-csdlpt_centralized}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ============================================================
   # FDW BOOTSTRAP - Cau hinh ket noi lien site va views tong hop
   # ============================================================
   fdw_setup:
@@ -367,9 +391,9 @@ services:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin123}
       GF_USERS_ALLOW_SIGN_UP: "false"
-      GF_SERVER_ROOT_URL: http://localhost:${GRAFANA_PORT:-3000}
+      GF_SERVER_ROOT_URL: http://localhost:${GRAFANA_PORT:-3001}
     ports:
-      - "${GRAFANA_PORT:-3000}:3000"
+      - "${GRAFANA_PORT:-3001}:3000"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -484,13 +508,19 @@ services:
       CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+    volumes:
+      - kafka_connect_plugins:/usr/share/confluent-hub-components
     command: 
       - bash 
       - -c 
       - |
-        echo "Installing Connector plugins..."
-        confluent-hub install --no-prompt confluentinc/kafka-connect-elasticsearch:latest
-        confluent-hub install --no-prompt debezium/debezium-connector-postgresql:2.4.2
+        echo "Checking/Installing Connector plugins..."
+        if [ ! -d "/usr/share/confluent-hub-components/debezium-debezium-connector-postgresql" ]; then
+          confluent-hub install --no-prompt debezium/debezium-connector-postgresql:2.4.2
+        fi
+        if [ ! -d "/usr/share/confluent-hub-components/confluentinc-kafka-connect-elasticsearch" ]; then
+          confluent-hub install --no-prompt confluentinc/kafka-connect-elasticsearch:15.1.2
+        fi
         echo "Starting Kafka Connect..."
         /etc/confluent/docker/run
     networks:
@@ -530,8 +560,10 @@ volumes:
   postgres_hadong_data:
   postgres_ngoctruc_data:
   postgres_hoalac_data:
+  postgres_centralized_data:
   redis_data:
   elasticsearch_data:
   prometheus_data:
   grafana_data:
   kafka_data:
+  kafka_connect_plugins:
