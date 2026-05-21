@@ -26,6 +26,8 @@ ALGORITHM = os.getenv("ALGORITHM")
 TOKEN_EXPIRES = 30
 REFRESH_TOKEN_EXPIRES = 60 * 24 * 7 # 7 days in minutes
 REMOTE_BENCH_DELAY_MS = max(_get_int_env("REMOTE_BENCH_DELAY_MS", 120), 0)
+KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login") # Updated to match planned route
+

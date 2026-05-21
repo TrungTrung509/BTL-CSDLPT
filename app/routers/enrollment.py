@@ -14,6 +14,7 @@ from schemas.api_response import error_response, success_response
 from security import get_current_active_user
 from enums.user_role import UserRole
 from services.EnrollmentService import EnrollmentService
+from services.KafkaQueueService import KafkaQueueService
 
 router = APIRouter(
     prefix="/enrollments",
@@ -21,14 +22,14 @@ router = APIRouter(
 )
 
 @router.post("/register")
-def register_course(
+async def register_course(
     enroll_in: EnrollmentCreate,
     current_user: User = Depends(get_current_active_user),
 ):
     if current_user.role != UserRole.SinhVien:
         raise HTTPException(status_code=403, detail="Chỉ sinh viên mới được đăng ký học phần.")
 
-    result = EnrollmentService.register(current_user, enroll_in)
+    result = await KafkaQueueService.publish_and_wait(current_user, enroll_in)
 
     if result.status == "Success":
         return success_response(
@@ -43,6 +44,7 @@ def register_course(
         error_code=result.error_code or "REGISTRATION_FAILED",
         details="; ".join(result.reasons) if result.reasons else result.message
     )
+
 
 @router.get("/history", response_model=List[EnrollmentHistoryResponse])
 def get_enrollment_history(

@@ -21,6 +21,8 @@ from monitoring.metrics import (
 from routers import auth, branch, class_section, classroom, course, department, teacher, schedule, semester, student_management, user, enrollment, failover
 from services.Enrollment3PCService import Enrollment3PCService
 from services.ReplicationService import ReplicationService
+from services.KafkaQueueService import KafkaQueueService
+from services.KafkaWorkerService import KafkaWorkerService
 
 
 REPLICATION_RECOVERY_INTERVAL_SECONDS = 10
@@ -86,6 +88,13 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         print(f"Initial metrics refresh failed: {exc}")
 
+    # Start Kafka Services
+    try:
+        await KafkaQueueService.start()
+        await KafkaWorkerService.start()
+    except Exception as exc:
+        print(f"Warning: Failed to start Kafka services (Kafka broker might be offline): {exc}")
+
     recovery_task = asyncio.create_task(replication_recovery_loop())
     enrollment_3pc_task = asyncio.create_task(enrollment_3pc_recovery_loop())
     try:
@@ -97,6 +106,14 @@ async def lifespan(app: FastAPI):
             await recovery_task
         with suppress(asyncio.CancelledError):
             await enrollment_3pc_task
+
+        # Stop Kafka Services
+        try:
+            await KafkaQueueService.stop()
+            await KafkaWorkerService.stop()
+        except Exception as exc:
+            print(f"Failed to stop Kafka services: {exc}")
+
 
 app = FastAPI(
     title="BTL-CSDLPT API",
