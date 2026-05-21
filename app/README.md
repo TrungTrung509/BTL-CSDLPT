@@ -1,5 +1,6 @@
 # Alembic Commands 3 Sites
-
+.\.venv\Scripts\Activate.ps1
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ## Nguyên tắc
 
 Mỗi site = 1 database riêng → dùng file `.ini` tương ứng khi chạy lệnh.

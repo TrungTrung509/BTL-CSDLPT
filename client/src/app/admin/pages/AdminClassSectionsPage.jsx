@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import {
   Card, Table, Button, Space, Tag, Typography, Modal, Form, Input, Select,
-  Popconfirm, message, Drawer, Descriptions, Empty, Tabs, Row, Col
+  Popconfirm, message, Drawer, Descriptions, Empty, Tabs, Row, Col, Popover,
 } from 'antd';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, ReloadOutlined,
@@ -17,7 +17,13 @@ import { courseApi } from '@/services/admin/courseApi';
 import { semesterApi } from '@/services/admin/semesterApi';
 import { branchApi } from '@/services/admin/branchApi';
 import { teacherApi } from '@/services/admin/teacherApi';
-import { formatDate } from '@/utils/formatters';
+import {
+  formatDate,
+  getWeekdayLabel,
+  getWeekdayColor,
+  formatLessonTime,
+  buildSchedulePopoverItem,
+} from '@/utils/formatters';
 import styles from './AdminPage.module.scss';
 
 const { Title, Text } = Typography;
@@ -33,16 +39,6 @@ const SECTION_STATUS_OPTIONS = [
   { label: 'Đóng', value: 'Dong' },
   { label: 'Hủy', value: 'Huy' },
 ];
-
-const WEEKDAY_MAP = {
-  2: 'Thứ 2',
-  3: 'Thứ 3',
-  4: 'Thứ 4',
-  5: 'Thứ 5',
-  6: 'Thứ 6',
-  7: 'Thứ 7',
-  8: 'Chủ nhật',
-};
 
 export default function AdminClassSectionsPage() {
   const [form] = Form.useForm();
@@ -231,6 +227,106 @@ export default function AdminClassSectionsPage() {
       },
     },
     {
+      title: 'Lịch học',
+      key: 'lichHoc',
+      width: 150,
+      render: (_, record) => {
+        const lichHoc = record.LichHoc || [];
+
+        // Lop khong co lich
+        if (lichHoc.length === 0) {
+          return <Tag color="default">Chưa có lịch</Tag>;
+        }
+
+        // Mot lich hoc -> hien thi truc tiep voi gio thuc
+        if (lichHoc.length === 1) {
+          const item = lichHoc[0];
+          const thuLabel = getWeekdayLabel(item.ThuTrongTuan);
+          const timeRange = formatLessonTime(item.TietBatDau, item.SoTiet);
+          return (
+            <Space direction="vertical" size={3} style={{ width: '100%' }}>
+              <Space size={4}>
+                <Tag color={getWeekdayColor(item.ThuTrongTuan)}>{thuLabel}</Tag>
+              </Space>
+              <Text style={{ fontSize: 12, color: '#1677ff', fontWeight: 500 }}>
+                {timeRange}
+              </Text>
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                {item.TenPhong || item.MaPhong || '—'}
+              </Text>
+            </Space>
+          );
+        }
+
+        // Nhieu lich hoc -> Popover
+        const sorted = [...lichHoc].sort((a, b) => {
+          if (a.ThuTrongTuan !== b.ThuTrongTuan) return a.ThuTrongTuan - b.ThuTrongTuan;
+          return a.TietBatDau - b.TietBatDau;
+        });
+
+        const popoverContent = (
+          <div style={{ minWidth: 280 }}>
+            <Text strong style={{ display: 'block', marginBottom: 10, fontSize: 13, color: '#1d39c4' }}>
+              {sorted.length} buoi hoc
+            </Text>
+            {sorted.map((item, idx) => {
+              const { thuLabel, weekdayColor, timeRange, phong, ghiChu } = buildSchedulePopoverItem(item);
+              return (
+                <div
+                  key={item.MaLich || idx}
+                  style={{
+                    padding: '8px 0',
+                    borderBottom: idx < sorted.length - 1 ? '1px solid #f0f0f0' : 'none',
+                  }}
+                >
+                  <Space direction="vertical" size={3}>
+                    <Space size={4}>
+                      <Tag color={weekdayColor}>{thuLabel}</Tag>
+                      <Text style={{ fontSize: 12, color: '#1677ff', fontWeight: 500 }}>
+                        {timeRange}
+                      </Text>
+                    </Space>
+                    <Text style={{ fontSize: 12 }}>
+                      <Text type="secondary">Phong: </Text>
+                      {phong}
+                    </Text>
+                    <Text style={{ fontSize: 12 }}>
+                      <Text type="secondary">Ngay: </Text>
+                      {item.NgayBatDau && item.NgayKetThuc
+                        ? `${formatDate(item.NgayBatDau)} — ${formatDate(item.NgayKetThuc)}`
+                        : '—'}
+                    </Text>
+                    {ghiChu && (
+                      <Text type="secondary" style={{ fontSize: 12, fontStyle: 'italic' }}>
+                        {ghiChu}
+                      </Text>
+                    )}
+                  </Space>
+                </div>
+              );
+            })}
+          </div>
+        );
+
+        return (
+          <Popover
+            content={popoverContent}
+            title="Lich hoc cua lop"
+            trigger="click"
+            placement="left"
+            overlayStyle={{ maxWidth: 340 }}
+          >
+            <Tag
+              color="processing"
+              style={{ cursor: 'pointer', userSelect: 'none' }}
+            >
+              {lichHoc.length} buoi hoc
+            </Tag>
+          </Popover>
+        );
+      },
+    },
+    {
       title: 'Thao tác',
       key: 'actions',
       width: 140,
@@ -252,37 +348,53 @@ export default function AdminClassSectionsPage() {
       title: 'Mã lịch',
       dataIndex: 'MaLich',
       key: 'MaLich',
-      width: 100,
+      width: 90,
+      render: (c) => <Text code>{c}</Text>,
     },
     {
       title: 'Thứ',
       dataIndex: 'ThuTrongTuan',
       key: 'ThuTrongTuan',
       width: 80,
-      render: (v) => WEEKDAY_MAP[v] || v || '—',
+      sorter: (a, b) => a.ThuTrongTuan - b.ThuTrongTuan,
+      render: (v) => <Tag color={getWeekdayColor(v)}>{getWeekdayLabel(v)}</Tag>,
     },
     {
-      title: 'Tiết bắt đầu',
-      dataIndex: 'TietBatDau',
-      key: 'TietBatDau',
-      width: 110,
+      title: 'Giờ',
+      key: 'thoiGian',
+      width: 130,
+      sorter: (a, b) => a.TietBatDau - b.TietBatDau,
+      render: (_, r) => {
+        const timeRange = formatLessonTime(r.TietBatDau, r.SoTiet);
+        return <Text style={{ color: '#1677ff', fontWeight: 500, fontSize: 12 }}>{timeRange}</Text>;
+      },
     },
     {
-      title: 'Số tiết',
-      dataIndex: 'SoTiet',
-      key: 'SoTiet',
-      width: 90,
+      title: 'Tiết',
+      key: 'tiet',
+      width: 80,
+      render: (_, r) => {
+        const end = r.SoTiet > 1 ? `${r.TietBatDau}–${r.TietBatDau + r.SoTiet - 1}` : `${r.TietBatDau}`;
+        return <Tag color="blue">{end}</Tag>;
+      },
     },
     {
       title: 'Phòng',
-      dataIndex: 'MaPhong',
-      key: 'MaPhong',
+      dataIndex: 'TenPhong',
+      key: 'TenPhong',
       width: 100,
+      render: (v, r) => v || r.MaPhong || '—',
     },
     {
-      title: 'Ngày bắt đầu',
+      title: 'Từ ngày',
       dataIndex: 'NgayBatDau',
       key: 'NgayBatDau',
+      render: (d) => formatDate(d),
+    },
+    {
+      title: 'Đến ngày',
+      dataIndex: 'NgayKetThuc',
+      key: 'NgayKetThuc',
       render: (d) => formatDate(d),
     },
   ];
@@ -359,7 +471,7 @@ export default function AdminClassSectionsPage() {
             rowKey="MaLopHP"
             loading={isLoading}
             pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `Tổng ${t} lớp HP` }}
-            scroll={{ x: 1100 }}
+            scroll={{ x: 1300 }}
           />
         )}
       </Card>
@@ -466,9 +578,29 @@ export default function AdminClassSectionsPage() {
             {
               key: 'schedules',
               label: <span><CalendarOutlined /> Lịch học</span>,
-              children: sectionSchedules.length > 0 ? (
-                <Table dataSource={sectionSchedules} columns={scheduleColumns} rowKey="MaLich" size="small" pagination={false} />
-              ) : <Empty description="Chưa có lịch học" />,
+              children: (sectionDetail?.LichHoc && sectionDetail.LichHoc.length > 0)
+                ? (
+                  <Table
+                    dataSource={sectionDetail.LichHoc}
+                    columns={scheduleColumns}
+                    rowKey="MaLich"
+                    size="small"
+                    pagination={false}
+                    scroll={{ x: 600 }}
+                  />
+                )
+                : sectionSchedules.length > 0
+                ? (
+                  <Table
+                    dataSource={sectionSchedules}
+                    columns={scheduleColumns}
+                    rowKey="MaLich"
+                    size="small"
+                    pagination={false}
+                    scroll={{ x: 600 }}
+                  />
+                )
+                : <Empty description="Chưa có lịch học" />,
             },
             {
               key: 'enrollments',

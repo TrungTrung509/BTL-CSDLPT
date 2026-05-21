@@ -91,6 +91,7 @@ class CourseSectionListResponse(BaseModel):
     TrangThaiLop: ClassSectionStatus
     SoLuongLichHoc: int = 0
     NgayTao: datetime
+    LichHoc: list[ScheduleResponse] = Field(default_factory=list)
 
 
 class CourseSectionDetailResponse(CourseSectionListResponse):
