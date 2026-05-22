@@ -2,7 +2,8 @@ from datetime import datetime
 from typing import List, Optional
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
-
+from models.EnrollmentTransfers import EnrollmentTransfer
+from models.EnrollmentTransfers import EnrollmentTransfer
 from models.Enrollments import Enrollment
 from models.CourseSections import CourseSection
 from models.Users import User
@@ -12,6 +13,7 @@ from enums.status import EnrollmentStatus
 from repositories.EnrollmentRepo import EnrollmentRepo
 from repositories.ClassSectionRepo import ClassSectionRepo
 from configs.db import open_db_by_branch
+from services.Enrollment3PCService import Enrollment3PCService
 from schemas.Enrollment import (
     EnrollmentCreate,
     EnrollmentHistoryResponse,
@@ -28,13 +30,12 @@ class EnrollmentService:
     @staticmethod
     def register(user: User, enroll_in: EnrollmentCreate) -> RegistrationResult:
         """Đăng ký học phần qua hệ thống phân tán 3PC."""
-        from services.Enrollment3PCService import Enrollment3PCService
+        
         return Enrollment3PCService.register(user, enroll_in)
 
     @staticmethod
     def cancel(user_id: str, ma_lop_hp: str, site_home: str):
         """Hủy đăng ký học phần qua hệ thống phân tán 3PC."""
-        from services.Enrollment3PCService import Enrollment3PCService
         return Enrollment3PCService.cancel(user_id, ma_lop_hp, site_home)
 
     @staticmethod
@@ -49,7 +50,6 @@ class EnrollmentService:
     @staticmethod
     def get_history(user_id: str, site: str, ma_hk: Optional[str] = None) -> List[EnrollmentHistoryResponse]:
         """Lấy danh sách đăng ký của sinh viên (hợp nhất tại site home)."""
-        from models.EnrollmentTransfers import EnrollmentTransfer
         result = []
         with open_db_by_branch(site) as db:
             # 1. Lấy các lớp đăng ký tại chỗ
@@ -106,7 +106,6 @@ class EnrollmentService:
     @staticmethod
     def get_student_timetable(user_id: str, site: str, ma_hk: Optional[str] = None) -> List[ScheduleResponse]:
         """Lấy thời khóa biểu sinh viên (hợp nhất từ tất cả các site liên quan)."""
-        from models.EnrollmentTransfers import EnrollmentTransfer
         result = []
         
         # Danh sách tất cả các lớp (cặp: MaLopHP, TargetSite)

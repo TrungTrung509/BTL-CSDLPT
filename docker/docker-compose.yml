@@ -22,6 +22,7 @@ services:
       ALGORITHM: ${ALGORITHM:-HS256}
       REMOTE_BENCH_DELAY_MS: ${REMOTE_BENCH_DELAY_MS:-120}
       WATCHFILES_FORCE_POLLING: "true"
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9094
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
@@ -38,6 +39,8 @@ services:
       redis:
         condition: service_healthy
       elasticsearch:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     restart: unless-stopped
   # ============================================================
