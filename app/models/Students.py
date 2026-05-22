@@ -10,7 +10,7 @@ from enums.status import StudentStatus
 class Student(Base):
     __tablename__ = "SinhVien"
 
-    MaSV = Column(String, p rimary_key=True, index=True)
+    MaSV = Column(String, primary_key=True, index=True)
     userId = Column(String, ForeignKey("users.userId"), unique=True, nullable=False)
     Ho = Column(String, nullable=False)
     Ten = Column(String, nullable=False)
