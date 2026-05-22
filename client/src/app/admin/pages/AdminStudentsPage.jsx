@@ -14,17 +14,19 @@
 import { useState } from 'react';
 import {
   Card, Table, Button, Space, Tag, Typography, Modal, Form, Input, Select,
-  Popconfirm, message, Drawer, Descriptions, Empty, Row, Col, Statistic
+  Popconfirm, message, Drawer, Descriptions, Empty, Row, Col, Statistic, Tabs
 } from 'antd';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, ReloadOutlined,
-  TeamOutlined, SwapOutlined
+  TeamOutlined, SwapOutlined, BarChartOutlined, UnorderedListOutlined
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { studentApi, studentKeys } from '@/services/admin/studentApi';
 import { branchApi } from '@/services/admin/branchApi';
 import { departmentApi, departmentKeys } from '@/services/admin/departmentApi';
 import { formatDate } from '@/utils/formatters';
+import EntityOverviewDashboard from '../components/EntityOverviewDashboard';
+import { useAdminEntityOverview } from '@/hooks/useAdminOverview';
 import styles from './AdminPage.module.scss';
 
 const { Title, Text } = Typography;
@@ -79,6 +81,13 @@ function toISODateString(value) {
 export default function AdminStudentsPage() {
   const queryClient = useQueryClient();
   const [form] = Form.useForm();
+
+  // ── Tab state
+  const [activeTab, setActiveTab] = useState('overview');
+
+  // ── Overview query
+  const { data: overviewData, isLoading: isOverviewLoading, isError: isOverviewError, refetch: refetchOverview } =
+    useAdminEntityOverview('students');
 
   // ── Filter + Pagination state (camelCase for API params)
   const [filters, setFilters] = useState({
@@ -387,111 +396,147 @@ export default function AdminStudentsPage() {
 
   return (
     <div className={styles.page}>
-
-      {/* ── Page Header */}
-      <div className={styles.pageHeader}>
-        <div>
-          <Title level={3} className={styles.pageTitle}>Quản lý Sinh viên</Title>
-          <Text type="secondary">Thêm, sửa, xóa và quản lý thông tin sinh viên trong hệ thống</Text>
-        </div>
-        <Space>
-          <Button icon={<ReloadOutlined />} onClick={() => refetch()}>Làm mới</Button>
-          <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenCreate}>
-            Thêm sinh viên
-          </Button>
-        </Space>
-      </div>
-
-      {/* ── Stats Row */}
-      <Row gutter={[12, 12]}>
-        {[
-          { label: 'Tổng cộng',  value: total,          color: '#1677ff', icon: <TeamOutlined /> },
-          { label: 'Đang học',    value: stats.active,    color: '#52c41a', icon: <TeamOutlined /> },
-          { label: 'Bảo lưu',     value: stats.reserved,  color: '#faad14', icon: <TeamOutlined /> },
-          { label: 'Tốt nghiệp',  value: stats.graduated,  color: '#722ed1', icon: <TeamOutlined /> },
-        ].map((s) => (
-          <Col xs={12} sm={6} key={s.label}>
-            <Card size="small" styles={{ body: { padding: '12px 16px' } }}>
-              <Statistic
-                title={<Text type="secondary" style={{ fontSize: 12 }}>{s.label}</Text>}
-                value={isLoading ? '-' : s.value}
-                prefix={<span style={{ color: s.color }}>{s.icon}</span>}
-                valueStyle={{ color: s.color, fontSize: 22, fontWeight: 700 }}
+      <Tabs
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        items={[
+          {
+            key: 'overview',
+            label: (
+              <span>
+                <BarChartOutlined />
+                Tổng quan
+              </span>
+            ),
+            children: (
+              <EntityOverviewDashboard
+                entity="students"
+                data={overviewData}
+                loading={isOverviewLoading}
+                error={isOverviewError}
+                refetch={refetchOverview}
               />
-            </Card>
-          </Col>
-        ))}
-      </Row>
+            ),
+          },
+          {
+            key: 'list',
+            label: (
+              <span>
+                <UnorderedListOutlined />
+                Danh sách
+              </span>
+            ),
+            children: (
+              <>
+                {/* ── Page Header */}
+                <div className={styles.pageHeader}>
+                  <div>
+                    <Title level={3} className={styles.pageTitle}>Quản lý Sinh viên</Title>
+                    <Text type="secondary">Thêm, sửa, xóa và quản lý thông tin sinh viên trong hệ thống</Text>
+                  </div>
+                  <Space>
+                    <Button icon={<ReloadOutlined />} onClick={() => refetch()}>Làm mới</Button>
+                    <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenCreate}>
+                      Thêm sinh viên
+                    </Button>
+                  </Space>
+                </div>
 
-      {/* ── Filter Bar */}
-      <Card className={styles.filterCard} styles={{ body: { padding: 16 } }}>
-        <Row gutter={[12, 12]} align="middle">
-          <Col xs={24} sm={12} md={6}>
-            <Input.Search
-              placeholder="Tìm mã SV, họ, tên..."
-              allowClear
-              onSearch={(v) => setFilters((f) => ({ ...f, keyword: v || undefined, page: 1 }))}
-              style={{ width: '100%' }}
-            />
-          </Col>
-          <Col xs={12} sm={6} md={4}>
-            <Select
-              placeholder="Cơ sở"
-              allowClear
-              style={{ width: '100%' }}
-              onChange={(v) => setFilters((f) => ({ ...f, maCoSo: v || undefined, page: 1 }))}
-              value={filters.maCoSo}
-              options={branches.map((b) => ({ label: b.TenCoSo, value: b.MaCoSo }))}
-            />
-          </Col>
-          <Col xs={12} sm={6} md={4}>
-            <Select
-              placeholder="Khoa"
-              allowClear
-              style={{ width: '100%' }}
-              onChange={(v) => setFilters((f) => ({ ...f, maKhoa: v || undefined, page: 1 }))}
-              value={filters.maKhoa}
-              options={departments.map((d) => ({ label: `${d.MaKhoa} - ${d.TenKhoa}`, value: d.MaKhoa }))}
-            />
-          </Col>
-          <Col xs={12} sm={6} md={4}>
-            <Select
-              placeholder="Trạng thái"
-              allowClear
-              style={{ width: '100%' }}
-              onChange={(v) => setFilters((f) => ({ ...f, trangThai: v || undefined, page: 1 }))}
-              value={filters.trangThai}
-              options={STATUS_OPTIONS}
-            />
-          </Col>
-          <Col xs={12} sm={6} md={3}>
-            <Button onClick={handleClearFilters} block>Xóa lọc</Button>
-          </Col>
-        </Row>
-      </Card>
+                {/* ── Stats Row */}
+                <Row gutter={[12, 12]}>
+                  {[
+                    { label: 'Tổng cộng',  value: total,          color: '#1677ff', icon: <TeamOutlined /> },
+                    { label: 'Đang học',    value: stats.active,    color: '#52c41a', icon: <TeamOutlined /> },
+                    { label: 'Bảo lưu',     value: stats.reserved,  color: '#faad14', icon: <TeamOutlined /> },
+                    { label: 'Tốt nghiệp',  value: stats.graduated,  color: '#722ed1', icon: <TeamOutlined /> },
+                  ].map((s) => (
+                    <Col xs={12} sm={6} key={s.label}>
+                      <Card size="small" styles={{ body: { padding: '12px 16px' } }}>
+                        <Statistic
+                          title={<Text type="secondary" style={{ fontSize: 12 }}>{s.label}</Text>}
+                          value={isLoading ? '-' : s.value}
+                          prefix={<span style={{ color: s.color }}>{s.icon}</span>}
+                          valueStyle={{ color: s.color, fontSize: 22, fontWeight: 700 }}
+                        />
+                      </Card>
+                    </Col>
+                  ))}
+                </Row>
 
-      {/* ── Table */}
-      <Card className={styles.tableCard}>
-        {isError ? (
-          <Empty description={<Text type="danger">Không thể tải danh sách sinh viên</Text>} />
-        ) : (
-          <Table
-            dataSource={students}
-            columns={columns}
-            rowKey="MaSV"
-            loading={isLoading}
-            scroll={{ x: 1100 }}
-            pagination={{
-              current: filters.page,
-              pageSize: filters.pageSize,
-              total,
-              showSizeChanger: true,
-              showTotal: (t) => `Tổng ${t} sinh viên`,
-              onChange: handlePageChange,
-            }}
-          />
-        )}
-      </Card>
+                {/* ── Filter Bar */}
+                <Card className={styles.filterCard} styles={{ body: { padding: 16 } }}>
+                  <Row gutter={[12, 12]} align="middle">
+                    <Col xs={24} sm={12} md={6}>
+                      <Input.Search
+                        placeholder="Tìm mã SV, họ, tên..."
+                        allowClear
+                        onSearch={(v) => setFilters((f) => ({ ...f, keyword: v || undefined, page: 1 }))}
+                        style={{ width: '100%' }}
+                      />
+                    </Col>
+                    <Col xs={12} sm={6} md={4}>
+                      <Select
+                        placeholder="Cơ sở"
+                        allowClear
+                        style={{ width: '100%' }}
+                        onChange={(v) => setFilters((f) => ({ ...f, maCoSo: v || undefined, page: 1 }))}
+                        value={filters.maCoSo}
+                        options={branches.map((b) => ({ label: b.TenCoSo, value: b.MaCoSo }))}
+                      />
+                    </Col>
+                    <Col xs={12} sm={6} md={4}>
+                      <Select
+                        placeholder="Khoa"
+                        allowClear
+                        style={{ width: '100%' }}
+                        onChange={(v) => setFilters((f) => ({ ...f, maKhoa: v || undefined, page: 1 }))}
+                        value={filters.maKhoa}
+                        options={departments.map((d) => ({ label: `${d.MaKhoa} - ${d.TenKhoa}`, value: d.MaKhoa }))}
+                      />
+                    </Col>
+                    <Col xs={12} sm={6} md={4}>
+                      <Select
+                        placeholder="Trạng thái"
+                        allowClear
+                        style={{ width: '100%' }}
+                        onChange={(v) => setFilters((f) => ({ ...f, trangThai: v || undefined, page: 1 }))}
+                        value={filters.trangThai}
+                        options={STATUS_OPTIONS}
+                      />
+                    </Col>
+                    <Col xs={12} sm={6} md={3}>
+                      <Button onClick={handleClearFilters} block>Xóa lọc</Button>
+                    </Col>
+                  </Row>
+                </Card>
+
+                {/* ── Table */}
+                <Card className={styles.tableCard}>
+                  {isError ? (
+                    <Empty description={<Text type="danger">Không thể tải danh sách sinh viên</Text>} />
+                  ) : (
+                    <Table
+                      dataSource={students}
+                      columns={columns}
+                      rowKey="MaSV"
+                      loading={isLoading}
+                      scroll={{ x: 1100 }}
+                      pagination={{
+                        current: filters.page,
+                        pageSize: filters.pageSize,
+                        total,
+                        showSizeChanger: true,
+                        showTotal: (t) => `Tổng ${t} sinh viên`,
+                        onChange: handlePageChange,
+                      }}
+                    />
+                  )}
+                </Card>
+              </>
+            ),
+          },
+        ]}
+      />
 
       {/* ── Create / Edit Modal */}
       <Modal

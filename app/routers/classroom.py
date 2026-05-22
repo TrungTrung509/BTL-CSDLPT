@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, Path, status
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 
 from enums.user_role import UserRole
 from models.Users import User
-from schemas.Classroom import ClassroomCreate, ClassroomResponse, ClassroomUpdate
+from schemas.Classroom import ClassroomCreate, ClassroomResponse, ClassroomUpdate, ClassroomFilter
 from schemas.api_response import error_response, success_response
 from security import get_current_active_user, require_roles
 from services.ClassroomService import ClassroomService
@@ -15,10 +17,20 @@ router = APIRouter(
 
 @router.get("/")
 async def get_all_classrooms(
+    keyword: Optional[str] = Query(None, description="Tìm kiếm theo mã phòng, tên phòng"),
+    maCoSo: Optional[str] = Query(None, description="Lọc theo mã cơ sở"),
+    loaiPhong: Optional[str] = Query(None, description="Lọc theo loại phòng"),
+    trangThai: Optional[str] = Query(None, description="Lọc theo trạng thái"),
     current_user: User = Depends(get_current_active_user),
 ):
     try:
-        items, total = ClassroomService.get_all_classrooms()
+        filters = ClassroomFilter(
+            keyword=keyword,
+            MaCoSo=maCoSo,
+            LoaiPhong=loaiPhong,
+            TrangThai=trangThai,
+        )
+        items, total = ClassroomService.get_all_classrooms(filters)
         return success_response(
             data={"items": [ClassroomResponse.model_validate(item).model_dump() for item in items], "total": total},
             message=f"Lay danh sach phong hoc thanh cong (tong: {total})",
