@@ -2,17 +2,20 @@
  * Admin Classrooms Page - CRUD for classrooms
  */
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Card, Table, Button, Space, Tag, Typography, Modal, Form, Input, Select, Popconfirm,
-  message, Drawer, Descriptions, Empty
+  message, Drawer, Descriptions, Empty, Tabs
 } from 'antd';
 import {
-  PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, ReloadOutlined
+  PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, ReloadOutlined,
+  BarChartOutlined, UnorderedListOutlined
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { classroomApi, classroomKeys } from '@/services/admin/classroomApi';
 import { branchApi } from '@/services/admin/branchApi';
+import EntityOverviewDashboard from '../components/EntityOverviewDashboard';
+import { useAdminEntityOverview } from '@/hooks/useAdminOverview';
 import styles from './AdminPage.module.scss';
 
 const { Title, Text } = Typography;
@@ -21,11 +24,14 @@ const ROOM_TYPE_OPTIONS = [
   { label: 'Lý thuyết', value: 'LyThuyet' },
   { label: 'Thực hành', value: 'ThucHanh' },
   { label: 'Hội trường', value: 'HoiTruong' },
+  { label: 'Phòng máy', value: 'MayTinh' },
+  { label: 'Thí nghiệm', value: 'ThiNghiem' },
 ];
 
 const ROOM_STATUS_OPTIONS = [
   { label: 'Hoạt động', value: 'HoatDong' },
-  { label: 'Ngừng hoạt động', value: 'NgungHoatDong' },
+  { label: 'Bảo trì', value: 'BaoTri' },
+  { label: 'Ngừng sử dụng', value: 'NgungSuDung' },
 ];
 
 export default function AdminClassroomsPage() {
@@ -34,13 +40,29 @@ export default function AdminClassroomsPage() {
   const [detailRecord, setDetailRecord] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [keywordInput, setKeywordInput] = useState('');
   const [filters, setFilters] = useState({
     keyword: undefined,
     maCoSo: undefined,
     loaiPhong: undefined,
     trangThai: undefined,
   });
+  const [activeTab, setActiveTab] = useState('overview');
   const queryClient = useQueryClient();
+
+  // ── Overview query
+  const { data: overviewData, isLoading: isOverviewLoading, isError: isOverviewError, refetch: refetchOverview } =
+    useAdminEntityOverview('classrooms');
+
+  // Debounce keyword: 400ms sau khi gõ thì mới trigger API
+  const debounceTimerRef = useRef(null);
+  useEffect(() => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      setFilters(prev => ({ ...prev, keyword: keywordInput || undefined }));
+    }, 400);
+    return () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); };
+  }, [keywordInput]);
 
   const { data: classroomData, isLoading, isError, refetch } = useQuery({
     queryKey: classroomKeys.list(filters),
@@ -126,7 +148,11 @@ export default function AdminClassroomsPage() {
   };
 
   const getStatusProps = (status) => {
-    const map = { HoatDong: { color: 'success', label: 'Hoạt động' }, NgungHoatDong: { color: 'error', label: 'Ngừng hoạt động' } };
+    const map = {
+      HoatDong: { color: 'success', label: 'Hoạt động' },
+      BaoTri: { color: 'warning', label: 'Bảo trì' },
+      NgungSuDung: { color: 'error', label: 'Ngừng sử dụng' },
+    };
     const p = map[status] || { color: 'default', label: status || '—' };
     return p;
   };
@@ -150,7 +176,15 @@ export default function AdminClassroomsPage() {
       key: 'LoaiPhong',
       width: 120,
       render: (v) => {
-        const map = { LyThuyet: 'Lý thuyết', ThucHanh: 'Thực hành', HoiTruong: 'Hội trường' };
+        const map = {
+          LyThuyet: 'Lý thuyết',
+          ThucHanh: 'Thực hành',
+          PhongMay: 'Phòng máy',
+          MayTinh: 'Máy tính',
+          HoiTruong: 'Hội trường',
+          ThiNghiem: 'Thí nghiệm',
+          Khac: 'Khác',
+        };
         return <Tag>{map[v] || v || '—'}</Tag>;
       },
     },
@@ -206,68 +240,106 @@ export default function AdminClassroomsPage() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.pageHeader}>
-        <div>
-          <Title level={3} className={styles.pageTitle}>Quản lý Phòng học</Title>
-          <Text type="secondary">Danh sách và quản lý các phòng học trong hệ thống</Text>
-        </div>
-        <Space>
-          <Button icon={<ReloadOutlined />} onClick={() => refetch()}>Làm mới</Button>
-          <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenCreate}>
-            Thêm phòng học
-          </Button>
-        </Space>
-      </div>
+      <Tabs
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        items={[
+          {
+            key: 'overview',
+            label: (
+              <span>
+                <BarChartOutlined />
+                Tổng quan
+              </span>
+            ),
+            children: (
+              <EntityOverviewDashboard
+                entity="classrooms"
+                data={overviewData}
+                loading={isOverviewLoading}
+                error={isOverviewError}
+                refetch={refetchOverview}
+              />
+            ),
+          },
+          {
+            key: 'list',
+            label: (
+              <span>
+                <UnorderedListOutlined />
+                Danh sách
+              </span>
+            ),
+            children: (
+              <>
+                <div className={styles.pageHeader}>
+                  <div>
+                    <Title level={3} className={styles.pageTitle}>Quản lý Phòng học</Title>
+                    <Text type="secondary">Danh sách và quản lý các phòng học trong hệ thống</Text>
+                  </div>
+                  <Space>
+                    <Button icon={<ReloadOutlined />} onClick={() => refetch()}>Làm mới</Button>
+                    <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenCreate}>
+                      Thêm phòng học
+                    </Button>
+                  </Space>
+                </div>
 
-      <Card className={styles.tableCard}>
-        <div style={{ marginBottom: 16, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-          <Input
-            placeholder="Tìm mã phòng, tên phòng..."
-            allowClear
-            style={{ width: 220 }}
-            onChange={(e) => setFilters(prev => ({ ...prev, keyword: e.target.value || undefined }))}
-          />
-          <Select
-            placeholder="Lọc cơ sở"
-            allowClear
-            style={{ width: 160 }}
-            onChange={(value) => setFilters(prev => ({ ...prev, maCoSo: value || undefined }))}
-          >
-            {branches.map((b) => <Select.Option key={b.MaCoSo} value={b.MaCoSo}>{b.TenCoSo}</Select.Option>)}
-          </Select>
-          <Select
-            placeholder="Lọc loại phòng"
-            allowClear
-            style={{ width: 140 }}
-            onChange={(value) => setFilters(prev => ({ ...prev, loaiPhong: value || undefined }))}
-          >
-            {ROOM_TYPE_OPTIONS.map((o) => <Select.Option key={o.value} value={o.value}>{o.label}</Select.Option>)}
-          </Select>
-          <Select
-            placeholder="Lọc trạng thái"
-            allowClear
-            style={{ width: 160 }}
-            onChange={(value) => setFilters(prev => ({ ...prev, trangThai: value || undefined }))}
-          >
-            {ROOM_STATUS_OPTIONS.map((o) => <Select.Option key={o.value} value={o.value}>{o.label}</Select.Option>)}
-          </Select>
-        </div>
-        {isError ? (
-          <Empty description={<Text type="danger">Không thể tải danh sách phòng học</Text>} />
-        ) : (
-          <Table
-            dataSource={classrooms}
-            columns={columns}
-            rowKey="MaPhong"
-            loading={isLoading}
-            pagination={{
-              pageSize: 10,
-              showSizeChanger: true,
-              showTotal: (t) => `Tổng ${t} phòng học`,
-            }}
-          />
-        )}
-      </Card>
+                <Card className={styles.tableCard}>
+                  <div style={{ marginBottom: 16, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <Input
+                      placeholder="Tìm mã phòng, tên phòng..."
+                      allowClear
+                      style={{ width: 220 }}
+                      value={keywordInput}
+                      onChange={(e) => setKeywordInput(e.target.value)}
+                    />
+                    <Select
+                      placeholder="Lọc cơ sở"
+                      allowClear
+                      style={{ width: 160 }}
+                      onChange={(value) => setFilters(prev => ({ ...prev, maCoSo: value || undefined }))}
+                    >
+                      {branches.map((b) => <Select.Option key={b.MaCoSo} value={b.MaCoSo}>{b.TenCoSo}</Select.Option>)}
+                    </Select>
+                    <Select
+                      placeholder="Lọc loại phòng"
+                      allowClear
+                      style={{ width: 140 }}
+                      onChange={(value) => setFilters(prev => ({ ...prev, loaiPhong: value || undefined }))}
+                    >
+                      {ROOM_TYPE_OPTIONS.map((o) => <Select.Option key={o.value} value={o.value}>{o.label}</Select.Option>)}
+                    </Select>
+                    <Select
+                      placeholder="Lọc trạng thái"
+                      allowClear
+                      style={{ width: 160 }}
+                      onChange={(value) => setFilters(prev => ({ ...prev, trangThai: value || undefined }))}
+                    >
+                      {ROOM_STATUS_OPTIONS.map((o) => <Select.Option key={o.value} value={o.value}>{o.label}</Select.Option>)}
+                    </Select>
+                  </div>
+                  {isError ? (
+                    <Empty description={<Text type="danger">Không thể tải danh sách phòng học</Text>} />
+                  ) : (
+                    <Table
+                      dataSource={classrooms}
+                      columns={columns}
+                      rowKey="MaPhong"
+                      loading={isLoading}
+                      pagination={{
+                        pageSize: 10,
+                        showSizeChanger: true,
+                        showTotal: (t) => `Tổng ${t} phòng học`,
+                      }}
+                    />
+                  )}
+                </Card>
+              </>
+            ),
+          },
+        ]}
+      />
 
       <Modal
         title={editRecord ? 'Sửa phòng học' : 'Thêm phòng học mới'}
@@ -332,7 +404,18 @@ export default function AdminClassroomsPage() {
             <Descriptions.Item label="Tên phòng">{detailRecord.TenPhong}</Descriptions.Item>
             <Descriptions.Item label="Tòa nhà">{detailRecord.ToaNha || '—'}</Descriptions.Item>
             <Descriptions.Item label="Tầng">{detailRecord.Tang ?? '—'}</Descriptions.Item>
-            <Descriptions.Item label="Loại phòng">{(() => { const m = { LyThuyet: 'Lý thuyết', ThucHanh: 'Thực hành', HoiTruong: 'Hội trường' }; return m[detailRecord.LoaiPhong] || detailRecord.LoaiPhong || '—'; })()}</Descriptions.Item>
+            <Descriptions.Item label="Loại phòng">{(() => {
+              const m = {
+                LyThuyet: 'Lý thuyết',
+                ThucHanh: 'Thực hành',
+                PhongMay: 'Phòng máy',
+                MayTinh: 'Máy tính',
+                HoiTruong: 'Hội trường',
+                ThiNghiem: 'Thí nghiệm',
+                Khac: 'Khác',
+              };
+              return m[detailRecord.LoaiPhong] || detailRecord.LoaiPhong || '—';
+            })()}</Descriptions.Item>
             <Descriptions.Item label="Sức chứa">{detailRecord.SucChua || '—'}</Descriptions.Item>
             <Descriptions.Item label="Cơ sở">{detailRecord.MaCoSo || '—'}</Descriptions.Item>
             <Descriptions.Item label="Trạng thái">

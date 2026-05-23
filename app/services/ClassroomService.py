@@ -1,4 +1,4 @@
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -11,22 +11,24 @@ from models.Users import User
 from enums.types import RoomType
 from enums.status import RoomStatus
 from repositories.ClassroomRepo import ClassroomRepo
-from schemas.Classroom import ClassroomCreate, ClassroomResponse, ClassroomUpdate
+from schemas.Classroom import ClassroomCreate, ClassroomResponse, ClassroomUpdate, ClassroomFilter
 
 
 class ClassroomService:
     @staticmethod
-    def get_all_classrooms() -> Tuple[list[Classroom], int]:
+    def get_all_classrooms(filters: Optional[ClassroomFilter] = None) -> Tuple[list[Classroom], int]:
         sessions = ClassroomService._open_all_sessions()
         items: list[Classroom] = []
 
         try:
-            for session in sessions.values():
-                items.extend(
-                    ClassroomRepo.base_query(session)
-                    .order_by(Classroom.MaCoSo.asc(), Classroom.MaPhong.asc())
-                    .all()
-                )
+            for site, session in sessions.items():
+                # Nếu có filter theo cơ sở, chỉ query site tương ứng
+                if filters and filters.MaCoSo and filters.MaCoSo.upper() != site.upper():
+                    continue
+                query = ClassroomRepo.base_query(session)
+                query = ClassroomRepo.apply_filters(query, filters)
+                query = query.order_by(Classroom.MaCoSo.asc(), Classroom.MaPhong.asc())
+                items.extend(query.all())
             items.sort(key=lambda item: (item.MaCoSo, item.MaPhong))
             return items, len(items)
         finally:

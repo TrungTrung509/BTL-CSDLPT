@@ -5,13 +5,16 @@
 import { useState } from 'react';
 import {
   Card, Table, Button, Space, Tag, Typography, Modal, Form, Input, Select, Popconfirm,
-  message, Drawer, Descriptions, Empty
+  message, Drawer, Descriptions, Empty, Tabs
 } from 'antd';
 import {
-  PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, ReloadOutlined
+  PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, ReloadOutlined,
+  BarChartOutlined, UnorderedListOutlined
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { courseApi } from '@/services/admin/courseApi';
+import EntityOverviewDashboard from '../components/EntityOverviewDashboard';
+import { useAdminEntityOverview } from '@/hooks/useAdminOverview';
 import styles from './AdminPage.module.scss';
 
 const { Title, Text } = Typography;
@@ -28,7 +31,12 @@ export default function AdminCoursesPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [filters, setFilters] = useState({ keyword: '' });
+  const [activeTab, setActiveTab] = useState('overview');
   const queryClient = useQueryClient();
+
+  // ── Overview query
+  const { data: overviewData, isLoading: isOverviewLoading, isError: isOverviewError, refetch: refetchOverview } =
+    useAdminEntityOverview('courses');
 
   const { data: courseData, isLoading, isError, refetch } = useQuery({
     queryKey: ['admin-courses', filters],
@@ -156,39 +164,76 @@ export default function AdminCoursesPage() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.pageHeader}>
-        <div>
-          <Title level={3} className={styles.pageTitle}>Quản lý Học phần</Title>
-          <Text type="secondary">Danh sách và quản lý các học phần trong hệ thống</Text>
-        </div>
-        <Space>
-          <Input.Search
-            placeholder="Tìm theo mã, tên..."
-            onSearch={(val) => setFilters((f) => ({ ...f, keyword: val }))}
-            style={{ width: 200 }}
-            allowClear
-          />
-          <Button icon={<ReloadOutlined />} onClick={() => refetch()}>Làm mới</Button>
-          <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenCreate}>
-            Thêm học phần
-          </Button>
-        </Space>
-      </div>
+      <Tabs
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        items={[
+          {
+            key: 'overview',
+            label: (
+              <span>
+                <BarChartOutlined />
+                Tổng quan
+              </span>
+            ),
+            children: (
+              <EntityOverviewDashboard
+                entity="courses"
+                data={overviewData}
+                loading={isOverviewLoading}
+                error={isOverviewError}
+                refetch={refetchOverview}
+              />
+            ),
+          },
+          {
+            key: 'list',
+            label: (
+              <span>
+                <UnorderedListOutlined />
+                Danh sách
+              </span>
+            ),
+            children: (
+              <>
+                <div className={styles.pageHeader}>
+                  <div>
+                    <Title level={3} className={styles.pageTitle}>Quản lý Học phần</Title>
+                    <Text type="secondary">Danh sách và quản lý các học phần trong hệ thống</Text>
+                  </div>
+                  <Space>
+                    <Input.Search
+                      placeholder="Tìm theo mã, tên..."
+                      onSearch={(val) => setFilters((f) => ({ ...f, keyword: val }))}
+                      style={{ width: 200 }}
+                      allowClear
+                    />
+                    <Button icon={<ReloadOutlined />} onClick={() => refetch()}>Làm mới</Button>
+                    <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenCreate}>
+                      Thêm học phần
+                    </Button>
+                  </Space>
+                </div>
 
-      <Card className={styles.tableCard}>
-        {isError ? (
-          <Empty description={<Text type="danger">Không thể tải danh sách học phần</Text>} />
-        ) : (
-          <Table
-            dataSource={courses}
-            columns={columns}
-            rowKey="MaHocPhan"
-            loading={isLoading}
-            pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `Tổng ${t} học phần` }}
-            scroll={{ x: 800 }}
-          />
-        )}
-      </Card>
+                <Card className={styles.tableCard}>
+                  {isError ? (
+                    <Empty description={<Text type="danger">Không thể tải danh sách học phần</Text>} />
+                  ) : (
+                    <Table
+                      dataSource={courses}
+                      columns={columns}
+                      rowKey="MaHocPhan"
+                      loading={isLoading}
+                      pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `Tổng ${t} học phần` }}
+                      scroll={{ x: 800 }}
+                    />
+                  )}
+                </Card>
+              </>
+            ),
+          },
+        ]}
+      />
 
       {/* Create / Edit Modal */}
       <Modal

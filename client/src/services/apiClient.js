@@ -66,7 +66,7 @@ apiClient.interceptors.response.use(
       const { status, data } = error.response;
 
       if (status === 401) {
-        const err = new Error('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.');
+        const err = new Error(data?.message || 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.');
         err.isApiError = true;
         err.isAuthError = true;
         err.status = 401;
