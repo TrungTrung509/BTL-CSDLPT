@@ -18,12 +18,6 @@ CREATE INDEX IF NOT EXISTS idx_hocphan_trangthai ON "HocPhan"("TrangThai");
 -- Index cho HocPhan theo loại (lọc)
 CREATE INDEX IF NOT EXISTS idx_hocphan_loai ON "HocPhan"("LoaiHocPhan");
 
--- Index cho TienQuyet theo MaHP (kiểm tra tiên quyết)
-CREATE INDEX IF NOT EXISTS idx_tienquyet_mahp ON "TienQuyet"("MaHP");
-
--- Index cho TienQuyet theo MaHP_TienQuyet
-CREATE INDEX IF NOT EXISTS idx_tienquyet_tq ON "TienQuyet"("MaHP_TienQuyet");
-
 -- ============================================================
 -- INDEXES CHO BẢNG users (Common - tìm kiếm & auth)
 -- ============================================================
@@ -138,9 +132,6 @@ CREATE INDEX IF NOT EXISTS idx_dangky_demsiso ON "DangKy"("MaLopHP") WHERE "Tran
 -- ============================================================
 -- INDEXES CHO REPLICATION & FDW (chạy tại tất cả site)
 -- ============================================================
-
--- Index cho việc kiểm tra tiên quyết (JOIN với HocPhan)
-CREATE INDEX IF NOT EXISTS idx_tienquyet_lookup ON "TienQuyet"("MaHP_TienQuyet", "MaHP");
 
 -- Index cho HocKy theo năm học
 CREATE INDEX IF NOT EXISTS idx_hocky_namhoc ON "HocKy"("NamHoc");

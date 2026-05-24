@@ -5,7 +5,7 @@ Cho hệ thống Cơ sở dữ liệu phân tán - Đăng ký học phần
 
 Script này:
 1. Kết nối PostgreSQL (site HADONG)
-2. Đọc dữ liệu HocPhan, Khoa, TienQuyet
+2. Đọc dữ liệu HocPhan, Khoa
 3. Build nested documents
 4. Bulk index vào Elasticsearch
 """
@@ -119,43 +119,11 @@ def fetch_hocphan_data(conn) -> List[Dict[str, Any]]:
         sys.exit(1)
 
 
-def fetch_tienquyet_data(conn) -> Dict[str, List[Dict]]:
-    """Lấy dữ liệu TienQuyet, nhóm theo MaHP"""
-    query = """
-        SELECT
-            tq."MaHP",
-            tq."MaHP_TienQuyet",
-            hp."TenHP" as TenHP_TienQuyet
-        FROM "TienQuyet" tq
-        LEFT JOIN "HocPhan" hp ON tq."MaHP_TienQuyet" = hp."MaHP"
-        ORDER BY tq."MaHP", tq."MaHP_TienQuyet"
-    """
-
-    try:
-        with conn.cursor() as cur:
-            cur.execute(query)
-            rows = cur.fetchall()
-
-            # Nhóm theo MaHP
-            tienquyet_map = {}
-            for row in rows:
-                mahp = row[0]
-                if mahp not in tienquyet_map:
-                    tienquyet_map[mahp] = []
-                tienquyet_map[mahp].append({
-                    "MaHP_TienQuyet": row[1],
-                    "TenHP_TienQuyet": row[2]
-                })
-
-            log_info(f"Đã lấy {len(rows)} quan hệ tiên quyết")
-            return tienquyet_map
-    except Exception as e:
-        log_warning(f"Không lấy được dữ liệu TienQuyet: {e}")
-        return {}
+# (fetch_tienquyet_data removed since TienQuyet is no longer used)
 
 
-def build_documents(hocphan_data: List[Dict], tienquyet_map: Dict) -> List[Dict]:
-    """Build documents cho Elasticsearch với nested TienQuyet"""
+def build_documents(hocphan_data: List[Dict]) -> List[Dict]:
+    """Build documents cho Elasticsearch"""
     documents = []
 
     # Debug: print first row columns
@@ -192,7 +160,6 @@ def build_documents(hocphan_data: List[Dict], tienquyet_map: Dict) -> List[Dict]
             "MoTa": hp_lower["mota"],
             "TrangThai": hp_lower["trangthai"],
             "NgayTao": formatted_ngaytao,
-            "TienQuyet": tienquyet_map.get(mahp, []),
             "suggest": {
                 "input": [mahp, hp_lower["tenhp"]],
                 "weight": 1
@@ -264,13 +231,6 @@ def bulk_index(es: Elasticsearch, documents: List[Dict], index_name: str) -> boo
                     "MoTa": {"type": "text", "analyzer": "vietnamese_analyzer"},
                     "TrangThai": {"type": "keyword"},
                     "NgayTao": {"type": "date"},
-                    "TienQuyet": {
-                        "type": "nested",
-                        "properties": {
-                            "MaHP_TienQuyet": {"type": "keyword"},
-                            "TenHP_TienQuyet": {"type": "text", "analyzer": "vietnamese_analyzer"}
-                        }
-                    },
                     "search_text": {"type": "text", "analyzer": "vietnamese_analyzer"},
                     "suggest": {"type": "completion", "analyzer": "simple"}
                 }
@@ -347,12 +307,11 @@ def main():
     print()
     log_info("Lấy dữ liệu từ PostgreSQL...")
     hocphan_data = fetch_hocphan_data(conn)
-    tienquyet_map = fetch_tienquyet_data(conn)
 
     # Build documents
     print()
     log_info("Build documents...")
-    documents = build_documents(hocphan_data, tienquyet_map)
+    documents = build_documents(hocphan_data)
     log_info(f"Đã build {len(documents)} documents")
 
     # Bulk index

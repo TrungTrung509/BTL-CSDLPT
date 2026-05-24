@@ -3,7 +3,6 @@ SELECT COUNT(*) FROM "users" AS t;
 SELECT COUNT(*) FROM "Khoa" AS t;
 SELECT COUNT(*) FROM "HocPhan" AS t;
 SELECT COUNT(*) FROM "HocKy" AS t;
-SELECT COUNT(*) FROM "TienQuyet" AS t;
 SELECT COUNT(*) FROM "SinhVien" AS t;
 SELECT COUNT(*) FROM "GiangVien" AS t;
 SELECT COUNT(*) FROM "PhongHoc" AS t;
