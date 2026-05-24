@@ -1,5 +1,5 @@
 from datetime import date
-from typing import Dict, Iterable
+from typing import Dict, Iterable, Optional
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -39,17 +39,41 @@ from schemas.ClassSection import (
 
 class ClassSectionService:
     @staticmethod
-    def get_all_sections() -> tuple[list[CourseSectionListResponse], int]:
+    def get_all_sections(
+        keyword: Optional[str] = None,
+        MaCoSo: Optional[str] = None,
+        HinhThucHoc: Optional[str] = None,
+        TrangThaiLop: Optional[str] = None,
+    ) -> tuple[list[CourseSectionListResponse], int]:
         sessions = ClassSectionService._open_all_sessions()
 
         try:
             all_sections: list[tuple[str, Session, CourseSection]] = []
             for site, session in sessions.items():
-                sections = (
-                    ClassSectionRepo.base_query(session)
-                    .order_by(CourseSection.MaLopHP.asc())
-                    .all()
-                )
+                # If MaCoSo filter is set, only query that site
+                if MaCoSo is not None and site.upper() != MaCoSo.upper():
+                    continue
+
+                query = ClassSectionRepo.base_query(session)
+
+                # Keyword filter: search in MaLopHP or TenLopHP
+                if keyword:
+                    kw = keyword.strip()
+                    if kw:
+                        query = query.filter(
+                            (CourseSection.MaLopHP.ilike(f"%{kw}%"))
+                            | (CourseSection.TenLopHP.ilike(f"%{kw}%"))
+                        )
+
+                # HinhThucHoc filter
+                if HinhThucHoc:
+                    query = query.filter(CourseSection.HinhThucHoc == HinhThucHoc)
+
+                # TrangThaiLop filter
+                if TrangThaiLop:
+                    query = query.filter(CourseSection.TrangThaiLop == TrangThaiLop)
+
+                sections = query.order_by(CourseSection.MaLopHP.asc()).all()
                 for section in sections:
                     all_sections.append((site, session, section))
 
