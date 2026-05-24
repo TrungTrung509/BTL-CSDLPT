@@ -6,6 +6,13 @@ from enums.types import RoomType
 from enums.status import RoomStatus
 
 
+class ClassroomFilter(BaseModel):
+    keyword: Optional[str] = Field(default=None, description="Tìm kiếm theo mã phòng hoặc tên phòng")
+    MaCoSo: Optional[str] = Field(default=None, description="Lọc theo mã cơ sở")
+    LoaiPhong: Optional[RoomType] = Field(default=None, description="Lọc theo loại phòng")
+    TrangThai: Optional[RoomStatus] = Field(default=None, description="Lọc theo trạng thái")
+
+
 class ClassroomBase(BaseModel):
     MaPhong: str = Field(..., min_length=3, max_length=20)
     TenPhong: str = Field(..., min_length=2, max_length=100)

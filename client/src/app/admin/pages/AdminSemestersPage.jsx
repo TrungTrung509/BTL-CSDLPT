@@ -6,14 +6,17 @@ import { useState } from 'react';
 import {
   Card, Table, Button, Space, Tag, Typography, Modal, Form, Input, Popconfirm,
   message, Drawer, Descriptions, Empty,
-  Select
+  Select, Tabs
 } from 'antd';
 import {
-  PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, ReloadOutlined
+  PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, ReloadOutlined,
+  BarChartOutlined, UnorderedListOutlined
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { semesterApi } from '@/services/admin/semesterApi';
 import { formatDate } from '@/utils/formatters';
+import EntityOverviewDashboard from '../components/EntityOverviewDashboard';
+import { useAdminEntityOverview } from '@/hooks/useAdminOverview';
 import styles from './AdminPage.module.scss';
 
 const { Title, Text } = Typography;
@@ -31,7 +34,12 @@ export default function AdminSemestersPage() {
   const [detailRecord, setDetailRecord] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
   const queryClient = useQueryClient();
+
+  // ── Overview query
+  const { data: overviewData, isLoading: isOverviewLoading, isError: isOverviewError, refetch: refetchOverview } =
+    useAdminEntityOverview('semesters');
 
   const { data: semesterData, isLoading, isError, refetch } = useQuery({
     queryKey: ['admin-semesters'],
@@ -181,32 +189,69 @@ export default function AdminSemestersPage() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.pageHeader}>
-        <div>
-          <Title level={3} className={styles.pageTitle}>Quản lý Học kỳ</Title>
-          <Text type="secondary">Danh sách và quản lý các học kỳ trong hệ thống</Text>
-        </div>
-        <Space>
-          <Button icon={<ReloadOutlined />} onClick={() => refetch()}>Làm mới</Button>
-          <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenCreate}>
-            Thêm học kỳ
-          </Button>
-        </Space>
-      </div>
+      <Tabs
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        items={[
+          {
+            key: 'overview',
+            label: (
+              <span>
+                <BarChartOutlined />
+                Tổng quan
+              </span>
+            ),
+            children: (
+              <EntityOverviewDashboard
+                entity="semesters"
+                data={overviewData}
+                loading={isOverviewLoading}
+                error={isOverviewError}
+                refetch={refetchOverview}
+              />
+            ),
+          },
+          {
+            key: 'list',
+            label: (
+              <span>
+                <UnorderedListOutlined />
+                Danh sách
+              </span>
+            ),
+            children: (
+              <>
+                <div className={styles.pageHeader}>
+                  <div>
+                    <Title level={3} className={styles.pageTitle}>Quản lý Học kỳ</Title>
+                    <Text type="secondary">Danh sách và quản lý các học kỳ trong hệ thống</Text>
+                  </div>
+                  <Space>
+                    <Button icon={<ReloadOutlined />} onClick={() => refetch()}>Làm mới</Button>
+                    <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenCreate}>
+                      Thêm học kỳ
+                    </Button>
+                  </Space>
+                </div>
 
-      <Card className={styles.tableCard}>
-        {isError ? (
-          <Empty description={<Text type="danger">Không thể tải danh sách học kỳ</Text>} />
-        ) : (
-          <Table
-            dataSource={semesters}
-            columns={columns}
-            rowKey="MaHocKy"
-            loading={isLoading}
-            pagination={{ pageSize: 10, showTotal: (t) => `Tổng ${t} học kỳ` }}
-          />
-        )}
-      </Card>
+                <Card className={styles.tableCard}>
+                  {isError ? (
+                    <Empty description={<Text type="danger">Không thể tải danh sách học kỳ</Text>} />
+                  ) : (
+                    <Table
+                      dataSource={semesters}
+                      columns={columns}
+                      rowKey="MaHocKy"
+                      loading={isLoading}
+                      pagination={{ pageSize: 10, showTotal: (t) => `Tổng ${t} học kỳ` }}
+                    />
+                  )}
+                </Card>
+              </>
+            ),
+          },
+        ]}
+      />
 
       <Modal
         title={editRecord ? 'Sửa học kỳ' : 'Thêm học kỳ mới'}

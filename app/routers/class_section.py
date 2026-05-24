@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, Path, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
+from typing import Optional
+
 from models.Users import User
 
 from enums.user_role import UserRole
@@ -34,10 +36,19 @@ async def get_my_teaching_sections(
 
 @router.get("/")
 async def get_all_class_sections(
+    keyword: Optional[str] = Query(None, description="Tìm theo mã hoặc tên lớp HP"),
+    MaCoSo: Optional[str] = Query(None, description="Mã cơ sở: HADONG, NGOCTRUC, HOALAC"),
+    HinhThucHoc: Optional[str] = Query(None, description="Hình thức học: Offline, Online, Hybrid"),
+    TrangThaiLop: Optional[str] = Query(None, description="Trạng thái lớp: Mo, Dong, Huy"),
     current_user: User = Depends(get_current_active_user),
 ):
     try:
-        items, total = ClassSectionService.get_all_sections()
+        items, total = ClassSectionService.get_all_sections(
+            keyword=keyword,
+            MaCoSo=MaCoSo,
+            HinhThucHoc=HinhThucHoc,
+            TrangThaiLop=TrangThaiLop,
+        )
         return success_response(
             data={"items": [item.model_dump() for item in items], "total": total},
             message=f"Lay danh sach lop hoc phan thanh cong (tong: {total})",

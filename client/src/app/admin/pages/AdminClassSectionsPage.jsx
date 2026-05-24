@@ -1,15 +1,16 @@
 /**
  * Admin Class Sections Page - CRUD for class sections + schedules + enrollments view
+ * Supports filtering by: keyword (debounced), MaCoSo, HinhThucHoc, TrangThaiLop
  */
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   Card, Table, Button, Space, Tag, Typography, Modal, Form, Input, Select,
   Popconfirm, message, Drawer, Descriptions, Empty, Tabs, Row, Col, Popover,
 } from 'antd';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, ReloadOutlined,
-  CalendarOutlined, TeamOutlined
+  CalendarOutlined, TeamOutlined, BarChartOutlined, UnorderedListOutlined
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { classSectionApi } from '@/services/admin/classSectionApi';
@@ -24,6 +25,8 @@ import {
   formatLessonTime,
   buildSchedulePopoverItem,
 } from '@/utils/formatters';
+import EntityOverviewDashboard from '../components/EntityOverviewDashboard';
+import { useAdminEntityOverview } from '@/hooks/useAdminOverview';
 import styles from './AdminPage.module.scss';
 
 const { Title, Text } = Typography;
@@ -40,23 +43,65 @@ const SECTION_STATUS_OPTIONS = [
   { label: 'Hủy', value: 'Huy' },
 ];
 
+const DEBOUNCE_MS = 400;
+
 export default function AdminClassSectionsPage() {
   const [form] = Form.useForm();
   const [editRecord, setEditRecord] = useState(null);
   const [detailRecord, setDetailRecord] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('info');
-  const [filters, setFilters] = useState({ keyword: '', MaCoSo: null });
+  const [activeTab, setActiveTab] = useState('overview');
+  const [pageTab, setPageTab] = useState('info');
+
+  // --- Filter state ---
+  const [keyword, setKeyword] = useState('');
+  const [debouncedKeyword, setDebouncedKeyword] = useState('');
+  const [MaCoSo, setMaCoSo] = useState(null);
+  const [HinhThucHoc, setHinhThucHoc] = useState(null);
+  const [TrangThaiLop, setTrangThaiLop] = useState(null);
+  const [tablePage, setTablePage] = useState(1);
+
+  // Debounce keyword input
+  const debounceTimer = useRef(null);
+  const handleKeywordChange = (e) => {
+    const val = e.target.value;
+    setKeyword(val);
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      setDebouncedKeyword(val);
+      setTablePage(1);
+    }, DEBOUNCE_MS);
+  };
+
+  // Build API params from current filter state
+  const apiParams = {
+    ...(debouncedKeyword && { keyword: debouncedKeyword }),
+    ...(MaCoSo && { MaCoSo }),
+    ...(HinhThucHoc && { HinhThucHoc }),
+    ...(TrangThaiLop && { TrangThaiLop }),
+  };
+
+  // Reset page to 1 whenever a non-keyword filter changes
+  const handleSelectChange = (setter) => (val) => {
+    setter(val);
+    setTablePage(1);
+  };
+
+  // ── Overview query
+  const { data: overviewData, isLoading: isOverviewLoading, isError: isOverviewError, refetch: refetchOverview } =
+    useAdminEntityOverview('class-sections');
+
   const queryClient = useQueryClient();
 
   const { data: sectionData, isLoading, isError, refetch } = useQuery({
-    queryKey: ['admin-class-sections', filters],
-    queryFn: () => classSectionApi.getAll(filters),
+    queryKey: ['admin-class-sections', apiParams],
+    queryFn: () => classSectionApi.getAll(apiParams),
   });
 
   // Backend returns: { items: Section[], total: int }
   const sections = sectionData?.items || sectionData || [];
+  const totalSections = sectionData?.total ?? 0;
 
   const { data: courseData } = useQuery({
     queryKey: ['admin-courses-section'],
@@ -91,13 +136,13 @@ export default function AdminClassSectionsPage() {
   const { data: sectionSchedules = [] } = useQuery({
     queryKey: ['admin-section-schedules', detailRecord?.MaLopHP],
     queryFn: () => classSectionApi.getSchedules(detailRecord.MaLopHP),
-    enabled: !!detailRecord?.MaLopHP && drawerOpen && activeTab === 'schedules',
+    enabled: !!detailRecord?.MaLopHP && drawerOpen && pageTab === 'schedules',
   });
 
   const { data: sectionEnrollments = [] } = useQuery({
     queryKey: ['admin-section-enrollments', detailRecord?.MaLopHP],
     queryFn: () => classSectionApi.getEnrollments(detailRecord.MaLopHP),
-    enabled: !!detailRecord?.MaLopHP && drawerOpen && activeTab === 'enrollments',
+    enabled: !!detailRecord?.MaLopHP && drawerOpen && pageTab === 'enrollments',
   });
 
   const createMutation = useMutation({
@@ -167,7 +212,7 @@ export default function AdminClassSectionsPage() {
   const handleDetail = (record) => {
     setDetailRecord(record);
     setDrawerOpen(true);
-    setActiveTab('info');
+    setPageTab('info');
   };
 
   const getStatusProps = (status) => {
@@ -439,42 +484,125 @@ export default function AdminClassSectionsPage() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.pageHeader}>
-        <div>
-          <Title level={3} className={styles.pageTitle}>Quản lý Lớp học phần</Title>
-          <Text type="secondary">Danh sách và quản lý các lớp học phần</Text>
-        </div>
-        <Space wrap>
-          <Input.Search
-            placeholder="Tìm theo mã, tên..."
-            onSearch={(val) => setFilters((f) => ({ ...f, keyword: val }))}
-            style={{ width: 200 }} allowClear
-          />
-          <Select placeholder="Cơ sở" allowClear style={{ width: 140 }}
-            onChange={(val) => setFilters((f) => ({ ...f, MaCoSo: val }))}>
-            {branches.map((b) => <Select.Option key={b.MaCoSo} value={b.MaCoSo}>{b.TenCoSo}</Select.Option>)}
-          </Select>
-          <Button icon={<ReloadOutlined />} onClick={() => refetch()}>Làm mới</Button>
-          <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenCreate}>
-            Thêm lớp HP
-          </Button>
-        </Space>
-      </div>
+      <Tabs
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        items={[
+          {
+            key: 'overview',
+            label: (
+              <span>
+                <BarChartOutlined />
+                Tổng quan
+              </span>
+            ),
+            children: (
+              <EntityOverviewDashboard
+                entity="class-sections"
+                data={overviewData}
+                loading={isOverviewLoading}
+                error={isOverviewError}
+                refetch={refetchOverview}
+              />
+            ),
+          },
+          {
+            key: 'list',
+            label: (
+              <span>
+                <UnorderedListOutlined />
+                Danh sách
+              </span>
+            ),
+            children: (
+              <>
+                <div className={styles.pageHeader}>
+                  <div>
+                    <Title level={3} className={styles.pageTitle}>Quản lý Lớp học phần</Title>
+                    <Text type="secondary">Danh sách và quản lý các lớp học phần</Text>
+                  </div>
+                  <Space wrap>
+                    <Input.Search
+                      placeholder="Tìm theo mã, tên..."
+                      onChange={handleKeywordChange}
+                      onSearch={handleKeywordChange}
+                      style={{ width: 200 }}
+                      allowClear
+                    />
+                    <Select
+                      placeholder="Cơ sở"
+                      allowClear
+                      style={{ width: 160 }}
+                      value={MaCoSo}
+                      onChange={handleSelectChange(setMaCoSo)}
+                    >
+                      {branches.map((b) => (
+                        <Select.Option key={b.MaCoSo} value={b.MaCoSo}>
+                          {b.TenCoSo}
+                        </Select.Option>
+                      ))}
+                    </Select>
+                    <Select
+                      placeholder="Hình thức học"
+                      allowClear
+                      style={{ width: 150 }}
+                      value={HinhThucHoc}
+                      onChange={handleSelectChange(setHinhThucHoc)}
+                    >
+                      {STUDY_FORM_OPTIONS.map((o) => (
+                        <Select.Option key={o.value} value={o.value}>
+                          {o.label}
+                        </Select.Option>
+                      ))}
+                    </Select>
+                    <Select
+                      placeholder="Trạng thái"
+                      allowClear
+                      style={{ width: 120 }}
+                      value={TrangThaiLop}
+                      onChange={handleSelectChange(setTrangThaiLop)}
+                    >
+                      {SECTION_STATUS_OPTIONS.map((o) => (
+                        <Select.Option key={o.value} value={o.value}>
+                          {o.label}
+                        </Select.Option>
+                      ))}
+                    </Select>
+                    <Button icon={<ReloadOutlined />} onClick={() => refetch()}>
+                      Làm mới
+                    </Button>
+                    <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenCreate}>
+                      Thêm lớp HP
+                    </Button>
+                  </Space>
+                </div>
 
-      <Card className={styles.tableCard}>
-        {isError ? (
-          <Empty description={<Text type="danger">Không thể tải danh sách lớp học phần</Text>} />
-        ) : (
-          <Table
-            dataSource={sections}
-            columns={columns}
-            rowKey="MaLopHP"
-            loading={isLoading}
-            pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `Tổng ${t} lớp HP` }}
-            scroll={{ x: 1300 }}
-          />
-        )}
-      </Card>
+                <Card className={styles.tableCard}>
+                  {isError ? (
+                    <Empty description={<Text type="danger">Không thể tải danh sách lớp học phần</Text>} />
+                  ) : (
+                    <Table
+                      dataSource={sections}
+                      columns={columns}
+                      rowKey="MaLopHP"
+                      loading={isLoading}
+                      pagination={{
+                        current: tablePage,
+                        pageSize: 10,
+                        showSizeChanger: true,
+                        showTotal: (t) => `Tổng ${t} lớp HP`,
+                        total: totalSections,
+                        onChange: (page) => setTablePage(page),
+                      }}
+                      scroll={{ x: 1300 }}
+                    />
+                  )}
+                </Card>
+              </>
+            ),
+          },
+        ]}
+      />
 
       {/* Create / Edit Modal */}
       <Modal
@@ -554,8 +682,8 @@ export default function AdminClassSectionsPage() {
         open={drawerOpen}
       >
         <Tabs
-          activeKey={activeTab}
-          onChange={setActiveTab}
+          activeKey={pageTab}
+          onChange={setPageTab}
           items={[
             {
               key: 'info',

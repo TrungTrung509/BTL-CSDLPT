@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from enums.user_role import UserRole
 from models.Users import User
+from schemas.Overview import AdminOverviewResponse
 from schemas.Report import (
     BranchRegistrationStatsResponse,
     CrossBranchEnrollmentStatsResponse,
@@ -13,6 +14,7 @@ from schemas.Report import (
     TopCourseStatsResponse,
 )
 from security import get_current_active_user
+from services.OverviewService import OverviewService
 from services.ReportService import ReportService
 
 router = APIRouter(
@@ -99,3 +101,16 @@ async def get_open_sections_report(
         ma_hk=maHocKy,
         source_site=sourceSite,
     )
+
+
+@router.get("/admin-overview/{entity}", response_model=AdminOverviewResponse)
+async def get_admin_entity_overview(
+    entity: str,
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Lay thong ke tong quan cho mot entity (Admin only).
+    Entity: teachers | students | courses | semesters | classrooms | class-sections
+    """
+    _ensure_admin(current_user)
+    return OverviewService.get_overview(entity)
