@@ -46,6 +46,10 @@ services:
       - ./CoSo/app:/app
     networks:
       - bench_network
+    environment:
+      - PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus_multiproc
+    entrypoint: >
+      sh -c "rm -rf /tmp/prometheus_multiproc && mkdir -p /tmp/prometheus_multiproc && uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4"
     restart: unless-stopped
 
   postgres_hd:
@@ -122,6 +126,10 @@ services:
       - ./Khoa/app:/app
     networks:
       - bench_network
+    environment:
+      - PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus_multiproc
+    entrypoint: >
+      sh -c "rm -rf /tmp/prometheus_multiproc && mkdir -p /tmp/prometheus_multiproc && uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4"
     restart: unless-stopped
 
   postgres_cntt:

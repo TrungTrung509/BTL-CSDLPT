@@ -1,7 +1,8 @@
 import time
+import os
 from fastapi import FastAPI, Request, Response
 from pydantic import BaseModel
-from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest, CollectorRegistry, multiprocess
 from monitoring.metrics import HTTP_REQUESTS_TOTAL, HTTP_REQUEST_DURATION
 from services.SimpleEnrollmentService import SimpleEnrollmentService
 
@@ -31,7 +32,10 @@ async def collect_metrics(request: Request, call_next):
 
 @app.get("/metrics", include_in_schema=False)
 def metrics():
-    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
+    registry = CollectorRegistry()
+    multiprocess.MultiProcessCollector(registry)
+    data = generate_latest(registry)
+    return Response(content=data, media_type=CONTENT_TYPE_LATEST)
 
 class EnrollmentCreate(BaseModel):
     userId: str
