@@ -63,7 +63,6 @@ truncate_site() {
 		TRUNCATE TABLE "SinhVien" CASCADE;
 
 		-- Không truncate bảng common vì replication sẽ tự đồng bộ
-		-- TRUNCATE TABLE "TienQuyet" CASCADE;
 		-- TRUNCATE TABLE "HocKy" CASCADE;
 		-- TRUNCATE TABLE "HocPhan" CASCADE;
 		-- TRUNCATE TABLE "Khoa" CASCADE;

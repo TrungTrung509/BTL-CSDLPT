@@ -15,9 +15,6 @@ App-layer replication:
 App-managed distributed writes:
 - `users`
 
-Not used anymore:
-- `TienQuyet`
-
 ## Topology
 
 - Publisher: `HADONG`

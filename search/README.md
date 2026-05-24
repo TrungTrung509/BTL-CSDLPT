@@ -21,7 +21,6 @@ Template cho index `hocphan`, hỗ trợ:
 
 - **Full-text search tiếng Việt**: Sử dụng Vietnamese analyzer
 - **Completion suggester**: Cho autocomplete
-- **Nested objects**: Hỗ trợ TienQuyet relationships
 - **Keyword fields**: Cho exact match (MaHP, MaKhoa)
 
 ## Cấu trúc Document
@@ -39,12 +38,6 @@ Template cho index `hocphan`, hỗ trợ:
   "MoTa": "Môn học cơ bản...",
   "TrangThai": "HoatDong",
   "NgayTao": "2026-01-15",
-  "TienQuyet": [
-    {
-      "MaHP_TienQuyet": "CS1000",
-      "TenHP_TienQuyet": "Tin học đại cương"
-    }
-  ],
   "search_text": "CS1001 Nhập môn lập trình Công nghệ thông tin",
   "suggest": {
     "input": ["CS1001", "Nhập môn lập trình"]

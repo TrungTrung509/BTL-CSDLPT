@@ -206,7 +206,7 @@ Hệ thống được cấu hình `depends_on` với `condition: service_healthy
 
 Khi container PostgreSQL khởi động lần đầu, Docker sẽ tự động chạy các script SQL theo thứ tự:
 
-1. `/docker-entrypoint-initdb.d/00_common/` - Bảng dùng chung (CoSo, Khoa, HocPhan, HocKy, TienQuyet)
+1. `/docker-entrypoint-initdb.d/00_common/` - Bảng dùng chung (CoSo, Khoa, HocPhan, HocKy)
 2. `/docker-entrypoint-initdb.d/01_site/` - Bảng cục bộ (SinhVien, GiangVien, PhongHoc, LopHocPhan, LichHoc, DangKy)
 
 ---

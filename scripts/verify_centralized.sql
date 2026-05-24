@@ -4,8 +4,7 @@ SELECT 'CoSo' AS tbl, COUNT(*) FROM "CoSo" UNION ALL
 SELECT 'users', COUNT(*) FROM "users" UNION ALL
 SELECT 'Khoa', COUNT(*) FROM "Khoa" UNION ALL
 SELECT 'HocPhan', COUNT(*) FROM "HocPhan" UNION ALL
-SELECT 'HocKy', COUNT(*) FROM "HocKy" UNION ALL
-SELECT 'TienQuyet', COUNT(*) FROM "TienQuyet";
+SELECT 'HocKy', COUNT(*) FROM "HocKy";
 
 SELECT '--- LOCAL TABLES ---' AS info;
 SELECT 'SinhVien' AS tbl, COUNT(*) FROM "SinhVien" UNION ALL
