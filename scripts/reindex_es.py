@@ -142,9 +142,12 @@ def build_documents(hocphan_data: List[Dict]) -> List[Dict]:
         ngaytao_val = hp_lower.get("ngaytao")
         if ngaytao_val:
             if hasattr(ngaytao_val, 'strftime'):
-                formatted_ngaytao = ngaytao_val.strftime("%Y-%m-%d %H:%M:%S")
+                formatted_ngaytao = ngaytao_val.strftime("%Y-%m-%dT%H:%M:%SZ")
             else:
-                formatted_ngaytao = str(ngaytao_val)[:19]
+                val_str = str(ngaytao_val)[:19]
+                if ' ' in val_str:
+                    val_str = val_str.replace(' ', 'T')
+                formatted_ngaytao = val_str + "Z"
         else:
             formatted_ngaytao = None
 

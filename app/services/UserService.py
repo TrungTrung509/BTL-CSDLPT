@@ -31,7 +31,7 @@ class UserService:
         # Ánh xạ mã cơ sở
         site_map = {
             "HADONG": "HD",
-            "NGUYENTRAI": "NT",
+            "NGOCTRUC": "NT",
             "HOALAC": "HL"
         }
         

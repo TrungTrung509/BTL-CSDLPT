@@ -53,6 +53,7 @@ const { Search } = Input;
 export default function CourseRegistrationPage() {
   const [filters, setFilters] = useState({ keyword: '', maCoSo: null });
   const [registerForm] = Form.useForm();
+  const [loadingMaLopHP, setLoadingMaLopHP] = useState(null);
 
   // Queries
   const { data: classSections = [], isLoading: sectionsLoading, refetch: refetchSections } = useClassSectionsQuery();
@@ -235,7 +236,9 @@ export default function CourseRegistrationPage() {
             type="primary"
             size="small"
             icon={<CheckCircleOutlined />}
-            onClick={() => handleOpenRegisterModal(record)}
+            loading={loadingMaLopHP === record.maLopHP}
+            disabled={loadingMaLopHP && loadingMaLopHP !== record.maLopHP}
+            onClick={() => handleRegister(record.maLopHP)}
             className={styles.registerBtn}
           >
             Đăng ký
@@ -337,29 +340,18 @@ export default function CourseRegistrationPage() {
   ];
 
   // ============================================================
-  // Register Modal
+  // Register Course Action
   // ============================================================
-  const [registerModal, setRegisterModal] = useState({ open: false, section: null });
-
-  const handleOpenRegisterModal = (section) => {
-    setRegisterModal({ open: true, section });
-    registerForm.setFieldsValue({ ma_lop_h_p: section.maLopHP });
-  };
-
-  const handleCloseRegisterModal = () => {
-    setRegisterModal({ open: false, section: null });
-    registerForm.resetFields();
-  };
-
-  const handleSubmitRegister = async (values) => {
+  const handleRegister = async (maLopHP) => {
+    setLoadingMaLopHP(maLopHP);
     try {
       await registerMutation.mutateAsync({
-        MaLopHP: values.ma_lop_h_p,
-        GhiChu: values.ghi_chu || '',
+        MaLopHP: maLopHP,
       });
-      handleCloseRegisterModal();
     } catch (err) {
       // Error is handled by mutation onError
+    } finally {
+      setLoadingMaLopHP(null);
     }
   };
 
@@ -525,94 +517,7 @@ export default function CourseRegistrationPage() {
         />
       </Card>
 
-      {/* Register Confirmation Modal */}
-      <Modal
-        title={
-          <Space>
-            <CheckCircleOutlined style={{ color: '#1677ff' }} />
-            Xác nhận đăng ký học phần
-          </Space>
-        }
-        open={registerModal.open}
-        onCancel={handleCloseRegisterModal}
-        footer={null}
-        width={500}
-        destroyOnClose
-        className={styles.registerModal}
-      >
-        {registerModal.section && (
-          <>
-            <div className={styles.modalSectionInfo}>
-              <Row gutter={[12, 8]}>
-                <Col span={12}>
-                  <Text type="secondary">Mã lớp HP:</Text>
-                  <div><Text strong code>{registerModal.section.maLopHP}</Text></div>
-                </Col>
-                <Col span={12}>
-                  <Text type="secondary">Mã học phần:</Text>
-                  <div><Text>{registerModal.section.maHocPhan || '—'}</Text></div>
-                </Col>
-                <Col span={24}>
-                  <Text type="secondary">Tên học phần:</Text>
-                  <div><Text strong>{registerModal.section.tenHocPhan}</Text></div>
-                </Col>
-                <Col span={12}>
-                  <Text type="secondary">Cơ sở:</Text>
-                  <div>
-                    <Tag color="blue">
-                      {{ HADONG: 'Hà Nội', HOALAC: 'Hòa Lạc', NGOCTRUC: 'Ngọc Trục' }[registerModal.section.maCoSo] || registerModal.section.maCoSo}
-                    </Tag>
-                  </div>
-                </Col>
-                <Col span={12}>
-                  <Text type="secondary">Hình thức:</Text>
-                  <div>{getStudyFormLabel(registerModal.section.hinhThucHoc)}</div>
-                </Col>
-                <Col span={12}>
-                  <Text type="secondary">Sĩ số:</Text>
-                  <div>{registerModal.section.siSoHienTai || 0} / {registerModal.section.siSoToiDa || '?'}</div>
-                </Col>
-              </Row>
-            </div>
 
-            <Form
-              form={registerForm}
-              layout="vertical"
-              onFinish={handleSubmitRegister}
-              size="large"
-            >
-              <Form.Item name="ma_lop_h_p" hidden>
-                <Input />
-              </Form.Item>
-              <Form.Item
-                name="ghi_chu"
-                label="Ghi chú (tùy chọn)"
-              >
-                <Input.TextArea
-                  rows={3}
-                  placeholder="Nhập ghi chú nếu cần..."
-                  maxLength={500}
-                  showCount
-                />
-              </Form.Item>
-
-              <div className={styles.modalActions}>
-                <Button onClick={handleCloseRegisterModal}>
-                  Hủy bỏ
-                </Button>
-                <Button
-                  type="primary"
-                  htmlType="submit"
-                  loading={registerMutation.isPending}
-                  icon={<CheckCircleOutlined />}
-                >
-                  Xác nhận đăng ký
-                </Button>
-              </div>
-            </Form>
-          </>
-        )}
-      </Modal>
     </div>
   );
 }

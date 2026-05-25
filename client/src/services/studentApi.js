@@ -68,10 +68,9 @@ export const studentEnrollmentApi = {
     return response.data;
   },
 
-  register: async ({ MaLopHP, GhiChu }) => {
+  register: async ({ MaLopHP }) => {
     const response = await apiClient.post('/enrollments/register', {
       MaLopHP: MaLopHP,
-      GhiChu: GhiChu || null,
     });
     return response.data;
   },
