@@ -83,18 +83,6 @@
           "type": "date",
           "format": "yyyy-MM-dd HH:mm:ss||yyyy-MM-dd||epoch_millis"
         },
-        "TienQuyet": {
-          "type": "nested",
-          "properties": {
-            "MaHP_TienQuyet": {
-              "type": "keyword"
-            },
-            "TenHP_TienQuyet": {
-              "type": "text",
-              "analyzer": "vietnamese_analyzer"
-            }
-          }
-        },
         "search_text": {
           "type": "text",
           "analyzer": "vietnamese_analyzer"
@@ -118,6 +106,6 @@
     "description": "Index template for HocPhan (Course) documents with Vietnamese search support",
     "version": "1.0.0",
     "created_date": "2026-04-04",
-    "tables": ["HocPhan", "Khoa", "TienQuyet"]
+    "tables": ["HocPhan", "Khoa"]
   }
 }

@@ -121,7 +121,6 @@ CoSo                     3           3           3       ✓
 Khoa                     4           4           4       ✓
 HocPhan                 20          20          20       ✓
 HocKy                    3           3           3       ✓
-TienQuyet               11          11          11       ✓
 
 ✓ Tất cả bảng dùng chung có số bản ghi KHỚP nhau!
 ```

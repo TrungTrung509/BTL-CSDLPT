@@ -25,7 +25,7 @@ echo ""
 # ============================================================
 
 # Bảng dùng chung (Replication)
-SHARED_TABLES=("CoSo" "users" "Khoa" "HocPhan" "HocKy" "TienQuyet")
+SHARED_TABLES=("CoSo" "users" "Khoa" "HocPhan" "HocKy")
 
 # Bảng cục bộ (Local)
 LOCAL_TABLES=("SinhVien" "GiangVien" "PhongHoc" "LopHocPhan" "LichHoc" "DangKy")
