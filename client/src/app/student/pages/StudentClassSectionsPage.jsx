@@ -54,6 +54,7 @@ const { Title, Text } = Typography;
 export default function StudentClassSectionsPage() {
   const [filters, setFilters] = useState({ keyword: '', MaCoSo: null, MaHocKy: null });
   const [registerForm] = Form.useForm();
+  const [loadingMaLopHP, setLoadingMaLopHP] = useState(null);
   const queryClient = useQueryClient();
 
   const { data: classSectionsResp, isLoading: sectionsLoading, refetch: refetchSections } = useQuery({
@@ -369,7 +370,9 @@ export default function StudentClassSectionsPage() {
             type="primary"
             size="small"
             icon={<CheckCircleOutlined />}
-            onClick={() => handleOpenRegisterModal(record)}
+            loading={loadingMaLopHP === record.MaLopHP}
+            disabled={loadingMaLopHP && loadingMaLopHP !== record.MaLopHP}
+            onClick={() => handleRegister(record.MaLopHP)}
           >
             Đăng ký
           </Button>
@@ -461,26 +464,17 @@ export default function StudentClassSectionsPage() {
     },
   ];
 
-  const [registerModal, setRegisterModal] = useState({ open: false, section: null });
-
-  const handleOpenRegisterModal = (section) => {
-    setRegisterModal({ open: true, section });
-    registerForm.setFieldsValue({ ma_lop_h_p: section.MaLopHP });
-  };
-
-  const handleCloseRegisterModal = () => {
-    setRegisterModal({ open: false, section: null });
-    registerForm.resetFields();
-  };
-
-  const handleSubmitRegister = async (values) => {
+  const handleRegister = async (maLopHP) => {
+    setLoadingMaLopHP(maLopHP);
     try {
       await registerMutation.mutateAsync({
-        MaLopHP: values.ma_lop_h_p,
-        GhiChu: values.ghi_chu || '',
+        MaLopHP: maLopHP,
       });
-      handleCloseRegisterModal();
-    } catch {}
+    } catch (err) {
+      // Error is handled by mutation onError
+    } finally {
+      setLoadingMaLopHP(null);
+    }
   };
 
   const handleCancelEnrollment = async (record) => {
@@ -606,75 +600,7 @@ export default function StudentClassSectionsPage() {
         />
       </Card>
 
-      {/* Register Modal */}
-      <Modal
-        title={<Space><CheckCircleOutlined style={{ color: '#1677ff' }} />Xác nhận đăng ký học phần</Space>}
-        open={registerModal.open}
-        onCancel={handleCloseRegisterModal}
-        footer={null}
-        width={520}
-        destroyOnClose
-      >
-        {registerModal.section && (
-          <>
-            <div style={{ marginBottom: 16 }}>
-              <Row gutter={[12, 8]}>
-                <Col span={12}>
-                  <Text type="secondary">Mã lớp HP:</Text>
-                  <div><Text strong code>{registerModal.section.MaLopHP}</Text></div>
-                </Col>
-                <Col span={12}>
-                  <Text type="secondary">Mã học phần:</Text>
-                  <div><Text>{registerModal.section.MaHocPhan || '—'}</Text></div>
-                </Col>
-                <Col span={24}>
-                  <Text type="secondary">Tên học phần:</Text>
-                  <div><Text strong>{registerModal.section.TenHocPhan}</Text></div>
-                </Col>
-                <Col span={12}>
-                  <Text type="secondary">Cơ sở:</Text>
-                  <div>
-                    <Tag color="blue">
-                      {branches.find((b) => b.MaCoSo === registerModal.section.MaCoSo)?.TenCoSo || registerModal.section.MaCoSo}
-                    </Tag>
-                  </div>
-                </Col>
-                <Col span={12}>
-                  <Text type="secondary">Giảng viên:</Text>
-                  <div>{registerModal.section.TenGiangVien || '—'}</div>
-                </Col>
-                <Col span={12}>
-                  <Text type="secondary">Hình thức:</Text>
-                  <div>{getStudyFormLabel(registerModal.section.HinhThucHoc)}</div>
-                </Col>
-                <Col span={12}>
-                  <Text type="secondary">Sĩ số:</Text>
-                  <div>
-                    {(registerModal.section.SiSoHienTai || 0)} / {registerModal.section.SiSoToiDa || '?'}
-                  </div>
-                </Col>
-              </Row>
-            </div>
 
-            <Form form={registerForm} layout="vertical" onFinish={handleSubmitRegister} size="large">
-              <Form.Item name="ma_lop_h_p" hidden>
-                <Input />
-              </Form.Item>
-              <Form.Item name="ghi_chu" label="Ghi chú (tùy chọn)">
-                <Input.TextArea rows={3} placeholder="Nhập ghi chú nếu cần..." maxLength={500} showCount />
-              </Form.Item>
-              <Form.Item style={{ marginBottom: 0 }}>
-                <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
-                  <Button onClick={handleCloseRegisterModal}>Hủy bỏ</Button>
-                  <Button type="primary" htmlType="submit" loading={registerMutation.isPending} icon={<CheckCircleOutlined />}>
-                    Xác nhận đăng ký
-                  </Button>
-                </Space>
-              </Form.Item>
-            </Form>
-          </>
-        )}
-      </Modal>
     </div>
   );
 }

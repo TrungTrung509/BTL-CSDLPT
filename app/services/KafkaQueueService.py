@@ -35,7 +35,6 @@ class KafkaQueueService:
 
         cls._started = True
         cls.consumer_task = asyncio.create_task(cls._listen_for_replies())
-        print("KafkaQueueService started successfully.")
 
     @classmethod
     async def stop(cls):
@@ -55,7 +54,6 @@ class KafkaQueueService:
         if cls.consumer:
             await cls.consumer.stop()
         
-        print("KafkaQueueService stopped.")
 
     @classmethod
     async def _listen_for_replies(cls):
@@ -81,7 +79,6 @@ class KafkaQueueService:
         fut = asyncio.get_running_loop().create_future()
         cls.pending_futures[correlation_id] = fut
 
-        # Serialize user fields
         user_data = {
             "userId": user.userId,
             "MaCoSo": user.MaCoSo,
@@ -89,7 +86,6 @@ class KafkaQueueService:
             "role": user.role.value if hasattr(user.role, "value") else str(user.role)
         }
 
-        # Serialize request payload
         payload = {
             "correlation_id": correlation_id,
             "user": user_data,
@@ -97,7 +93,8 @@ class KafkaQueueService:
         }
 
         try:
-            await cls.producer.send_and_wait("registration_requests", payload)
+            partition_key = enroll_in.MaLopHP.encode("utf-8")
+            await cls.producer.send_and_wait("registration_requests", payload, key=partition_key)
             # Wait for response
             result_dict = await asyncio.wait_for(fut, timeout=timeout)
             return RegistrationResult(**result_dict)

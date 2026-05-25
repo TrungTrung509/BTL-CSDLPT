@@ -14,10 +14,9 @@ import apiClient from './apiClient';
  * }
  */
 export const enrollmentApi = {
-  register: async ({ maLopHP, ghiChu }) => {
+  register: async ({ maLopHP }) => {
     const response = await apiClient.post('/enrollments/register', {
       MaLopHP: maLopHP,
-      GhiChu: ghiChu || null,
     });
     return response.data;
   },
