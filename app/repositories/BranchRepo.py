@@ -10,9 +10,6 @@ class BranchRepo:
     # Viet
     def get_by_MaCoSo(db: Session, ma_co_so: str) -> Branch:
         return db.query(Branch).filter(Branch.MaCoSo == ma_co_so.upper()).first()
-    # Trung
-    # def get_by_MaCoSo(db: Session, MaCoSo: str) -> Branch:
-    #     return db.query(Branch).filter(Branch.MaCoSo == MaCoSo).first()
 
     @staticmethod
     def create(db: Session, branch: Branch) -> Branch:

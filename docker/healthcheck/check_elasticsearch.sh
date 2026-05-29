@@ -1,8 +1,5 @@
 #!/bin/sh
-# ============================================================
 # HEALTHCHECK - Elasticsearch
-# Kiểm tra Elasticsearch có sẵn sàng hay không
-# ============================================================
 
 # Nhận tham số hoặc dùng mặc định
 HOST="${ES_HOST:-localhost}"

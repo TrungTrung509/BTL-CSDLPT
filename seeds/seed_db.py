@@ -2,18 +2,15 @@ import sys
 import os
 from datetime import datetime, date
 
-# Add app/ directory to Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'app'))
 
 from configs.db import engines
 from configs.config import pwd_context
 from sqlalchemy import text
 
-# Seed Configuration
 NUM_STUDENTS = 10
 NUM_TEACHERS = 10
 
-# Year prefix (e.g., '26' for 2026)
 YEAR_PREFIX = str(datetime.now().year)[2:]
 DEPT_CODE = "CNTT"
 
@@ -36,9 +33,9 @@ BRANCHES = {
 }
 
 # 1. Generate user, student, and teacher datasets
-users_data = []      # Shared: to be inserted on ALL sites
-students_data = {}   # Partitioned: to be inserted ONLY on the home site
-teachers_data = {}   # Partitioned: to be inserted ONLY on the home site
+users_data = []    
+students_data = {}   
+teachers_data = {}  
 
 for site in BRANCHES.keys():
     students_data[site] = []
@@ -56,7 +53,7 @@ for site, info in BRANCHES.items():
         user_detail = {
             "user_id": ma_sv,
             "username": ma_sv,
-            "password": pwd_context.hash(ma_sv), # Password is the uppercase ID (e.g., SVHD26CNTT001)
+            "password": pwd_context.hash(ma_sv),
             "email": f"{ma_sv}@{info['domain']}",
             "role": "SinhVien",
             "branch": site,
@@ -86,14 +83,14 @@ for site, info in BRANCHES.items():
 # Generate Teachers
 for site, info in BRANCHES.items():
     for i in range(1, NUM_TEACHERS + 1):
-        num_str = f"{i:03d}"  # 3 digits STT (001, 002, ...)
+        num_str = f"{i:03d}" 
         ma_gv = f"GV{info['code']}{YEAR_PREFIX}{DEPT_CODE}{num_str}"
 
         # User details
         user_detail = {
             "user_id": ma_gv,
             "username": ma_gv,
-            "password": pwd_context.hash(ma_gv), # Password is the uppercase ID (e.g., GVHD26CNTT001)
+            "password": pwd_context.hash(ma_gv), 
             "email": f"{ma_gv}@{info['domain']}",
             "role": "GiangVien",
             "branch": site,
@@ -459,7 +456,3 @@ for site, engine in engines.items():
                 
     except Exception as e:
         print(f"  [x] Failed to seed database for site {site}: {e}")
-
-print("\nSeeding finished successfully!")
-print(f"Admin login: admin / admin123")
-print(f"User login: e.g. SVHD26CNTT001 / SVHD26CNTT001")

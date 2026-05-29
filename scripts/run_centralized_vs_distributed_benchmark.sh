@@ -1,15 +1,11 @@
 #!/bin/bash
-# ============================================================
 # BENCHMARK SCRIPT - Centralized vs Distributed
-# ============================================================
 
 set -e
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-echo "========================================"
 echo "  BENCHMARK: Centralized vs Distributed"
-echo "========================================"
 echo ""
 
 # Copy centralized queries

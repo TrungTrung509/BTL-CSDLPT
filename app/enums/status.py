@@ -54,11 +54,11 @@ class TrangThaiGiaoTac(str, Enum):
 
 class BuocGiaoTac(str, Enum):
     BEGIN = "BEGIN"
-    KIEM_TRA_SO_BO = "KIEM_TRA_SO_BO"  # snapshot_check_eligibility
-    KHOA_PHAN_TAN = "KHOA_PHAN_TAN"    # acquire_locks
-    KHOA_LOP_HP_DB = "KHOA_LOP_HP_DB"  # SELECT FOR UPDATE Khóa lớp cũ
-    KHOA_DANG_KY_CU = "KHOA_DANG_KY_CU"    # SELECT FOR UPDATE Enrollment cũ (khi đổi lớp)
-    KIEM_TRA_SI_SO_CUOI = "KIEM_TRA_SI_SO_CUOI"  # Check sĩ số sau khi đã có Row Lock
+    KIEM_TRA_SO_BO = "KIEM_TRA_SO_BO"  
+    KHOA_PHAN_TAN = "KHOA_PHAN_TAN"   
+    KHOA_LOP_HP_DB = "KHOA_LOP_HP_DB"  
+    KHOA_DANG_KY_CU = "KHOA_DANG_KY_CU"    
+    KIEM_TRA_SI_SO_CUOI = "KIEM_TRA_SI_SO_CUOI"  
     INSERT = "INSERT"
     PRE_COMMIT = "PRE_COMMIT"
     COMMIT = "COMMIT"
@@ -66,7 +66,6 @@ class BuocGiaoTac(str, Enum):
     FAILED = "FAILED"
     RETRY = "RETRY"
 
-    # --- Legacy (tương thích với EnrollmentService cũ) ---
     KIEM_TRA_LICH_HOC = "KIEM_TRA_LICH_HOC"
     DA_KHOA = "DA_KHOA"
     KIEM_TRA_SI_SO = "KIEM_TRA_SI_SO"

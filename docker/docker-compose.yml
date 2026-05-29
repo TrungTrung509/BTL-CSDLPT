@@ -1,10 +1,7 @@
-# ============================================================
 # DOCKER COMPOSE - CƠ SỞ DỮ LIỆU PHÂN TÁN
 # Đề tài: Hệ thống đăng ký học phần nhiều cơ sở
-# Mô tả: 3 Site PostgreSQL + Redis + Elasticsearch + Kibana
-# ============================================================
 
-name : csdlpt
+name: csdlpt
 
 services:
   backend:
@@ -43,9 +40,9 @@ services:
       kafka:
         condition: service_healthy
     restart: unless-stopped
-  # ============================================================
+
   # SITE HADONG (Hà Nội) - PUBLISHER
-  # ============================================================
+
   postgres_hadong:
     image: postgres:15-alpine
     container_name: csdlpt_hadong
@@ -71,15 +68,18 @@ services:
     networks:
       - csdlpt_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${HADONG_USER:-csdlpt_user} -d ${HADONG_DB:-csdlpt_hadong}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${HADONG_USER:-csdlpt_user} -d ${HADONG_DB:-csdlpt_hadong}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
 
-  # ============================================================
   # SITE NGOCTRUC (Ngọc Trục) - SUBSCRIBER
-  # ============================================================
+
   postgres_ngoctruc:
     image: postgres:15-alpine
     container_name: csdlpt_ngoctruc
@@ -108,15 +108,18 @@ services:
     networks:
       - csdlpt_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${NGOCTRUC_USER:-csdlpt_user} -d ${NGOCTRUC_DB:-csdlpt_ngoctruc}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${NGOCTRUC_USER:-csdlpt_user} -d ${NGOCTRUC_DB:-csdlpt_ngoctruc}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
 
-  # ============================================================
   # SITE HOALAC (Hòa Lạc) - SUBSCRIBER
-  # ============================================================
+
   postgres_hoalac:
     image: postgres:15-alpine
     container_name: csdlpt_hoalac
@@ -145,15 +148,18 @@ services:
     networks:
       - csdlpt_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${HOALAC_USER:-csdlpt_user} -d ${HOALAC_DB:-csdlpt_hoalac}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${HOALAC_USER:-csdlpt_user} -d ${HOALAC_DB:-csdlpt_hoalac}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
 
-  # ============================================================
   # POSTGRESQL TẬP TRUNG - Dùng cho Benchmark so sánh tập trung/phân tán
-  # ============================================================
+
   postgres_centralized:
     image: postgres:15-alpine
     container_name: csdlpt_centralized
@@ -169,15 +175,18 @@ services:
     networks:
       - csdlpt_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${CENTRALIZED_USER:-csdlpt_user} -d ${CENTRALIZED_DB:-csdlpt_centralized}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${CENTRALIZED_USER:-csdlpt_user} -d ${CENTRALIZED_DB:-csdlpt_centralized}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
 
-  # ============================================================
   # FDW BOOTSTRAP - Cau hinh ket noi lien site va views tong hop
-  # ============================================================
+
   fdw_setup:
     image: postgres:15-alpine
     container_name: csdlpt_fdw_setup
@@ -206,9 +215,8 @@ services:
         condition: service_healthy
     restart: "no"
 
-  # ============================================================
   # REDIS - Cache Layer
-  # ============================================================
+
   redis:
     image: redis:7-alpine
     container_name: csdlpt_redis
@@ -226,9 +234,8 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # ============================================================
   # ELASTICSEARCH - Search Engine
-  # ============================================================
+
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
     container_name: csdlpt_elasticsearch
@@ -249,16 +256,19 @@ services:
     networks:
       - csdlpt_network
     healthcheck:
-      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
+      test:
+        [
+          "CMD-SHELL",
+          "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'",
+        ]
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 60s
     restart: unless-stopped
 
-  # ============================================================
   # KIBANA - Dashboard & Visualization
-  # ============================================================
+
   kibana:
     image: docker.elastic.co/kibana/kibana:8.11.0
     container_name: csdlpt_kibana
@@ -275,9 +285,8 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # ============================================================
   # MONITORING - PROMETHEUS + GRAFANA + EXPORTERS
-  # ============================================================
+
   postgres_hadong_exporter:
     image: prometheuscommunity/postgres-exporter:v0.18.1
     container_name: csdlpt_postgres_hadong_exporter
@@ -425,9 +434,8 @@ services:
         condition: service_started
     restart: "no"
 
-  # ============================================================
   # KAFKA - Message Broker (KRaft Mode)
-  # ============================================================
+
   kafka:
     image: apache/kafka:3.7.0
     container_name: csdlpt_kafka
@@ -455,16 +463,19 @@ services:
     networks:
       - csdlpt_network
     healthcheck:
-      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list",
+        ]
       interval: 15s
       timeout: 10s
       retries: 5
       start_period: 15s
     restart: unless-stopped
 
-  # ============================================================
   # KAFKA UI - Kafka Cluster Management
-  # ============================================================
+
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: csdlpt_kafka_ui
@@ -481,9 +492,8 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # ============================================================
   # KAFKA CONNECT - Data Integration (Debezium + ES Sink)
-  # ============================================================
+
   kafka-connect:
     image: confluentinc/cp-kafka-connect:7.5.0
     container_name: csdlpt_kafka_connect
@@ -507,9 +517,9 @@ services:
       CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
     volumes:
       - kafka_connect_plugins:/usr/share/confluent-hub-components
-    command: 
-      - bash 
-      - -c 
+    command:
+      - bash
+      - -c
       - |
         echo "Checking/Installing Connector plugins..."
         if [ ! -d "/usr/share/confluent-hub-components/debezium-debezium-connector-postgresql" ]; then
@@ -535,7 +545,8 @@ services:
     volumes:
       - ../scripts/setup_debezium_connectors.sh:/setup.sh
     # Cài curl và chạy script. Truyền 'kafka-connect' làm host để script gọi đúng API trong mạng Docker.
-    entrypoint: ["sh", "-c", "apk add --no-cache curl jq && sh /setup.sh kafka-connect"]
+    entrypoint:
+      ["sh", "-c", "apk add --no-cache curl jq && sh /setup.sh kafka-connect"]
     networks:
       - csdlpt_network
     depends_on:

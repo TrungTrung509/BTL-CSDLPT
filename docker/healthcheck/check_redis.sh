@@ -1,10 +1,6 @@
 #!/bin/sh
-# ============================================================
 # HEALTHCHECK - Redis
-# Kiểm tra Redis có sẵn sàng hay không
-# ============================================================
 
-# Nhận tham số hoặc dùng mặc định
 HOST="${REDIS_HOST:-localhost}"
 PORT="${REDIS_PORT:-6379}"
 
