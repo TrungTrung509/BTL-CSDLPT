@@ -65,7 +65,7 @@ export default function () {
     const unregistered = getUnregisteredCourses();
     if (unregistered.length > 0) {
       const maHP = unregistered[Math.floor(Math.random() * unregistered.length)];
-      const targetSite = Math.random() < 0.90
+      const targetSite = Math.random() < 0.95
         ? homeSite
         : SITES.filter(s => s !== homeSite)[randomIntBetween(0, 1)];
       const maLopHP = pickClass(targetSite, maHP);
@@ -86,7 +86,7 @@ export default function () {
       const registered = getRegisteredCourses();
       const maHP = registered[Math.floor(Math.random() * registered.length)];
       const oldMaLopHP = myEnrollments[maHP];
-      const targetSite = Math.random() < 0.90
+      const targetSite = Math.random() < 0.95
         ? homeSite
         : SITES.filter(s => s !== homeSite)[randomIntBetween(0, 1)];
       let newMaLopHP = pickClass(targetSite, maHP);
@@ -111,7 +111,7 @@ export default function () {
     // ĐĂNG KÝ ĐỦ 3 MÔN LIÊN TIẾP (stress scenario)
     // =============================================
     for (const maHP of COURSES) {
-      const targetSite = Math.random() < 0.90
+      const targetSite = Math.random() < 0.95
         ? homeSite
         : SITES.filter(s => s !== homeSite)[randomIntBetween(0, 1)];
       
@@ -141,7 +141,7 @@ export default function () {
     if (registered.length > 0) {
       const maHP = registered[Math.floor(Math.random() * registered.length)];
       const oldMaLopHP = myEnrollments[maHP];
-      const targetSite = Math.random() < 0.90
+      const targetSite = Math.random() < 0.95
         ? homeSite
         : SITES.filter(s => s !== homeSite)[randomIntBetween(0, 1)];
       let newMaLopHP = pickClass(targetSite, maHP);
@@ -164,7 +164,7 @@ export default function () {
       const unregistered = getUnregisteredCourses();
       if (unregistered.length > 0) {
         const maHP = unregistered[Math.floor(Math.random() * unregistered.length)];
-        const targetSite = Math.random() < 0.90
+        const targetSite = Math.random() < 0.95
           ? homeSite
           : SITES.filter(s => s !== homeSite)[randomIntBetween(0, 1)];
         const maLopHP = pickClass(targetSite, maHP);
@@ -203,7 +203,7 @@ export default function () {
       const unregistered = getUnregisteredCourses();
       if (unregistered.length > 0) {
         const maHP = unregistered[Math.floor(Math.random() * unregistered.length)];
-        const targetSite = Math.random() < 0.90
+        const targetSite = Math.random() < 0.95
           ? homeSite
           : SITES.filter(s => s !== homeSite)[randomIntBetween(0, 1)];
         const maLopHP = pickClass(targetSite, maHP);
@@ -220,5 +220,5 @@ export default function () {
     }
   }
 
-  sleep(1);
+  sleep(0.8);
 }

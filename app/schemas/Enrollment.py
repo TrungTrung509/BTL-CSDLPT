@@ -7,7 +7,6 @@ from enums.status import EnrollmentStatus
 
 class EnrollmentCreate(BaseModel):
     MaLopHP: str = Field(..., description="Mã lớp học phần đăng ký")
-    GhiChu: Optional[str] = None
 
 class SwapEnrollmentRequest(BaseModel):
     old_ma_lop_hp: str = Field(..., description="Mã lớp học phần muốn đổi đi")

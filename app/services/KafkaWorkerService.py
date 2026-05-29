@@ -29,7 +29,7 @@ class KafkaWorkerService:
         if cls._started:
             return
 
-        cls.semaphore = asyncio.Semaphore(30)  # Restrict concurrent DB transactions to protect the connection pool
+        cls.semaphore = asyncio.Semaphore(30)
 
         cls.consumer = AIOKafkaConsumer(
             "registration_requests",

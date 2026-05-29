@@ -58,7 +58,7 @@ class Enrollment3PCCoordinator:
                 txn_id=txn_id,
                 user_id=user.userId,
                 ma_sv=ma_sv,
-                ghi_chu=enroll_in.GhiChu,
+                ghi_chu=None,
                 site_home=site_home,
                 site_new=site_new,
                 site_old=site_old,
