@@ -1,13 +1,10 @@
--- ============================================================
+
 -- CƠ SỞ DỮ LIỆU PHÂN TÁN - ĐỀ TÀI: ĐĂNG KÝ HỌC PHẦN
 -- Tác giả: Nhóm CSDL Phân Tán
 -- Mô tả: Indexes cho tất cả các bảng
 -- Chạy SAU khi đã tạo tất cả bảng
--- ============================================================
 
--- ============================================================
 -- INDEXES CHO BẢNG COMMON (chạy tại tất cả site)
--- ============================================================
 
 -- Index cho HocPhan theo Khoa (JOIN)
 CREATE INDEX IF NOT EXISTS idx_hocphan_makhoa ON "HocPhan"("MaKhoa");
@@ -18,9 +15,7 @@ CREATE INDEX IF NOT EXISTS idx_hocphan_trangthai ON "HocPhan"("TrangThai");
 -- Index cho HocPhan theo loại (lọc)
 CREATE INDEX IF NOT EXISTS idx_hocphan_loai ON "HocPhan"("LoaiHocPhan");
 
--- ============================================================
 -- INDEXES CHO BẢNG users (Common - tìm kiếm & auth)
--- ============================================================
 
 -- Index cho username (login)
 CREATE INDEX IF NOT EXISTS idx_users_username ON "users"("username");
@@ -37,9 +32,7 @@ CREATE INDEX IF NOT EXISTS idx_users_macoso ON "users"("MaCoSo");
 -- Index cho status (lọc user active/inactive/locked)
 CREATE INDEX IF NOT EXISTS idx_users_status ON "users"("status");
 
--- ============================================================
 -- INDEXES CHO BẢNG LOCAL
--- ============================================================
 
 -- ---- SinhVien ----
 -- Index theo cơ sở (phân mảnh)
@@ -129,16 +122,12 @@ CREATE INDEX IF NOT EXISTS idx_dangky_userid_hp_hk ON "DangKy"("userId", "MaHP",
 -- Index để đếm sĩ số nhanh
 CREATE INDEX IF NOT EXISTS idx_dangky_demsiso ON "DangKy"("MaLopHP") WHERE "TrangThaiDangKy" = 'DaDangKy';
 
--- ============================================================
 -- INDEXES CHO REPLICATION & FDW (chạy tại tất cả site)
--- ============================================================
 
 -- Index cho HocKy theo năm học
 CREATE INDEX IF NOT EXISTS idx_hocky_namhoc ON "HocKy"("NamHoc");
 
--- ============================================================
 -- INDEXES CHO PERFORMANCE (chạy tại site HADONG - publisher)
--- ============================================================
 
 -- Index cho Khoa theo trạng thái
 CREATE INDEX IF NOT EXISTS idx_khoa_trangthai ON "Khoa"("TrangThai");
@@ -146,9 +135,7 @@ CREATE INDEX IF NOT EXISTS idx_khoa_trangthai ON "Khoa"("TrangThai");
 -- Index cho CoSo theo trạng thái
 CREATE INDEX IF NOT EXISTS idx_coso_trangthai ON "CoSo"("TrangThai");
 
--- ============================================================
 -- GHI CHÚ
--- ============================================================
 -- Các index trên hỗ trợ:
 -- 1. JOIN giữa các bảng (FK)
 -- 2. Phân mảnh dữ liệu (WHERE theo MaCoSo)

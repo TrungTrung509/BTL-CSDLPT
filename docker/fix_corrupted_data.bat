@@ -1,8 +1,6 @@
 @echo off
 chcp 65001 >nul
-echo ============================================================
 echo  FIX CORRUPTED DATA - Reinsert with correct UTF-8
-echo ============================================================
 echo.
 
 echo [1/6] Cleaning corrupted data from HADONG...
@@ -104,7 +102,5 @@ echo [6/6] Summary...
 docker exec csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong -c "SELECT 'SinhVien' as tbl, COUNT(*) FROM sinhvien UNION ALL SELECT 'GiangVien', COUNT(*) FROM giangvien UNION ALL SELECT 'PhongHoc', COUNT(*) FROM phonghoc UNION ALL SELECT 'LopHocPhan', COUNT(*) FROM lophocphan UNION ALL SELECT 'LichHoc', COUNT(*) FROM lichhoc;"
 
 echo.
-echo ============================================================
 echo  Done! Vietnamese data should now display correctly.
-echo ============================================================
 pause

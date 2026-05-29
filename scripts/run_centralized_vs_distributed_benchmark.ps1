@@ -1,13 +1,10 @@
-# ============================================================
+
 # BENCHMARK SCRIPT - Centralized vs Distributed
-# ============================================================
 
 $ErrorActionPreference = "Stop"
 $ProjectRoot = "e:\2.PTIT\DangKiHocPhan\BTL-CSDLPT"
 
-Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  BENCHMARK: Centralized vs Distributed" -ForegroundColor Cyan
-Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
 # Output file

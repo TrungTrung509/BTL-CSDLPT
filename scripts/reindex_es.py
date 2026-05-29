@@ -25,9 +25,7 @@ except ImportError as e:
     print("Cài đặt: pip install psycopg2-binary elasticsearch>=8.11.0")
     sys.exit(1)
 
-# ============================================================
 # CẤU HÌNH
-# ============================================================
 # PostgreSQL (site HADONG)
 PG_HOST = os.environ.get("PG_HOST", "localhost")
 PG_PORT = int(os.environ.get("PG_PORT", "5432"))

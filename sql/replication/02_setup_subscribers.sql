@@ -1,4 +1,4 @@
--- ============================================================
+
 -- LOGICAL REPLICATION - SUBSCRIBER SETUP
 -- Run this script on NGOCTRUC and HOALAC separately.
 --
@@ -12,7 +12,6 @@
 --
 -- App-managed distributed writes:
 --   - users
--- ============================================================
 
 -- Before running:
 -- 1. Common tables already exist on the subscriber.

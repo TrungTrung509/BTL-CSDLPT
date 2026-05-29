@@ -9,7 +9,7 @@ class Enrollment3PCContext:
     coordinator_site: str
     action: EnrollmentAction
     user_id: str
-    ma_sv: str | None = None  # MaSV of the student for enrollment records
+    ma_sv: str | None = None  
     site_home: str = ""
     site_new: str = ""
     site_old: str | None = None

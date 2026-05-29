@@ -9,7 +9,7 @@ class EnrollmentTransfer(Base):
     userId = Column(String, ForeignKey("users.userId"), nullable=False)
     MaLopHP = Column(String, nullable=False) 
     MaHP = Column(String, nullable=False)
-    TargetSite = Column(String, nullable=False) # Cơ sở nơi thực hiện đăng ký gốc (Master)
+    TargetSite = Column(String, nullable=False)
     Timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     __table_args__ = (

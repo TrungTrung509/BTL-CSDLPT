@@ -164,7 +164,6 @@ class EnrollmentTransactionRepo:
         Tìm các giao dịch in-doubt liên quan đến user_id.
         - pending_commit: trạng thái PRECOMMIT → phải ép commit bất kể thời gian.
         - stale_abort:   trạng thái INIT/PREPARED quá hạn cutoff → có thể abort.
-        Dùng cho lazy cleanup trước khi bắt đầu giao dịch mới.
         """
         pending_commit: set[str] = set()
         stale_abort: set[str] = set()

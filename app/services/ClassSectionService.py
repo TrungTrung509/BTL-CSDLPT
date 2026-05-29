@@ -65,11 +65,9 @@ class ClassSectionService:
                             | (CourseSection.TenLopHP.ilike(f"%{kw}%"))
                         )
 
-                # HinhThucHoc filter
                 if HinhThucHoc:
                     query = query.filter(CourseSection.HinhThucHoc == HinhThucHoc)
-
-                # TrangThaiLop filter
+   
                 if TrangThaiLop:
                     query = query.filter(CourseSection.TrangThaiLop == TrangThaiLop)
 

@@ -1,10 +1,5 @@
 #!/bin/sh
-# ============================================================
 # HEALTHCHECK - PostgreSQL
-# Kiểm tra PostgreSQL có sẵn sàng hay không
-# ============================================================
-
-# Nhận tham số hoặc dùng mặc định
 HOST="${POSTGRES_HOST:-localhost}"
 PORT="${POSTGRES_PORT:-5432}"
 USER="${POSTGRES_USER:-csdlpt_user}"
