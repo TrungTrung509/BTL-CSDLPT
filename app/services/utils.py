@@ -11,7 +11,7 @@ from configs.db import get_log_session
 def _site_of(ma_lop_hp: str) -> str:
     """Giải mã tên site từ MaLopHP. Ví dụ: 'HADONG_CS001' → 'HADONG'."""
     if not ma_lop_hp or "_" not in ma_lop_hp:
-        return "HADONG" # Fallback ve site chinh de ghi log
+        return "HADONG" 
     return ma_lop_hp.split("_")[0].upper()
 
 def _log_step(
