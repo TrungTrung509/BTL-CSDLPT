@@ -19,12 +19,12 @@ class EligibilityResponse(BaseModel):
 
 class RegistrationResult(BaseModel):
     MaLopHP: str
-    status: str  # 'Success', 'Failed'
+    status: str 
     message: Optional[str] = None
     error_code: Optional[str] = None
     reasons: List[str] = Field(default_factory=list)
     enrollment_id: Optional[int] = None
-    action: Optional[str] = None # 'REGISTER', 'SWITCH'
+    action: Optional[str] = None # 
     old_ma_lop_hp: Optional[str] = None
 
 class EnrollmentHistoryResponse(BaseModel):

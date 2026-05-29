@@ -11,10 +11,10 @@ class User(Base):
     username = Column(String, unique=True, nullable=False)
     password = Column(String, nullable=False)
     email = Column(String, unique=True, nullable=False)
-    role = Column(Enum(UserRole), nullable=False)  # 'SinhVien', 'GiangVien', 'Admin'
+    role = Column(Enum(UserRole), nullable=False)  
     MaCoSo = Column(String, nullable=False)
-    status = Column(Enum(UserStatus), default=UserStatus.Active)  # 'Active', 'Inactive', 'Locked'
-    NgayTao = Column(String)  # ISO format date string
+    status = Column(Enum(UserStatus), default=UserStatus.Active) 
+    NgayTao = Column(String)
 
     # Relationship with Student
     student = relationship("Student", back_populates="user", uselist=False)

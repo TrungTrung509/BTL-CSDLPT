@@ -1,4 +1,4 @@
--- ============================================================
+
 -- LOGICAL REPLICATION - PUBLISHER SETUP (HADONG)
 -- Shared tables replicated at DB layer:
 --   - CoSo
@@ -8,7 +8,6 @@
 -- Not replicated here:
 --   - HocPhan: replicated at app layer via ReplicationService
 --   - users: distributed writes managed by the app
--- ============================================================
 
 -- PostgreSQL server must start with:
 --   wal_level = logical

@@ -22,7 +22,6 @@ class ClassroomService:
 
         try:
             for site, session in sessions.items():
-                # Nếu có filter theo cơ sở, chỉ query site tương ứng
                 if filters and filters.MaCoSo and filters.MaCoSo.upper() != site.upper():
                     continue
                 query = ClassroomRepo.base_query(session)

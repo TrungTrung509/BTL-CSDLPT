@@ -1,8 +1,5 @@
 #!/bin/bash
-# ============================================================
 # REINDEX ELASTICSEARCH - Đẩy dữ liệu vào Elasticsearch
-# Hệ thống CSDL Phân tán - Đăng ký học phần
-# ============================================================
 
 set -e
 
@@ -14,9 +11,7 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-echo -e "${CYAN}=========================================="
 echo -e "  REINDEX ELASTICSEARCH"
-echo -e "==========================================${NC}"
 echo ""
 
 # Thư mục gốc
@@ -24,9 +19,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 SEEDS_DIR="$PROJECT_ROOT/seeds"
 
-# ============================================================
 # BƯỚC 1: Bootstrap Elasticsearch (tạo index/template)
-# ============================================================
 echo -e "${BLUE}[1/2] Bootstrap Elasticsearch...${NC}"
 
 cd "$PROJECT_ROOT"
@@ -42,9 +35,7 @@ fi
 echo -e "${GREEN}✓ Bootstrap Elasticsearch thành công${NC}"
 echo ""
 
-# ============================================================
 # BƯỚC 2: Reindex dữ liệu
-# ============================================================
 echo -e "${BLUE}[2/2] Reindex dữ liệu từ PostgreSQL...${NC}"
 
 python scripts/reindex_es.py
@@ -57,9 +48,7 @@ fi
 echo -e "${GREEN}✓ Reindex thành công${NC}"
 echo ""
 
-# ============================================================
 # HOÀN TẤT
-# ============================================================
 echo -e "${CYAN}=========================================="
 echo -e "  REINDEX HOÀN TẤT!"
 echo -e "==========================================${NC}"

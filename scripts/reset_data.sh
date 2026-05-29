@@ -1,8 +1,5 @@
 #!/bin/bash
-# ============================================================
 # RESET DATA - Xóa toàn bộ dữ liệu trên 3 site
-# Hệ thống CSDL Phân tán - Đăng ký học phần
-# ============================================================
 
 set -e
 
@@ -19,9 +16,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 DOCKER_DIR="$PROJECT_ROOT/docker"
 
-echo -e "${CYAN}=========================================="
 echo -e "  CSDL PHÂN TÁN - RESET ALL DATA"
-echo -e "==========================================${NC}"
 echo ""
 
 # Kiểm tra confirm
@@ -35,9 +30,7 @@ fi
 
 echo ""
 
-# ============================================================
 # BƯỚC 1: Xóa dữ liệu PostgreSQL trên 3 site
-# ============================================================
 echo -e "${BLUE}[1/4] Xóa dữ liệu PostgreSQL...${NC}"
 
 # Hàm truncate cho một site
@@ -83,18 +76,14 @@ truncate_site "csdlpt_hoalac" "csdlpt_hoalac"
 echo -e "${GREEN}✓ Đã xóa dữ liệu PostgreSQL${NC}"
 echo ""
 
-# ============================================================
 # BƯỚC 2: Xóa dữ liệu Redis
-# ============================================================
 echo -e "${BLUE}[2/4] Xóa dữ liệu Redis...${NC}"
 
 docker exec -i csdlpt_redis redis-cli FLUSHALL
 echo -e "${GREEN}✓ Đã xóa dữ liệu Redis${NC}"
 echo ""
 
-# ============================================================
 # BƯỚC 3: Xóa Elasticsearch Index
-# ============================================================
 echo -e "${BLUE}[3/4] Xóa Elasticsearch Index...${NC}"
 
 # Xóa index hocphan nếu tồn tại
@@ -109,26 +98,15 @@ fi
 
 echo ""
 
-# ============================================================
 # BƯỚC 4: Xóa Replication Subscriptions (nếu có)
-# ============================================================
 echo -e "${BLUE}[4/4] Reset Replication state...${NC}"
-
-# Tùy chọn: Drop subscriptions để reset replication
-# Bỏ comment nếu muốn reset hoàn toàn replication
-# docker exec -i csdlpt_ngoctruc psql -U csdlpt_user -d csdlpt_ngoctruc -c "DROP SUBSCRIPTION IF EXISTS sub_common_tables;"
-# docker exec -i csdlpt_hoalac psql -U csdlpt_user -d csdlpt_hoalac -c "DROP SUBSCRIPTION IF EXISTS sub_common_tables;"
 
 echo -e "${YELLOW}  Replication subscriptions được giữ nguyên${NC}"
 echo -e "${YELLOW}  Để reset replication, chạy thủ công: DROP SUBSCRIPTION${NC}"
 echo ""
 
-# ============================================================
 # HOÀN TẤT
-# ============================================================
-echo -e "${CYAN}=========================================="
 echo -e "  RESET HOÀN TẤT!"
-echo -e "==========================================${NC}"
 echo ""
 echo -e "${GREEN}Các bước tiếp theo:${NC}"
 echo "  1. Reseed dữ liệu: ./scripts/reseed.sh"

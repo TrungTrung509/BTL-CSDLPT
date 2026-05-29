@@ -26,9 +26,7 @@ except ImportError:
     print("Cài đặt: pip install elasticsearch>=8.11.0")
     sys.exit(1)
 
-# ============================================================
 # CẤU HÌNH
-# ============================================================
 ES_HOST = os.environ.get("ES_HOST", "http://localhost:9200")
 ES_TIMEOUT = 30  # seconds
 ES_INDEX_NAME = "hocphan"

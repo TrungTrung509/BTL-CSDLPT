@@ -1,8 +1,5 @@
 #!/bin/bash
-# ============================================================
 # RESEED - Sinh dữ liệu mẫu
-# Hệ thống CSDL Phân tán - Đăng ký học phần
-# ============================================================
 
 set -e
 
@@ -14,9 +11,7 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-echo -e "${CYAN}=========================================="
 echo -e "  CSDL PHÂN TÁN - RESEED DATA"
-echo -e "==========================================${NC}"
 echo ""
 
 # Thư mục gốc
@@ -24,9 +19,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 SEEDS_DIR="$PROJECT_ROOT/seeds"
 
-# ============================================================
 # BƯỚC 1: Kiểm tra Python và venv
-# ============================================================
 echo -e "${BLUE}[1/3] Kiểm tra môi trường Python...${NC}"
 
 if [ ! -d "$SEEDS_DIR/.venv" ]; then
@@ -45,9 +38,7 @@ fi
 
 echo ""
 
-# ============================================================
 # BƯỚC 2: Generate dữ liệu
-# ============================================================
 echo -e "${BLUE}[2/3] Generate dữ liệu mẫu...${NC}"
 
 cd "$SEEDS_DIR"
@@ -62,9 +53,7 @@ fi
 
 echo ""
 
-# ============================================================
 # BƯỚC 3: Import dữ liệu vào database
-# ============================================================
 echo -e "${BLUE}[3/3] Import dữ liệu vào 3 site...${NC}"
 
 # Import function
@@ -99,12 +88,8 @@ import_to_site "hoalac" "csdlpt_hoalac" "csdlpt_hoalac" "$SEEDS_DIR/output/site_
 echo -e "${GREEN}✓ Import dữ liệu thành công${NC}"
 echo ""
 
-# ============================================================
 # HOÀN TẤT
-# ============================================================
-echo -e "${CYAN}=========================================="
 echo -e "  RESEED HOÀN TẤT!"
-echo -e "==========================================${NC}"
 echo ""
 
 # Chạy check counts

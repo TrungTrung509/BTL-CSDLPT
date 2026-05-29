@@ -83,7 +83,6 @@ class Enrollment3PCDomain:
             )
 
         # Refresh sau khi acquire lock — đảm bảo đọc SiSoHienTai mới nhất từ DB
-        # (tránh stale cache của SQLAlchemy sau khi bị block bởi transaction khác)
         target_db.refresh(target_section)
 
         # Lock lớp cũ + kiểm tra bản ghi đăng ký cũ (khi đổi lớp)

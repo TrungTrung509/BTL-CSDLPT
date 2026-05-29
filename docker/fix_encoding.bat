@@ -1,8 +1,6 @@
 @echo off
 chcp 65001 >nul
-echo ============================================================
 echo  FIX ENCODING - Recreate Database with UTF8
-echo ============================================================
 echo.
 echo [WARNING] This will DELETE all existing data!
 echo.
@@ -31,7 +29,5 @@ echo.
 echo [5/5] Checking data...
 docker exec csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong -c "SELECT MaHP, TenHP FROM hocphan LIMIT 3;"
 echo.
-echo ============================================================
 echo  Done! Check encoding and data above.
-echo ============================================================
 pause

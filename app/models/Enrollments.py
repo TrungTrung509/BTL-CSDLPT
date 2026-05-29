@@ -11,7 +11,7 @@ class Enrollment(Base):
 
     MaDangKy = Column(Integer, primary_key=True, index=True, autoincrement=True)
     userId = Column(String, ForeignKey("users.userId"), nullable=False)
-    MaSV = Column(String, nullable=True) # Lưu trữ thông tin MaSV để in ấn
+    MaSV = Column(String, nullable=True) 
     MaLopHP = Column(String, ForeignKey("LopHocPhan.MaLopHP"), nullable=False)
     MaHP = Column(String, ForeignKey("HocPhan.MaHP"), nullable=False)
     MaHocKy = Column(String, ForeignKey("HocKy.MaHocKy"), nullable=False)

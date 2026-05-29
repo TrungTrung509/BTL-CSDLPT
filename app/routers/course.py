@@ -20,7 +20,6 @@ router = APIRouter(
     tags=["Course Management"],
 )
 
-
 # xem trạng thái replication học phần
 @router.get("/replication/status")
 async def get_course_replication_status(
@@ -40,7 +39,7 @@ async def get_course_replication_status(
             error_code="REPLICATION_STATUS_FAILED",
         )
 
-# để recover thủ công các event replication lỗi/chưa gửi được.
+# Recover thủ công các event replication lỗi/chưa gửi được.
 @router.post("/replication/recover")
 async def recover_course_replication(
     target_site: str | None = None,
