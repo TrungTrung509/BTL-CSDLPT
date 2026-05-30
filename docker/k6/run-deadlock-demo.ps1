@@ -3,11 +3,15 @@ param(
     [string]$Pass1 = "123456",
     [string]$User2 = "SVHD26CNTT002",
     [string]$Pass2 = "123456",
-    [string]$ClassA = "HADONG_CSDLPT_01",
-    [string]$ClassB = "HADONG_CSDLPT_02"
+    [string]$ClassA = "HADONG_GDTC1102_01",
+    [string]$ClassB = "HADONG_GDTC1102_02"
 )
 
+$dockerDir = Split-Path $PSScriptRoot -Parent
+$composeFile = Join-Path $dockerDir "docker-compose.yml"
+
 $composeArgs = @(
+    "-f", $composeFile,
     "--profile", "benchmark",
     "run", "--rm",
     "-e", "USER1=$User1",
@@ -16,7 +20,7 @@ $composeArgs = @(
     "-e", "PASS2=$Pass2",
     "-e", "CLASS_A=$ClassA",
     "-e", "CLASS_B=$ClassB",
-    "-e", "BENCH_BASE_URL=http://host.docker.internal:8000"
+    "-e", "BENCH_BASE_URL=http://backend:8000"
 )
 
 Write-Host "Running Deadlock Demo with K6..." -ForegroundColor Cyan

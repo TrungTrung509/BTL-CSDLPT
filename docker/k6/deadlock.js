@@ -6,28 +6,37 @@ export const options = {
         deadlock_demo: {
             executor: 'per-vu-iterations',
             vus: 2, 
-            iterations: 5,
+            iterations: 30,
             maxDuration: '5m',
         },
     },
 };
 
-const BASE_URL = __ENV.BENCH_BASE_URL || 'http://host.docker.internal:8000';
-const CLASS_A = __ENV.CLASS_A || 'HADONG_CSDLPT_01';
-const CLASS_B = __ENV.CLASS_B || 'HADONG_CSDLPT_02';
+const BASE_URL = __ENV.BENCH_BASE_URL || 'http://backend:8000';
+const CLASS_A = __ENV.CLASS_A || 'HADONG_GDTC1102_01';
+const CLASS_B = __ENV.CLASS_B || 'HADONG_GDTC1102_02';
 
 export function setup() {
     let tokens = [];
-    for (let i = 1; i <= 4; i++) {
-        let username = `SVHD26CNTT00${i}`;
+    const users = [
+        { username: __ENV.USER1 || 'SVHD26CNTT001', password: __ENV.PASS1 || '123456' },
+        { username: __ENV.USER2 || 'SVHD26CNTT002', password: __ENV.PASS2 || '123456' }
+    ];
+
+    for (let i = 0; i < users.length; i++) {
+        let u = users[i];
         const res = http.post(`${BASE_URL}/auth/login`, {
-            username: username,
-            password: '123456',
+            username: u.username,
+            password: u.password,
             grant_type: 'password'
         }, { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
         
+        if (res.status !== 200) {
+            console.log(`[!] Login failed for ${u.username}: ${res.status} - ${res.body}`);
+        }
+        
         tokens.push({
-            username: username,
+            username: u.username,
             token: res.json('access_token')
         });
     }
@@ -76,5 +85,5 @@ export default function (data) {
         'Success or Deadlock Retry': (r) => [200, 201, 409].includes(r.status),
     });
 
-    sleep(0.05);
+    sleep(0.01);
 }
