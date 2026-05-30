@@ -554,16 +554,14 @@ services:
         condition: service_started
     restart: "no"
 
-# ============================================================
 # NETWORKS
-# ============================================================
+
 networks:
   csdlpt_network:
     driver: bridge
 
-# ============================================================
 # VOLUMES
-# ============================================================
+
 volumes:
   postgres_hadong_data:
   postgres_ngoctruc_data:

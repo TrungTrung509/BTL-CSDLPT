@@ -13,6 +13,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { branchApi } from '@/services/admin/branchApi';
 import { formatDate } from '@/utils/formatters';
+import { getApiErrorMessage } from '@/utils/errorUtils';
 import styles from './AdminPage.module.scss';
 
 const { Title, Text } = Typography;
@@ -38,7 +39,8 @@ export default function AdminBranchesPage() {
       handleCloseModal();
     },
     onError: (err) => {
-      message.error(err.message || 'Tạo thất bại');
+      const msg = getApiErrorMessage(err, 'Tạo cơ sở thất bại. Vui lòng thử lại.');
+      message.error(msg);
     },
   });
 
@@ -50,7 +52,8 @@ export default function AdminBranchesPage() {
       handleCloseModal();
     },
     onError: (err) => {
-      message.error(err.message || 'Cập nhật thất bại');
+      const msg = getApiErrorMessage(err, 'Cập nhật cơ sở thất bại. Vui lòng thử lại.');
+      message.error(msg);
     },
   });
 
@@ -61,7 +64,8 @@ export default function AdminBranchesPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-branches'] });
     },
     onError: (err) => {
-      message.error(err.message || 'Xóa thất bại');
+      const msg = getApiErrorMessage(err, 'Xóa cơ sở thất bại. Vui lòng thử lại.');
+      message.error(msg);
     },
   });
 

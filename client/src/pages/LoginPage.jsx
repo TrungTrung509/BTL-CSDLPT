@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { Form, Input, Button, Card, Typography, Alert, Checkbox } from 'antd';
 import { UserOutlined, LockOutlined, BookOutlined } from '@ant-design/icons';
 import { useLoginMutation } from '@/hooks/useAuth';
+import { getApiErrorMessage } from '@/utils/errorUtils';
 import styles from './LoginPage.module.scss';
 
 const { Title, Text, Link } = Typography;
@@ -74,7 +75,7 @@ export default function LoginPage() {
             {loginMutation.isError && (
               <Alert
                 type="error"
-                message={loginMutation.error?.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.'}
+                message={getApiErrorMessage(loginMutation.error, 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.')}
                 showIcon
                 className={styles.alert}
               />

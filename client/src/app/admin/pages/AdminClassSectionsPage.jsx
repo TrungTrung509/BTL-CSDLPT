@@ -27,6 +27,7 @@ import {
 } from '@/utils/formatters';
 import EntityOverviewDashboard from '../components/EntityOverviewDashboard';
 import { useAdminEntityOverview } from '@/hooks/useAdminOverview';
+import { getApiErrorMessage } from '@/utils/errorUtils';
 import styles from './AdminPage.module.scss';
 
 const { Title, Text } = Typography;
@@ -152,7 +153,7 @@ export default function AdminClassSectionsPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-class-sections'] });
       handleCloseModal();
     },
-    onError: (err) => message.error(err.message || 'Tạo thất bại'),
+    onError: (err) => message.error(getApiErrorMessage(err, 'Tạo lớp học phần thất bại. Vui lòng thử lại.')),
   });
 
   const updateMutation = useMutation({
@@ -162,7 +163,7 @@ export default function AdminClassSectionsPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-class-sections'] });
       handleCloseModal();
     },
-    onError: (err) => message.error(err.message || 'Cập nhật thất bại'),
+    onError: (err) => message.error(getApiErrorMessage(err, 'Cập nhật lớp học phần thất bại. Vui lòng thử lại.')),
   });
 
   const deleteMutation = useMutation({
@@ -171,7 +172,7 @@ export default function AdminClassSectionsPage() {
       message.success('Xóa lớp học phần thành công!');
       queryClient.invalidateQueries({ queryKey: ['admin-class-sections'] });
     },
-    onError: (err) => message.error(err.message || 'Xóa thất bại. Lớp có thể đang có sinh viên đăng ký.'),
+    onError: (err) => message.error(getApiErrorMessage(err, 'Xóa lớp học phần thất bại. Vui lòng thử lại.')),
   });
 
   const handleOpenEdit = (record) => {

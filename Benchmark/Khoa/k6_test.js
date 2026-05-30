@@ -55,9 +55,9 @@ export default function () {
   const getRegisteredCourses = () => Object.keys(myEnrollments);
 
   if (rand < 0.60) {
-    // =============================================
+    
     // ĐĂNG KÝ 1 MÔN (hoặc đổi lớp nếu đã đăng ký hết)
-    // =============================================
+    
     const unregistered = getUnregisteredCourses();
     if (unregistered.length > 0) {
       const maHP = unregistered[Math.floor(Math.random() * unregistered.length)];
@@ -103,9 +103,9 @@ export default function () {
     }
 
   } else if (rand < 0.80) {
-    // =============================================
+    
     // ĐĂNG KÝ NHANH CẢ 3 MÔN (stress scenario)
-    // =============================================
+    
     for (const maHP of COURSES) {
       const targetSite = Math.random() < 0.55
         ? homeSite
@@ -130,9 +130,9 @@ export default function () {
     }
 
   } else if (rand < 0.90) {
-    // =============================================
+    
     // ĐỔI LỚP (gọi register với lớp khác cùng môn)
-    // =============================================
+    
     const registered = getRegisteredCourses();
     if (registered.length > 0) {
       const maHP = registered[Math.floor(Math.random() * registered.length)];
@@ -177,9 +177,9 @@ export default function () {
     }
 
   } else {
-    // =============================================
+    
     // HỦY ĐĂNG KÝ (Hủy thực sự lớp đang đăng ký)
-    // =============================================
+    
     const registered = getRegisteredCourses();
     if (registered.length > 0) {
       const maHP = registered[Math.floor(Math.random() * registered.length)];

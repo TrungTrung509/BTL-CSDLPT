@@ -64,9 +64,9 @@ export default function CourseRegistrationPage() {
   const registerMutation = useRegisterEnrollmentMutation();
   const cancelMutation = useCancelEnrollmentMutation();
 
-  // ============================================================
+  
   // Compute enrolled MaLopHP set for quick lookup
-  // ============================================================
+  
   const enrolledMaLopHPs = useMemo(() => {
     const map = new Map();
     enrollments.forEach((e) => {
@@ -77,9 +77,9 @@ export default function CourseRegistrationPage() {
     return map;
   }, [enrollments]);
 
-  // ============================================================
+  
   // Filter class sections (frontend-side filtering)
-  // ============================================================
+  
   const filteredSections = useMemo(() => {
     return classSections.filter((sec) => {
       const kw = (filters.keyword || '').toLowerCase().trim();
@@ -95,16 +95,16 @@ export default function CourseRegistrationPage() {
     });
   }, [classSections, filters]);
 
-  // ============================================================
+  
   // Active enrollments only (DaDangKy status)
-  // ============================================================
+  
   const activeEnrollments = useMemo(() => {
     return enrollments.filter((e) => e.trangThaiDangKy === 'DaDangKy');
   }, [enrollments]);
 
-  // ============================================================
+  
   // Column definitions for OPEN CLASS SECTIONS table
-  // ============================================================
+  
   const openSectionColumns = [
     {
       title: 'Mã LHP',
@@ -248,9 +248,9 @@ export default function CourseRegistrationPage() {
     },
   ];
 
-  // ============================================================
+  
   // Column definitions for REGISTERED ENROLLMENTS table
-  // ============================================================
+  
   const enrollmentColumns = [
     {
       title: 'Mã LHP',
@@ -339,9 +339,9 @@ export default function CourseRegistrationPage() {
     },
   ];
 
-  // ============================================================
+  
   // Register Course Action
-  // ============================================================
+  
   const handleRegister = async (maLopHP) => {
     setLoadingMaLopHP(maLopHP);
     try {
@@ -355,9 +355,9 @@ export default function CourseRegistrationPage() {
     }
   };
 
-  // ============================================================
+  
   // Cancel Enrollment
-  // ============================================================
+  
   const handleCancelEnrollment = async (record) => {
     try {
       await cancelMutation.mutateAsync(record.maLopHP);
@@ -366,9 +366,9 @@ export default function CourseRegistrationPage() {
     }
   };
 
-  // ============================================================
+  
   // Refresh
-  // ============================================================
+  
   const handleRefresh = () => {
     refetchSections();
     refetchHistory();

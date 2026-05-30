@@ -16,9 +16,9 @@ const apiClient = axios.create({
   },
 });
 
-// ============================================================
+
 // Request Interceptor: Attach auth token
-// ============================================================
+
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('access_token');
@@ -30,11 +30,11 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// ============================================================
+
 // Response Interceptor: Normalize API response shape
 // Standard wrapper: { status, success, message, data, errorr }
 // Login endpoint: { access_token, refresh_token, token_type } (no wrapper)
-// ============================================================
+
 apiClient.interceptors.response.use(
   (response) => {
     const payload = response.data;
@@ -42,12 +42,20 @@ apiClient.interceptors.response.use(
     // If payload has 'success' field -> standard wrapper format
     if (payload && typeof payload === 'object' && 'success' in payload) {
       if (payload.success === false || payload.status >= 400) {
-        const errorMsg = payload.message || payload.errorr || 'An error occurred';
+        // Extract the most descriptive message available
+        const errorMsg =
+          payload.message ||
+          (payload.errorr?.details ? String(payload.errorr.details) : null) ||
+          (Array.isArray(payload.errorr)
+            ? payload.errorr.map((e) => e.msg || e.message || JSON.stringify(e)).join('; ')
+            : null) ||
+          'An error occurred';
         const apiError = new Error(errorMsg);
         apiError.isApiError = true;
         apiError.status = payload.status;
         apiError.data = payload.data;
         apiError.details = payload.errorr;
+        apiError.backendMessage = payload.message || errorMsg;
         return Promise.reject(apiError);
       }
       // Success with wrapper -> unwrap data field

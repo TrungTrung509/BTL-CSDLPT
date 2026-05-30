@@ -1,12 +1,25 @@
 import http from 'k6/http';
-import { check, sleep } from 'k6';
-import { randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.2.0/index.js';
+import {
+  check,
+  sleep
+} from 'k6';
+import {
+  randomIntBetween
+} from 'https://jslib.k6.io/k6-utils/1.2.0/index.js';
 
 export const options = {
-  stages: [
-    { duration: '30s', target: 500 },
-    { duration: '1m30s', target: 1000 },
-    { duration: '30s', target: 0 },
+  stages: [{
+      duration: '30s',
+      target: 500
+    },
+    {
+      duration: '1m30s',
+      target: 1000
+    },
+    {
+      duration: '30s',
+      target: 0
+    },
   ],
   thresholds: {
     http_req_duration: ['p(95)<3000'],
@@ -16,7 +29,9 @@ export const options = {
 
 const SITES = ['HD', 'HL', 'NT'];
 const BASE_URL = 'http://bench_backend_coso:8000';
-const HEADERS = { 'Content-Type': 'application/json' };
+const HEADERS = {
+  'Content-Type': 'application/json'
+};
 
 // 3 môn học cố định (phải khớp với seed_data.py)
 const COURSES = ['IT01', 'IT02', 'IT03'];
@@ -35,11 +50,15 @@ function pickClass(site, maHP) {
 }
 
 function post(path, body) {
-  return http.post(`${BASE_URL}${path}`, JSON.stringify(body), { headers: HEADERS });
+  return http.post(`${BASE_URL}${path}`, JSON.stringify(body), {
+    headers: HEADERS
+  });
 }
 
 function del(path, body) {
-  return http.request('DELETE', `${BASE_URL}${path}`, JSON.stringify(body), { headers: HEADERS });
+  return http.request('DELETE', `${BASE_URL}${path}`, JSON.stringify(body), {
+    headers: HEADERS
+  });
 }
 
 // VU-local state to track successful enrollments: { [maHP]: maLopHP }
@@ -49,7 +68,7 @@ export default function () {
   // Mỗi VU = 1 sinh viên cố định trong suốt test
   const siteIdx = __VU % SITES.length;
   const homeSite = SITES[siteIdx];
-  const studentNum = ((__VU - 1) % 4000) + 1;  // 4.000 SV/site
+  const studentNum = ((__VU - 1) % 4000) + 1; // 4.000 SV/site
   const userId = `SV${homeSite}${studentNum.toString().padStart(4, '0')}`;
 
   const rand = Math.random();
@@ -59,18 +78,21 @@ export default function () {
   const getRegisteredCourses = () => Object.keys(myEnrollments);
 
   if (rand < 0.60) {
-    // =============================================
+
     // ĐĂNG KÝ 1 MÔN (hoặc đổi lớp nếu đã đăng ký hết)
-    // =============================================
+
     const unregistered = getUnregisteredCourses();
     if (unregistered.length > 0) {
       const maHP = unregistered[Math.floor(Math.random() * unregistered.length)];
-      const targetSite = Math.random() < 0.95
-        ? homeSite
-        : SITES.filter(s => s !== homeSite)[randomIntBetween(0, 1)];
+      const targetSite = Math.random() < 0.95 ?
+        homeSite :
+        SITES.filter(s => s !== homeSite)[randomIntBetween(0, 1)];
       const maLopHP = pickClass(targetSite, maHP);
 
-      const res = post('/enrollments/register-bench', { userId, MaLopHP: maLopHP });
+      const res = post('/enrollments/register-bench', {
+        userId,
+        MaLopHP: maLopHP
+      });
       const success = res.status === 201;
       if (success) {
         myEnrollments[maHP] = maLopHP;
@@ -86,15 +108,18 @@ export default function () {
       const registered = getRegisteredCourses();
       const maHP = registered[Math.floor(Math.random() * registered.length)];
       const oldMaLopHP = myEnrollments[maHP];
-      const targetSite = Math.random() < 0.95
-        ? homeSite
-        : SITES.filter(s => s !== homeSite)[randomIntBetween(0, 1)];
+      const targetSite = Math.random() < 0.95 ?
+        homeSite :
+        SITES.filter(s => s !== homeSite)[randomIntBetween(0, 1)];
       let newMaLopHP = pickClass(targetSite, maHP);
       while (newMaLopHP === oldMaLopHP) {
         newMaLopHP = pickClass(targetSite, maHP);
       }
 
-      const res = post('/enrollments/register-bench', { userId, MaLopHP: newMaLopHP });
+      const res = post('/enrollments/register-bench', {
+        userId,
+        MaLopHP: newMaLopHP
+      });
       const success = res.status === 201;
       if (success) {
         myEnrollments[maHP] = newMaLopHP;
@@ -107,14 +132,14 @@ export default function () {
     }
 
   } else if (rand < 0.80) {
-    // =============================================
+
     // ĐĂNG KÝ ĐỦ 3 MÔN LIÊN TIẾP (stress scenario)
-    // =============================================
+
     for (const maHP of COURSES) {
-      const targetSite = Math.random() < 0.95
-        ? homeSite
-        : SITES.filter(s => s !== homeSite)[randomIntBetween(0, 1)];
-      
+      const targetSite = Math.random() < 0.95 ?
+        homeSite :
+        SITES.filter(s => s !== homeSite)[randomIntBetween(0, 1)];
+
       const oldMaLopHP = myEnrollments[maHP];
       let maLopHP = pickClass(targetSite, maHP);
       if (oldMaLopHP) {
@@ -123,7 +148,10 @@ export default function () {
         }
       }
 
-      const res = post('/enrollments/register-bench', { userId, MaLopHP: maLopHP });
+      const res = post('/enrollments/register-bench', {
+        userId,
+        MaLopHP: maLopHP
+      });
       const success = res.status === 201;
       if (success) {
         myEnrollments[maHP] = maLopHP;
@@ -134,22 +162,25 @@ export default function () {
     }
 
   } else if (rand < 0.90) {
-    // =============================================
+
     // ĐỔI LỚP (gọi register với lớp khác cùng môn)
-    // =============================================
+
     const registered = getRegisteredCourses();
     if (registered.length > 0) {
       const maHP = registered[Math.floor(Math.random() * registered.length)];
       const oldMaLopHP = myEnrollments[maHP];
-      const targetSite = Math.random() < 0.95
-        ? homeSite
-        : SITES.filter(s => s !== homeSite)[randomIntBetween(0, 1)];
+      const targetSite = Math.random() < 0.95 ?
+        homeSite :
+        SITES.filter(s => s !== homeSite)[randomIntBetween(0, 1)];
       let newMaLopHP = pickClass(targetSite, maHP);
       while (newMaLopHP === oldMaLopHP) {
         newMaLopHP = pickClass(targetSite, maHP);
       }
 
-      const res = post('/enrollments/register-bench', { userId, MaLopHP: newMaLopHP });
+      const res = post('/enrollments/register-bench', {
+        userId,
+        MaLopHP: newMaLopHP
+      });
       const success = res.status === 201;
       if (success) {
         myEnrollments[maHP] = newMaLopHP;
@@ -164,12 +195,15 @@ export default function () {
       const unregistered = getUnregisteredCourses();
       if (unregistered.length > 0) {
         const maHP = unregistered[Math.floor(Math.random() * unregistered.length)];
-        const targetSite = Math.random() < 0.95
-          ? homeSite
-          : SITES.filter(s => s !== homeSite)[randomIntBetween(0, 1)];
+        const targetSite = Math.random() < 0.95 ?
+          homeSite :
+          SITES.filter(s => s !== homeSite)[randomIntBetween(0, 1)];
         const maLopHP = pickClass(targetSite, maHP);
 
-        const res = post('/enrollments/register-bench', { userId, MaLopHP: maLopHP });
+        const res = post('/enrollments/register-bench', {
+          userId,
+          MaLopHP: maLopHP
+        });
         const success = res.status === 201;
         if (success) {
           myEnrollments[maHP] = maLopHP;
@@ -181,15 +215,18 @@ export default function () {
     }
 
   } else {
-    // =============================================
+
     // HỦY 1 MÔN (Hủy thực sự lớp đang đăng ký)
-    // =============================================
+
     const registered = getRegisteredCourses();
     if (registered.length > 0) {
       const maHP = registered[Math.floor(Math.random() * registered.length)];
       const maLopHP = myEnrollments[maHP];
 
-      const res = del('/enrollments/cancel-bench', { userId, MaLopHP: maLopHP });
+      const res = del('/enrollments/cancel-bench', {
+        userId,
+        MaLopHP: maLopHP
+      });
       const success = res.status === 200;
       if (success) {
         delete myEnrollments[maHP];
@@ -203,12 +240,15 @@ export default function () {
       const unregistered = getUnregisteredCourses();
       if (unregistered.length > 0) {
         const maHP = unregistered[Math.floor(Math.random() * unregistered.length)];
-        const targetSite = Math.random() < 0.95
-          ? homeSite
-          : SITES.filter(s => s !== homeSite)[randomIntBetween(0, 1)];
+        const targetSite = Math.random() < 0.95 ?
+          homeSite :
+          SITES.filter(s => s !== homeSite)[randomIntBetween(0, 1)];
         const maLopHP = pickClass(targetSite, maHP);
 
-        const res = post('/enrollments/register-bench', { userId, MaLopHP: maLopHP });
+        const res = post('/enrollments/register-bench', {
+          userId,
+          MaLopHP: maLopHP
+        });
         const success = res.status === 201;
         if (success) {
           myEnrollments[maHP] = maLopHP;

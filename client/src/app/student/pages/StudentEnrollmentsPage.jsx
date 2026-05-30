@@ -16,6 +16,7 @@ import {
   getEnrollmentStatusProps,
   formatDateTime,
 } from '@/utils/formatters';
+import { getApiErrorMessage } from '@/utils/errorUtils';
 import styles from './StudentPage.module.scss';
 
 const { Title, Text } = Typography;
@@ -49,7 +50,8 @@ export default function StudentEnrollmentsPage() {
       message.success('Hủy đăng ký thành công!');
     },
     onError: (error) => {
-      message.error(error.message || 'Hủy đăng ký thất bại.');
+      const msg = getApiErrorMessage(error, 'Hủy đăng ký thất bại. Vui lòng thử lại.');
+      message.error(msg);
     },
   });
 
