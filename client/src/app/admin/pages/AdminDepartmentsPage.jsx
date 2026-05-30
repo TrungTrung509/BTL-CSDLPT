@@ -11,6 +11,7 @@ import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { departmentApi } from '@/services/admin/departmentApi';
 import { useQuery } from '@tanstack/react-query';
+import { getApiErrorMessage } from '@/utils/errorUtils';
 import styles from './AdminPage.module.scss';
 
 const { Title, Text } = Typography;
@@ -34,7 +35,8 @@ export default function AdminDepartmentsPage() {
       form.resetFields();
     },
     onError: (err) => {
-      message.error(err.message || 'Tạo thất bại');
+      const msg = getApiErrorMessage(err, 'Tạo khoa thất bại. Vui lòng thử lại.');
+      message.error(msg);
     },
   });
 

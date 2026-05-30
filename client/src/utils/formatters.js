@@ -236,9 +236,9 @@ export function formatTimeSlot(tietBatDau, soTiet) {
   return `Tiết ${tietBatDau}–${end}`;
 }
 
-// ============================================================
+
 // QUY UOC TIET HOC – 50 phut/tiet, nghi trua 12:00–13:00
-// ============================================================
+
 
 /**
  * Thoi gian bat dau thuc cua tung tiet (gio:phut)

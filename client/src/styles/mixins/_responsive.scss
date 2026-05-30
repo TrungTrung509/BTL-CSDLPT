@@ -1,7 +1,7 @@
-// ============================================================
+
 // Responsive Breakpoint Mixins
 // Must @use variables at the top so breakpoints are available
-// ============================================================
+
 @use '../variables' as *;
 
 @mixin mobile {
@@ -40,9 +40,9 @@
   }
 }
 
-// ============================================================
+
 // Flexbox Utilities
-// ============================================================
+
 @mixin flex-center {
   display: flex;
   align-items: center;
@@ -66,9 +66,9 @@
   flex-direction: column;
 }
 
-// ============================================================
+
 // Text Utilities
-// ============================================================
+
 @mixin text-ellipsis {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -83,9 +83,9 @@
   text-overflow: ellipsis;
 }
 
-// ============================================================
+
 // Scrollbar Styling
-// ============================================================
+
 @mixin custom-scrollbar {
   &::-webkit-scrollbar {
     width: 6px;
@@ -106,9 +106,9 @@
   }
 }
 
-// ============================================================
+
 // Card Styling
-// ============================================================
+
 @mixin card-base {
   background: $color-bg-container;
   border-radius: $radius-lg;
@@ -125,17 +125,17 @@
   }
 }
 
-// ============================================================
+
 // Focus Ring
-// ============================================================
+
 @mixin focus-ring {
   outline: none;
   box-shadow: 0 0 0 2px rgba($color-primary, 0.2);
 }
 
-// ============================================================
+
 // Button Reset
-// ============================================================
+
 @mixin button-reset {
   border: none;
   background: none;
@@ -145,9 +145,9 @@
   color: inherit;
 }
 
-// ============================================================
+
 // Truncate Table Cell
-// ============================================================
+
 @mixin table-cell-ellipsis {
   max-width: 200px;
   overflow: hidden;

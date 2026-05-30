@@ -27,6 +27,7 @@ import { departmentApi, departmentKeys } from '@/services/admin/departmentApi';
 import { formatDate } from '@/utils/formatters';
 import EntityOverviewDashboard from '../components/EntityOverviewDashboard';
 import { useAdminEntityOverview } from '@/hooks/useAdminOverview';
+import { getApiErrorMessage } from '@/utils/errorUtils';
 import styles from './AdminPage.module.scss';
 
 const { Title, Text } = Typography;
@@ -144,7 +145,7 @@ export default function AdminStudentsPage() {
       queryClient.invalidateQueries({ queryKey: studentKeys.all });
       handleCloseModal();
     },
-    onError: (err) => message.error(err.message || 'Thêm thất bại'),
+    onError: (err) => message.error(getApiErrorMessage(err, 'Thêm sinh viên thất bại. Vui lòng thử lại.')),
   });
 
   const updateMutation = useMutation({
@@ -154,7 +155,7 @@ export default function AdminStudentsPage() {
       queryClient.invalidateQueries({ queryKey: studentKeys.all });
       handleCloseModal();
     },
-    onError: (err) => message.error(err.message || 'Cập nhật thất bại'),
+    onError: (err) => message.error(getApiErrorMessage(err, 'Cập nhật sinh viên thất bại. Vui lòng thử lại.')),
   });
 
   const statusMutation = useMutation({
@@ -163,7 +164,7 @@ export default function AdminStudentsPage() {
       message.success('Đổi trạng thái thành công!');
       queryClient.invalidateQueries({ queryKey: studentKeys.all });
     },
-    onError: (err) => message.error(err.message || 'Đổi trạng thái thất bại'),
+    onError: (err) => message.error(getApiErrorMessage(err, 'Đổi trạng thái sinh viên thất bại. Vui lòng thử lại.')),
   });
 
   const deleteMutation = useMutation({
@@ -172,7 +173,7 @@ export default function AdminStudentsPage() {
       message.success('Xóa sinh viên thành công!');
       queryClient.invalidateQueries({ queryKey: studentKeys.all });
     },
-    onError: (err) => message.error(err.message || 'Xóa thất bại. Sinh viên có thể đang có đăng ký học phần.'),
+    onError: (err) => message.error(getApiErrorMessage(err, 'Xóa sinh viên thất bại. Vui lòng thử lại.')),
   });
 
   // ── Handlers

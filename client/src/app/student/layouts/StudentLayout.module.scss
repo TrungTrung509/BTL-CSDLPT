@@ -200,6 +200,10 @@
   transition: margin-left 0.2s;
 }
 
+.contentCollapsed {
+  margin-left: 80px;
+}
+
 .contentInner {
   padding: 24px;
   max-width: 1400px;
@@ -208,6 +212,10 @@
 
 @include mobile {
   .content {
+    margin-left: 0;
+  }
+
+  .contentCollapsed {
     margin-left: 0;
   }
 }

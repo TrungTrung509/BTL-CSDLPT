@@ -1,6 +1,6 @@
--- ============================================================
+
 -- BENCHMARK: SO SANH TẬP TRUNG vs PHÂN TÁN
--- ============================================================
+
 --
 -- MUC TIEU:
 -- So sanh hieu nang giua mo hinh CSDL tap trung (1 PostgreSQL)
@@ -40,7 +40,7 @@
 -- - Local query: Phan tan co the nhanh hon vi du lieu nam dung site
 -- - Global query: Tap trung thuong nhanh hon vi khong can FDW/network
 -- - FDW overhead: Truy van phan tan global phai lay du lieu tu nhieu site
--- ============================================================
+
 
 -- Chi danh sach ten cac cap query de reference
 --

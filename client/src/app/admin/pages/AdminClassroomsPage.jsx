@@ -16,6 +16,7 @@ import { classroomApi, classroomKeys } from '@/services/admin/classroomApi';
 import { branchApi } from '@/services/admin/branchApi';
 import EntityOverviewDashboard from '../components/EntityOverviewDashboard';
 import { useAdminEntityOverview } from '@/hooks/useAdminOverview';
+import { getApiErrorMessage } from '@/utils/errorUtils';
 import styles from './AdminPage.module.scss';
 
 const { Title, Text } = Typography;
@@ -85,7 +86,7 @@ export default function AdminClassroomsPage() {
       queryClient.invalidateQueries({ queryKey: classroomKeys.all });
       handleCloseModal();
     },
-    onError: (err) => message.error(err.message || 'Tạo thất bại'),
+    onError: (err) => message.error(getApiErrorMessage(err, 'Tạo phòng học thất bại. Vui lòng thử lại.')),
   });
 
   const updateMutation = useMutation({
@@ -95,7 +96,7 @@ export default function AdminClassroomsPage() {
       queryClient.invalidateQueries({ queryKey: classroomKeys.all });
       handleCloseModal();
     },
-    onError: (err) => message.error(err.message || 'Cập nhật thất bại'),
+    onError: (err) => message.error(getApiErrorMessage(err, 'Cập nhật phòng học thất bại. Vui lòng thử lại.')),
   });
 
   const deleteMutation = useMutation({
@@ -104,7 +105,7 @@ export default function AdminClassroomsPage() {
       message.success('Xóa phòng học thành công!');
       queryClient.invalidateQueries({ queryKey: classroomKeys.all });
     },
-    onError: (err) => message.error(err.message || 'Xóa thất bại. Phòng có thể đang được sử dụng trong lịch học.'),
+    onError: (err) => message.error(getApiErrorMessage(err, 'Xóa phòng học thất bại. Vui lòng thử lại.')),
   });
 
   const handleOpenEdit = (record) => {

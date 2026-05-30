@@ -2,16 +2,16 @@
 @use '../../styles/variables' as *;
 @use '../../styles/mixins/responsive' as *;
 
-// ============================================================
+
 // Root Layout
-// ============================================================
+
 .layout {
   min-height: 100vh;
 }
 
-// ============================================================
+
 // Sidebar (Sider)
-// ============================================================
+
 .sider {
   overflow: auto;
   height: 100vh;
@@ -117,9 +117,9 @@
   }
 }
 
-// ============================================================
+
 // Header
-// ============================================================
+
 .header {
   background: $color-bg-container !important;
   height: $header-height;
@@ -192,18 +192,18 @@
   line-height: 1.3;
 }
 
-// ============================================================
+
 // Content
-// ============================================================
+
 .content {
   margin-left: $sidebar-width;
   min-height: calc(100vh - #{$header-height});
   background: $color-bg-layout;
   transition: margin-left $transition-base;
+}
 
-  @include tablet {
-    margin-left: $sidebar-collapsed-width;
-  }
+.contentCollapsed {
+  margin-left: $sidebar-collapsed-width;
 }
 
 .contentInner {
@@ -213,16 +213,5 @@
 
   @include tablet {
     padding: $spacing-md;
-  }
-}
-
-// ============================================================
-// Collapsed Sider State Adjustments
-// ============================================================
-:global {
-  .ant-layout-sider-collapsed + .ant-layout {
-    .content {
-      margin-left: $sidebar-collapsed-width;
-    }
   }
 }

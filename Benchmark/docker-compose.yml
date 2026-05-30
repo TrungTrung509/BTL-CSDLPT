@@ -1,9 +1,7 @@
 version: '3.8'
 
 services:
-  # ==========================================
   # MONITORING
-  # ==========================================
   prometheus:
     image: prom/prometheus:v3.5.0
     container_name: bench_prometheus
@@ -32,9 +30,9 @@ services:
     depends_on:
       - prometheus
 
-  # ==========================================
+  # 
   # CỤM CƠ SỞ (COSO)
-  # ==========================================
+  # 
   backend_coso:
     build:
       context: ./CoSo/app
@@ -112,9 +110,9 @@ services:
       DATA_SOURCE_PASS: bench_password
     networks: [bench_network]
 
-  # ==========================================
+  # 
   # CỤM KHOA (FACULTY)
-  # ==========================================
+  # 
   backend_khoa:
     build:
       context: ./Khoa/app

@@ -20,7 +20,6 @@ import {
   Empty,
   message,
   Popconfirm,
-  Popover,
   Row,
   Col,
 } from 'antd';
@@ -45,15 +44,14 @@ import {
   getWeekdayLabel,
   getWeekdayColor,
   formatLessonTime,
-  buildSchedulePopoverItem,
 } from '@/utils/formatters';
+import { getApiErrorMessage } from '@/utils/errorUtils';
 import styles from './StudentPage.module.scss';
 
 const { Title, Text } = Typography;
 
 export default function StudentClassSectionsPage() {
   const [filters, setFilters] = useState({ keyword: '', MaCoSo: null, MaHocKy: null });
-  const [registerForm] = Form.useForm();
   const [loadingMaLopHP, setLoadingMaLopHP] = useState(null);
   const queryClient = useQueryClient();
 
@@ -102,7 +100,8 @@ export default function StudentClassSectionsPage() {
       message.success(data?.message || 'Đăng ký thành công!');
     },
     onError: (error) => {
-      message.error(error.message || 'Đăng ký thất bại. Vui lòng thử lại.');
+      const msg = getApiErrorMessage(error, 'Đăng ký thất bại. Vui lòng thử lại.');
+      message.error(msg);
     },
   });
 
@@ -114,7 +113,8 @@ export default function StudentClassSectionsPage() {
       message.success('Hủy đăng ký thành công!');
     },
     onError: (error) => {
-      message.error(error.message || 'Hủy đăng ký thất bại. Vui lòng thử lại.');
+      const msg = getApiErrorMessage(error, 'Hủy đăng ký thất bại. Vui lòng thử lại.');
+      message.error(msg);
     },
   });
 
@@ -248,100 +248,70 @@ export default function StudentClassSectionsPage() {
     {
       title: 'Lịch học',
       key: 'lichHoc',
-      width: 150,
+      width: 280,
       render: (_, record) => {
         const lichHoc = record.LichHoc || [];
 
-        // Lop khong co lich
         if (lichHoc.length === 0) {
           return <Text type="secondary" style={{ fontSize: 12 }}>Chưa có lịch</Text>;
         }
 
-        // Mot lich hoc -> hien thi truc tiep voi gio thuc
-        if (lichHoc.length === 1) {
-          const item = lichHoc[0];
-          const thuLabel = getWeekdayLabel(item.ThuTrongTuan);
-          const timeRange = formatLessonTime(item.TietBatDau, item.SoTiet);
-          return (
-            <Space direction="vertical" size={3} style={{ width: '100%' }}>
-              <Space size={4}>
-                <Tag color={getWeekdayColor(item.ThuTrongTuan)}>{thuLabel}</Tag>
-              </Space>
-              <Text style={{ fontSize: 12, color: '#1677ff', fontWeight: 500 }}>
-                {timeRange}
-              </Text>
-              <Text type="secondary" style={{ fontSize: 11 }}>
-                {item.TenPhong || item.MaPhong || '—'}
-              </Text>
-            </Space>
-          );
-        }
-
-        // Nhieu lich hoc -> Popover
+        // Sap xep: thu tang dan, neu cung thu thi tieu de tang
         const sorted = [...lichHoc].sort((a, b) => {
           if (a.ThuTrongTuan !== b.ThuTrongTuan) return a.ThuTrongTuan - b.ThuTrongTuan;
-          return a.TietBatDau - b.TietBatDau;
+          return (a.TietBatDau ?? 0) - (b.TietBatDau ?? 0);
         });
 
-        const popoverContent = (
-          <div style={{ minWidth: 280 }}>
-            <Text strong style={{ display: 'block', marginBottom: 10, fontSize: 13, color: '#1d39c4' }}>
-              {sorted.length} buoi hoc
-            </Text>
+        return (
+          <Space direction="vertical" size={4} style={{ width: '100%' }}>
             {sorted.map((item, idx) => {
-              const { thuLabel, weekdayColor, timeRange, phong, ghiChu } = buildSchedulePopoverItem(item);
+              const thuLabel = getWeekdayLabel(item.ThuTrongTuan);
+              const weekdayColor = getWeekdayColor(item.ThuTrongTuan);
+              const timeRange = formatLessonTime(item.TietBatDau, item.SoTiet);
+              const phong = item.TenPhong || item.MaPhong || null;
+              const ngayBatDau = item.NgayBatDau ? formatDate(item.NgayBatDau) : null;
+              const ngayKetThuc = item.NgayKetThuc ? formatDate(item.NgayKetThuc) : null;
+              const hasDateRange = ngayBatDau || ngayKetThuc;
+              const ghiChu = item.GhiChu;
+
               return (
                 <div
                   key={item.MaLich || idx}
                   style={{
-                    padding: '8px 0',
-                    borderBottom: idx < sorted.length - 1 ? '1px solid #f0f0f0' : 'none',
+                    padding: '5px 8px',
+                    borderRadius: 6,
+                    background: '#f8faff',
+                    border: '1px solid #e8f0fe',
+                    width: '100%',
                   }}
                 >
-                  <Space direction="vertical" size={3}>
-                    <Space size={4}>
-                      <Tag color={weekdayColor}>{thuLabel}</Tag>
-                      <Text style={{ fontSize: 12, color: '#1677ff', fontWeight: 500 }}>
-                        {timeRange}
-                      </Text>
-                    </Space>
-                    <Text style={{ fontSize: 12 }}>
-                      <Text type="secondary">Phong: </Text>
+                  <Space size={6} wrap>
+                    <Tag color={weekdayColor} style={{ marginRight: 0 }}>
+                      {thuLabel}
+                    </Tag>
+                    <Text style={{ fontSize: 12, color: '#1677ff', fontWeight: 500 }}>
+                      {timeRange}
+                    </Text>
+                  </Space>
+                  {phong && (
+                    <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>
                       {phong}
                     </Text>
-                    <Text style={{ fontSize: 12 }}>
-                      <Text type="secondary">Ngay: </Text>
-                      {item.NgayBatDau && item.NgayKetThuc
-                        ? `${formatDate(item.NgayBatDau)} — ${formatDate(item.NgayKetThuc)}`
-                        : '—'}
+                  )}
+                  {hasDateRange && (
+                    <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 1 }}>
+                      {ngayBatDau}{ngayKetThuc && ngayBatDau !== ngayKetThuc ? ` – ${ngayKetThuc}` : ''}
                     </Text>
-                    {ghiChu && (
-                      <Text type="secondary" style={{ fontSize: 12, fontStyle: 'italic' }}>
-                        {ghiChu}
-                      </Text>
-                    )}
-                  </Space>
+                  )}
+                  {ghiChu && (
+                    <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 1, fontStyle: 'italic' }}>
+                      {ghiChu}
+                    </Text>
+                  )}
                 </div>
               );
             })}
-          </div>
-        );
-
-        return (
-          <Popover
-            content={popoverContent}
-            title="Lich hoc cua lop"
-            trigger="click"
-            placement="left"
-            overlayStyle={{ maxWidth: 340 }}
-          >
-            <Tag
-              color="processing"
-              style={{ cursor: 'pointer', userSelect: 'none' }}
-            >
-              {lichHoc.length} buoi hoc
-            </Tag>
-          </Popover>
+          </Space>
         );
       },
     },
@@ -571,7 +541,7 @@ export default function StudentClassSectionsPage() {
           rowKey="MaLopHP"
           loading={sectionsLoading}
           pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t, r) => `${r[0]}-${r[1]} trong ${t}`, pageSizeOptions: ['10', '20', '50'] }}
-          scroll={{ x: 1550 }}
+          scroll={{ x: 1700 }}
           size="middle"
           locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Không có lớp học phần nào phù hợp" /> }}
         />

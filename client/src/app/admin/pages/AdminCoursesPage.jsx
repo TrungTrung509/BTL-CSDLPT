@@ -15,6 +15,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { courseApi } from '@/services/admin/courseApi';
 import EntityOverviewDashboard from '../components/EntityOverviewDashboard';
 import { useAdminEntityOverview } from '@/hooks/useAdminOverview';
+import { getApiErrorMessage } from '@/utils/errorUtils';
 import styles from './AdminPage.module.scss';
 
 const { Title, Text } = Typography;
@@ -53,7 +54,7 @@ export default function AdminCoursesPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-courses'] });
       handleCloseModal();
     },
-    onError: (err) => message.error(err.message || 'Tạo thất bại'),
+    onError: (err) => message.error(getApiErrorMessage(err, 'Tạo học phần thất bại. Vui lòng thử lại.')),
   });
 
   const updateMutation = useMutation({
@@ -63,7 +64,7 @@ export default function AdminCoursesPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-courses'] });
       handleCloseModal();
     },
-    onError: (err) => message.error(err.message || 'Cập nhật thất bại'),
+    onError: (err) => message.error(getApiErrorMessage(err, 'Cập nhật học phần thất bại. Vui lòng thử lại.')),
   });
 
   const deleteMutation = useMutation({
@@ -72,7 +73,7 @@ export default function AdminCoursesPage() {
       message.success('Xóa học phần thành công!');
       queryClient.invalidateQueries({ queryKey: ['admin-courses'] });
     },
-    onError: (err) => message.error(err.message || 'Xóa thất bại'),
+    onError: (err) => message.error(getApiErrorMessage(err, 'Xóa học phần thất bại. Vui lòng thử lại.')),
   });
 
   const handleOpenEdit = (record) => {

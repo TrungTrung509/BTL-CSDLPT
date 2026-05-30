@@ -28,6 +28,7 @@ import { departmentApi, departmentKeys } from '@/services/admin/departmentApi';
 import { formatDate } from '@/utils/formatters';
 import EntityOverviewDashboard from '../components/EntityOverviewDashboard';
 import { useAdminEntityOverview } from '@/hooks/useAdminOverview';
+import { getApiErrorMessage } from '@/utils/errorUtils';
 import styles from './AdminPage.module.scss';
 
 const { Title, Text } = Typography;
@@ -162,7 +163,7 @@ export default function AdminTeachersPage() {
       queryClient.invalidateQueries({ queryKey: teacherKeys.all });
       handleCloseModal();
     },
-    onError: (err) => message.error(err.message || 'Thêm thất bại'),
+    onError: (err) => message.error(getApiErrorMessage(err, 'Thêm giảng viên thất bại. Vui lòng thử lại.')),
   });
 
   const updateMutation = useMutation({
@@ -172,7 +173,7 @@ export default function AdminTeachersPage() {
       queryClient.invalidateQueries({ queryKey: teacherKeys.all });
       handleCloseModal();
     },
-    onError: (err) => message.error(err.message || 'Cập nhật thất bại'),
+    onError: (err) => message.error(getApiErrorMessage(err, 'Cập nhật giảng viên thất bại. Vui lòng thử lại.')),
   });
 
   const statusMutation = useMutation({
@@ -181,7 +182,7 @@ export default function AdminTeachersPage() {
       message.success('Đổi trạng thái thành công!');
       queryClient.invalidateQueries({ queryKey: teacherKeys.all });
     },
-    onError: (err) => message.error(err.message || 'Đổi trạng thái thất bại'),
+    onError: (err) => message.error(getApiErrorMessage(err, 'Đổi trạng thái giảng viên thất bại. Vui lòng thử lại.')),
   });
 
   const deleteMutation = useMutation({
@@ -190,7 +191,7 @@ export default function AdminTeachersPage() {
       message.success('Xóa giảng viên thành công!');
       queryClient.invalidateQueries({ queryKey: teacherKeys.all });
     },
-    onError: (err) => message.error(err.message || 'Xóa thất bại. Giảng viên có thể đang được sử dụng.'),
+    onError: (err) => message.error(getApiErrorMessage(err, 'Xóa giảng viên thất bại. Vui lòng thử lại.')),
   });
 
   // ── Handlers
