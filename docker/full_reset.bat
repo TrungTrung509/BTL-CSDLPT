@@ -1,8 +1,6 @@
 @echo off
 chcp 65001 >nul
-echo ============================================================
 echo  FULL RESET - Recreate All with UTF8 + Clean Data
-echo ============================================================
 echo.
 echo [WARNING] This will DELETE all existing data!
 echo.
@@ -45,7 +43,5 @@ echo [6/6] Summary...
 docker exec csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong -c "SELECT 'SinhVien' as tbl, COUNT(*) FROM sinhvien UNION ALL SELECT 'GiangVien', COUNT(*) FROM giangvien UNION ALL SELECT 'PhongHoc', COUNT(*) FROM phonghoc UNION ALL SELECT 'LopHocPhan', COUNT(*) FROM lophocphan UNION ALL SELECT 'LichHoc', COUNT(*) FROM lichhoc;"
 
 echo.
-echo ============================================================
 echo  Done! Check Vietnamese data above.
-echo ============================================================
 pause

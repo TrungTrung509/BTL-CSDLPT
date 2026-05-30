@@ -1,8 +1,6 @@
 #!/bin/sh
-# =============================================================
 # Tự động tạo Debezium connectors & Elasticsearch Mapping
 # BẢN FIX: PRIORITY 1100 + SLOT_NAME UNDERSCORE + SHELL COMPAT
-# =============================================================
 
 CONNECT_HOST=${1:-localhost}
 CONNECT_URL="http://${CONNECT_HOST}:8083/connectors"
@@ -83,4 +81,3 @@ create_source_connector "ngoctruc" "postgres_ngoctruc" "csdlpt_ngoctruc"
 curl -s -X POST "$CONNECT_URL" -H "Content-Type: application/json" -d '{"name":"es-sink-ind","config":{"connector.class":"io.confluent.connect.elasticsearch.ElasticsearchSinkConnector","connection.url":"http://elasticsearch:9200","tasks.max":"1","topics.regex":"(?i).*nhatkythaotac","key.ignore":"true","schema.ignore":"true","transforms":"unwrap","transforms.unwrap.type":"io.debezium.transforms.ExtractNewRecordState"}}'
 curl -s -X POST "$CONNECT_URL" -H "Content-Type: application/json" -d '{"name":"es-sink-uni","config":{"connector.class":"io.confluent.connect.elasticsearch.ElasticsearchSinkConnector","connection.url":"http://elasticsearch:9200","tasks.max":"1","topics":"nhat-ky-thao-tac","key.ignore":"true","schema.ignore":"true","transforms":"unwrap","transforms.unwrap.type":"io.debezium.transforms.ExtractNewRecordState"}}'
 
-echo "=== HOÀN TẤT: Mọi lỗi đã được xử lý triệt để! ==="

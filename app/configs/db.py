@@ -32,20 +32,11 @@ engines = {
     "NGOCTRUC": _create_site_engine(NGOCTRUC_URL),
 }
 
-# MAPPING SESSION MAKERS
-# SessionLocals = {
-#     "HADONG": sessionmaker(..., bind=engine_HADONG),
-#     "HOALAC": sessionmaker(..., bind=engine_HOALAC),
-#     "NGOCTRUC": sessionmaker(..., bind=engine_NGOCTRUC),
-# }
 SessionLocals = {
     site: sessionmaker(autocommit=False, autoflush=False, bind=engine, expire_on_commit=False)
     for site, engine in engines.items()
 }
 
-# MAPPING SESSION MAKERS - AUTOCOMMIT (dùng riêng cho audit log)
-# Mỗi .add() + .flush() sẽ commit ngay vào DB, không phụ thuộc transaction chính.
-# Đảm bảo log tồn tại dù transaction chính rollback.
 LogSessionLocals = {
     site: sessionmaker(
         autocommit=False,

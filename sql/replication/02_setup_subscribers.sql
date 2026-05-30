@@ -13,7 +13,6 @@
 -- App-managed distributed writes:
 --   - users
 
-
 -- Before running:
 -- 1. Common tables already exist on the subscriber.
 -- 2. Publication pub_common_tables already exists on HADONG.

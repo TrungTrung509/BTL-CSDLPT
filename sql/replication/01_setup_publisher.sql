@@ -9,7 +9,6 @@
 --   - HocPhan: replicated at app layer via ReplicationService
 --   - users: distributed writes managed by the app
 
-
 -- PostgreSQL server must start with:
 --   wal_level = logical
 --   max_replication_slots = 10

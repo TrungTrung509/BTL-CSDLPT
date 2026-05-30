@@ -22,7 +22,7 @@ class ClassroomRepo:
 
         if filters.keyword and filters.keyword.strip():
             keyword = filters.keyword.strip()
-            # Tìm kiếm không phân biệt hoa thường theo mã phòng hoặc tên phòng
+            # Tìm kiếm theo mã phòng hoặc tên phòng
             keyword_lower = keyword.lower()
             query = query.filter(
                 (Classroom.MaPhong.ilike(f"%{keyword_lower}%")) |

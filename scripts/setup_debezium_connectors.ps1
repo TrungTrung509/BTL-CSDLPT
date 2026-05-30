@@ -1,7 +1,4 @@
-# =============================================================
-# Tạo Debezium connectors & Elasticsearch Mapping (Chuẩn)
-# Đảm bảo ThoiGian là date cho cả index riêng & tổng
-# =============================================================
+# Tạo Debezium connectors & Elasticsearch Mapping
 
 $ConnectUrl = "http://localhost:8083/connectors"
 $EsUrl      = "http://localhost:9200"

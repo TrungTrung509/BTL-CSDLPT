@@ -30,9 +30,7 @@ services:
     depends_on:
       - prometheus
 
-  # 
   # CỤM CƠ SỞ (COSO)
-  # 
   backend_coso:
     build:
       context: ./CoSo/app
@@ -110,9 +108,7 @@ services:
       DATA_SOURCE_PASS: bench_password
     networks: [bench_network]
 
-  # 
   # CỤM KHOA (FACULTY)
-  # 
   backend_khoa:
     build:
       context: ./Khoa/app

@@ -1,7 +1,5 @@
-# ============================================================
+
 # SETUP CENTRALIZED DATABASE
-# Setup schema + import data from 3 sites
-# ============================================================
 
 $ErrorActionPreference = "Stop"
 $ProjectRoot = "e:\2.PTIT\DangKiHocPhan\BTL-CSDLPT"
@@ -57,9 +55,7 @@ docker cp "$ProjectRoot\scripts\fix_replicationoutbox.sql" csdlpt_centralized:/t
 docker exec csdlpt_centralized psql -U csdlpt_user -d csdlpt_centralized -f /tmp/fix.sql
 
 Write-Host ""
-Write-Host "========================================" -ForegroundColor Green
 Write-Host "  CENTRALIZED DATABASE SETUP COMPLETE" -ForegroundColor Green
-Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "Database: csdlpt_centralized (port 5435)" -ForegroundColor Cyan
 Write-Host "User: csdlpt_user" -ForegroundColor Cyan

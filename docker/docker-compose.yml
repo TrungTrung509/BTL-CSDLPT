@@ -1,6 +1,5 @@
 # DOCKER COMPOSE - CƠ SỞ DỮ LIỆU PHÂN TÁN
 # Đề tài: Hệ thống đăng ký học phần nhiều cơ sở
-# Mô tả: 3 Site PostgreSQL + Redis + Elasticsearch + Kibana
 
 name: csdlpt
 
