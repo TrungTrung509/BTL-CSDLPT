@@ -1,6 +1,17 @@
 import sys
 import os
 from datetime import datetime, date
+import bcrypt
+
+# Monkeypatch bcrypt to fix passlib compatibility with python 3.12+ / bcrypt 4.0.0+
+original_hashpw = bcrypt.hashpw
+def safe_hashpw(password, salt):
+    if isinstance(password, bytes) and len(password) > 72:
+        password = password[:72]
+    elif isinstance(password, str) and len(password.encode('utf-8')) > 72:
+        password = password.encode('utf-8')[:72]
+    return original_hashpw(password, salt)
+bcrypt.hashpw = safe_hashpw
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'app'))
 
@@ -8,8 +19,10 @@ from configs.db import engines
 from configs.config import pwd_context
 from sqlalchemy import text
 
-NUM_STUDENTS = 10
-NUM_TEACHERS = 10
+NUM_STUDENTS = 700
+NUM_TEACHERS = 40
+NUM_ROOMS = 15
+SECTIONS_PER_COURSE = 15
 
 YEAR_PREFIX = str(datetime.now().year)[2:]
 DEPT_CODE = "CNTT"
@@ -41,7 +54,8 @@ for site in BRANCHES.keys():
     students_data[site] = []
     teachers_data[site] = []
 
-print("Generating datasets and hashing passwords (password = id)...")
+print("Generating datasets and hashing passwords (password = 123456)...")
+DEFAULT_PASSWORD_HASH = pwd_context.hash("123456")
 
 # Generate Students
 for site, info in BRANCHES.items():
@@ -53,7 +67,7 @@ for site, info in BRANCHES.items():
         user_detail = {
             "user_id": ma_sv,
             "username": ma_sv,
-            "password": pwd_context.hash(ma_sv),
+            "password": DEFAULT_PASSWORD_HASH,
             "email": f"{ma_sv}@{info['domain']}",
             "role": "SinhVien",
             "branch": site,
@@ -90,7 +104,7 @@ for site, info in BRANCHES.items():
         user_detail = {
             "user_id": ma_gv,
             "username": ma_gv,
-            "password": pwd_context.hash(ma_gv), 
+            "password": DEFAULT_PASSWORD_HASH, 
             "email": f"{ma_gv}@{info['domain']}",
             "role": "GiangVien",
             "branch": site,
@@ -107,8 +121,8 @@ for site, info in BRANCHES.items():
             "ten": f"Giang Vien {i:02d}",
             "ngay_sinh": date(1980 + i, 5, 20),
             "gioi_tinh": "Nam" if i % 2 == 1 else "Nu",
-            "hoc_vi": "TienSi" if i <= 3 else "ThacSi",
-            "hoc_ham": "PhoGiaoSu" if i == 1 else "GiangVien",
+            "hoc_vi": "TienSi" if i <= 10 else "ThacSi",
+            "hoc_ham": "PhoGiaoSu" if i <= 3 else "GiangVien",
             "sdt": f"0901000{info['code']}{i:02d}",
             "dia_chi": info['address'],
             "ma_coso": site,
@@ -131,61 +145,103 @@ admin_detail = {
     "created_at": datetime.utcnow().isoformat()
 }
 
-# 5 Common Courses to seed on all sites
+semester_detail = {
+    "ma_hoc_ky": "HK2-2025",
+    "nam_hoc": "2025-2026",
+    "ky_so": 2,
+    "ngay_bd": date(2025, 8, 15),
+    "ngay_kt": date(2025, 11, 15),
+    "trang_thai": "DangDangKy"
+}
+
+# 8 Common Courses to seed on all sites (All BatBuoc)
 courses_data = [
     {
-        "ma_hp": "INT1401",
-        "ten_hp": "An toàn và bảo mật hệ thống thông tin",
-        "so_tc": 3,
-        "so_tiet_lt": 30,
-        "so_tiet_th": 15,
-        "loai_hp": "BatBuoc",
-        "ma_khoa": "CNTT",
-        "mo_ta": "Học phần An toàn và bảo mật hệ thống thông tin",
-        "trang_thai": "HoatDong"
-    },
-    {
-        "ma_hp": "INT1402",
-        "ten_hp": "Thực tập cơ sở",
+        "ma_hp": "GDTC1102",
+        "ten_hp": "Giáo dục thể chất 2",
         "so_tc": 2,
         "so_tiet_lt": 0,
-        "so_tiet_th": 30,
+        "so_tiet_th": 60,
         "loai_hp": "BatBuoc",
         "ma_khoa": "CNTT",
-        "mo_ta": "Học phần Thực tập cơ sở",
+        "mo_ta": "Học phần Giáo dục thể chất 2",
         "trang_thai": "HoatDong"
     },
     {
-        "ma_hp": "INT1403",
-        "ten_hp": "Cơ sở dữ liệu phân tán",
-        "so_tc": 3,
-        "so_tiet_lt": 30,
-        "so_tiet_th": 15,
-        "loai_hp": "BatBuoc",
-        "ma_khoa": "CNTT",
-        "mo_ta": "Học phần Cơ sở dữ liệu phân tán",
-        "trang_thai": "HoatDong"
-    },
-    {
-        "ma_hp": "INT1404",
-        "ten_hp": "Lập trình Web",
-        "so_tc": 3,
-        "so_tiet_lt": 30,
-        "so_tiet_th": 15,
-        "loai_hp": "BatBuoc",
-        "ma_khoa": "CNTT",
-        "mo_ta": "Học phần Lập trình Web",
-        "trang_thai": "HoatDong"
-    },
-    {
-        "ma_hp": "INT1405",
-        "ten_hp": "Kỹ năng tạo lập Văn bản",
+        "ma_hp": "MLN1102",
+        "ten_hp": "Kinh tế chính trị Mác- Lênin",
         "so_tc": 2,
         "so_tiet_lt": 30,
         "so_tiet_th": 0,
-        "loai_hp": "TuChon",
+        "loai_hp": "BatBuoc",
         "ma_khoa": "CNTT",
-        "mo_ta": "Học phần Kỹ năng tạo lập Văn bản",
+        "mo_ta": "Học phần Kinh tế chính trị Mác- Lênin",
+        "trang_thai": "HoatDong"
+    },
+    {
+        "ma_hp": "ENG1101",
+        "ten_hp": "Tiếng Anh (Course 1)",
+        "so_tc": 3,
+        "so_tiet_lt": 45,
+        "so_tiet_th": 0,
+        "loai_hp": "BatBuoc",
+        "ma_khoa": "CNTT",
+        "mo_ta": "Học phần Tiếng Anh (Course 1)",
+        "trang_thai": "HoatDong"
+    },
+    {
+        "ma_hp": "BAS1204",
+        "ten_hp": "Giải tích 2",
+        "so_tc": 3,
+        "so_tiet_lt": 45,
+        "so_tiet_th": 0,
+        "loai_hp": "BatBuoc",
+        "ma_khoa": "CNTT",
+        "mo_ta": "Học phần Giải tích 2",
+        "trang_thai": "HoatDong"
+    },
+    {
+        "ma_hp": "BAS1224",
+        "ten_hp": "Vật lý ứng dụng",
+        "so_tc": 3,
+        "so_tiet_lt": 30,
+        "so_tiet_th": 15,
+        "loai_hp": "BatBuoc",
+        "ma_khoa": "CNTT",
+        "mo_ta": "Học phần Vật lý ứng dụng",
+        "trang_thai": "HoatDong"
+    },
+    {
+        "ma_hp": "BAS1105",
+        "ten_hp": "Pháp luật đại cương",
+        "so_tc": 2,
+        "so_tiet_lt": 30,
+        "so_tiet_th": 0,
+        "loai_hp": "BatBuoc",
+        "ma_khoa": "CNTT",
+        "mo_ta": "Học phần Pháp luật đại cương",
+        "trang_thai": "HoatDong"
+    },
+    {
+        "ma_hp": "INT1319",
+        "ten_hp": "Kỹ thuật số",
+        "so_tc": 3,
+        "so_tiet_lt": 30,
+        "so_tiet_th": 15,
+        "loai_hp": "BatBuoc",
+        "ma_khoa": "CNTT",
+        "mo_ta": "Học phần Kỹ thuật số",
+        "trang_thai": "HoatDong"
+    },
+    {
+        "ma_hp": "INT1155",
+        "ten_hp": "Tin học cơ sở 2",
+        "so_tc": 3,
+        "so_tiet_lt": 30,
+        "so_tiet_th": 15,
+        "loai_hp": "BatBuoc",
+        "ma_khoa": "CNTT",
+        "mo_ta": "Học phần Tin học cơ sở 2",
         "trang_thai": "HoatDong"
     }
 ]
@@ -194,13 +250,13 @@ courses_data = [
 classrooms_data = {}
 for site, info in BRANCHES.items():
     classrooms_data[site] = []
-    for i in range(1, 6): # 5 rooms
+    for i in range(1, NUM_ROOMS + 1): # 15 rooms
         room_id = f"{info['code']}_{100+i}"
         classrooms_data[site].append({
             "ma_phong": room_id,
             "ten_phong": f"Phong {100+i} - {info['code']}",
-            "toa_nha": "Toa A1" if i <= 3 else "Toa B1",
-            "tang": 1 if i <= 3 else 2,
+            "toa_nha": "Toa A1" if i <= 8 else "Toa B1",
+            "tang": (i - 1) // 5 + 1,
             "suc_chua": 80,
             "loai_phong": "LyThuyet" if i % 2 == 1 else "MayTinh",
             "ma_coso": site,
@@ -211,6 +267,8 @@ for site, info in BRANCHES.items():
 sections_data = {}
 schedules_data = {}
 
+tiets_pool = [1, 3, 6, 8]
+
 for site, info in BRANCHES.items():
     sections_data[site] = []
     schedules_data[site] = []
@@ -219,16 +277,24 @@ for site, info in BRANCHES.items():
         ma_hp = c["ma_hp"]
         ten_hp = c["ten_hp"]
         
-        for k in range(1, 5): # 4 class sections: Nhóm 01 to Nhóm 04
+        # Max capacity based on course type
+        if ma_hp in ["GDTC1102", "MLN1102", "BAS1105"]:
+            si_so_max = 60
+        elif ma_hp in ["BAS1204", "BAS1224", "INT1155"]:
+            si_so_max = 50
+        else:
+            si_so_max = 45
+
+        for k in range(1, SECTIONS_PER_COURSE + 1): # 15 class sections: Nhóm 01 to Nhóm 15
             nhom_str = f"{k:02d}"
             ma_lop_hp = f"{site}_{ma_hp}_{nhom_str}"
             
-            # Select teacher index (1 to 10)
-            t_idx = (j * 4 + (k - 1)) % 10 + 1
+            # Select teacher index (1 to 40) using Round-Robin
+            t_idx = ((j * SECTIONS_PER_COURSE + (k - 1)) % NUM_TEACHERS) + 1
             ma_gv = f"GV{info['code']}{YEAR_PREFIX}{DEPT_CODE}{t_idx:03d}"
             
-            # Select room index (1 to 5)
-            r_idx = (j * 4 + (k - 1)) % 5 + 1
+            # Select room index (1 to 15) using Round-Robin
+            r_idx = ((j * SECTIONS_PER_COURSE + (k - 1)) % NUM_ROOMS) + 1
             ma_phong = f"{info['code']}_{100+r_idx}"
             
             section_detail = {
@@ -238,37 +304,46 @@ for site, info in BRANCHES.items():
                 "ma_coso": site,
                 "ma_gv": ma_gv,
                 "ten_lop_hp": f"Lop {ten_hp} - Nhom {nhom_str}",
-                "si_so_toi_da": 40,
+                "si_so_toi_da": si_so_max,
                 "si_so_hien_tai": 0,
                 "hinh_thuc_hoc": "Offline",
                 "trang_thai_lop": "Mo"
             }
             sections_data[site].append(section_detail)
             
-            # Day of the week: 2 to 7 (Mon to Sat)
-            day = 2 + (j + k) % 6
-            tiet = 1 if k % 2 == 1 else 6
+            # Spread days over Monday to Saturday (day 2 to 7)
+            day = 2 + (j * 2 + (k - 1)) % 6
+            # Spread starting period over the pool [1, 3, 6, 8]
+            tiet = tiets_pool[(k - 1) % len(tiets_pool)]
             
-            # Schedule 1: First half (2025-08-15 to 2025-09-30), 2 periods
+            # Alternating periods based on course index j
+            if j % 2 == 0:
+                so_tiet_s1 = 2
+                so_tiet_s2 = 3
+            else:
+                so_tiet_s1 = 3
+                so_tiet_s2 = 2
+            
+            # Schedule 1: First half (2025-08-15 to 2025-09-30)
             sch1_detail = {
                 "ma_lich": f"LH_{info['code']}_{ma_hp}_{nhom_str}_S1",
                 "ma_lop_hp": ma_lop_hp,
                 "ma_phong": ma_phong,
                 "thu_trong_tuan": day,
                 "tiet_bat_dau": tiet,
-                "so_tiet": 2,
+                "so_tiet": so_tiet_s1,
                 "ngay_bat_dau": date(2025, 8, 15),
                 "ngay_ket_thuc": date(2025, 9, 30),
                 "ghi_chu": f"Nua ky dau - {ten_hp}"
             }
-            # Schedule 2: Second half (2025-10-01 to 2025-11-15), 3 periods
+            # Schedule 2: Second half (2025-10-01 to 2025-11-15)
             sch2_detail = {
                 "ma_lich": f"LH_{info['code']}_{ma_hp}_{nhom_str}_S2",
                 "ma_lop_hp": ma_lop_hp,
                 "ma_phong": ma_phong,
                 "thu_trong_tuan": day,
                 "tiet_bat_dau": tiet,
-                "so_tiet": 3,
+                "so_tiet": so_tiet_s2,
                 "ngay_bat_dau": date(2025, 10, 1),
                 "ngay_ket_thuc": date(2025, 11, 15),
                 "ghi_chu": f"Nua ky sau - {ten_hp}"
@@ -277,6 +352,17 @@ for site, info in BRANCHES.items():
             schedules_data[site].append(sch2_detail)
 
 # 2. SQL Statements
+semester_sql = text("""
+    INSERT INTO "HocKy" ("MaHocKy", "NamHoc", "KySo", "NgayBatDau", "NgayKetThuc", "TrangThaiHocKy")
+    VALUES (:ma_hoc_ky, :nam_hoc, :ky_so, :ngay_bd, :ngay_kt, :trang_thai)
+    ON CONFLICT ("MaHocKy") DO UPDATE
+    SET "NamHoc" = EXCLUDED."NamHoc",
+        "KySo" = EXCLUDED."KySo",
+        "NgayBatDau" = EXCLUDED."NgayBatDau",
+        "NgayKetThuc" = EXCLUDED."NgayKetThuc",
+        "TrangThaiHocKy" = EXCLUDED."TrangThaiHocKy";
+""")
+
 user_sql = text("""
     INSERT INTO "users" ("userId", "username", "password", "email", "role", "MaCoSo", "status", "NgayTao")
     VALUES (:user_id, :username, :password, :email, :role, :branch, :status, :created_at)
@@ -393,8 +479,12 @@ for site, engine in engines.items():
                 pass
                 
             # Truncate tables to ensure fresh state
-            conn.execute(text('TRUNCATE TABLE "SinhVien", "GiangVien", "users", "PhongHoc", "LopHocPhan", "LichHoc" CASCADE;'))
-            print("  [v] Truncated old users, students, teachers, classrooms, class sections, and schedules")
+            conn.execute(text('TRUNCATE TABLE "SinhVien", "GiangVien", "users", "PhongHoc", "LopHocPhan", "LichHoc", "HocKy" CASCADE;'))
+            print("  [v] Truncated old semesters, users, students, teachers, classrooms, class sections, and schedules")
+
+            # Seed Semester
+            conn.execute(semester_sql, semester_detail)
+            print("  [v] Seeded Semester HK2-2025")
 
             # Seed Admin
             conn.execute(user_sql, admin_detail)
@@ -456,3 +546,31 @@ for site, engine in engines.items():
                 
     except Exception as e:
         print(f"  [x] Failed to seed database for site {site}: {e}")
+
+
+import subprocess
+
+# Determine docker directory relative to this script
+docker_dir = os.path.join(os.path.dirname(__file__), "..", "docker")
+
+# Run bootstrap script in backend container
+print(f"Running bootstrap_search.py inside backend container...")
+res_bootstrap = subprocess.run([
+    "docker", "compose", "exec", "-T", "backend",
+    "python", "scripts/bootstrap_search.py", "--force", "--host", "http://elasticsearch:9200"
+], cwd=docker_dir)
+if res_bootstrap.returncode == 0:
+    print("Elasticsearch bootstrap completed successfully.")
+else:
+    print(f"Elasticsearch bootstrap failed with exit code: {res_bootstrap.returncode}")
+    
+# Run reindex script in backend container
+print(f"Running reindex_es.py inside backend container...")
+res_reindex = subprocess.run([
+    "docker", "compose", "exec", "-T", "backend",
+    "sh", "-c", "ES_HOST=http://elasticsearch:9200 PG_HOST=postgres_hadong python scripts/reindex_es.py"
+], cwd=docker_dir)
+if res_reindex.returncode == 0:
+    print("Elasticsearch reindexing completed successfully.")
+else:
+    print(f"Elasticsearch reindexing failed with exit code: {res_reindex.returncode}")

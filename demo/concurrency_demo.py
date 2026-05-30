@@ -1,9 +1,18 @@
 import sys
 import os
 import threading
+import urllib.request
+import urllib.parse
+import urllib.error
+import json
 from sqlalchemy import text
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'app')))
+
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
+if hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8')
 
 from configs.db import SessionLocals
 from services.EnrollmentService import EnrollmentService
@@ -22,25 +31,63 @@ def login(ma_sv: str):
 
 def reset_database(class_code, user_ids):
     """Reset sĩ số lớp về 49/50 và xóa bản ghi đăng ký cũ của 2 sinh viên."""
-    with SessionLocals['HOALAC']() as session:
+    site = class_code.split("_")[0].upper()
+    with SessionLocals[site]() as session:
         session.execute(
             text('UPDATE "LopHocPhan" SET "SiSoHienTai" = 49, "SiSoToiDa" = 50 WHERE "MaLopHP" = :c'),
             {"c": class_code}
         )
         session.commit()
 
-    params = {"ids": user_ids, "c": class_code}
+    params = {"ids": user_ids}
     for session_factory in SessionLocals.values():
         with session_factory() as session:
-            session.execute(text('DELETE FROM "DangKy" WHERE "userId" = ANY(:ids) AND "MaLopHP" = :c'), params)
+            session.execute(text('DELETE FROM "DangKy" WHERE "userId" = ANY(:ids)'), params)
+            session.execute(text('DELETE FROM "DangKy_ChuyenCoSo" WHERE "userId" = ANY(:ids)'), params)
             session.commit()
 
 def register_thread(user, class_code):
-    """Luồng đăng ký cho 1 sinh viên qua cơ chế 3PC + Locks."""
+    """Luồng đăng ký cho 1 sinh viên qua HTTP API của backend."""
     try:
-        EnrollmentService.register(user, EnrollmentCreate(MaLopHP=class_code))
-    except Exception:
-        pass
+        # 1. Đăng nhập
+        login_data = urllib.parse.urlencode({
+            "username": user.username,
+            "password": "123456"
+        }).encode("utf-8")
+        
+        login_req = urllib.request.Request(
+            "http://localhost:8000/auth/login",
+            data=login_data,
+            headers={"Content-Type": "application/x-www-form-urlencoded"}
+        )
+        
+        with urllib.request.urlopen(login_req) as login_res:
+            token_info = json.loads(login_res.read().decode("utf-8"))
+            token = token_info["access_token"]
+            
+        # 2. Đăng ký học phần
+        register_data = json.dumps({"MaLopHP": class_code}).encode("utf-8")
+        register_req = urllib.request.Request(
+            "http://localhost:8000/enrollments/register",
+            data=register_data,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {token}"
+            }
+        )
+        
+        with urllib.request.urlopen(register_req) as register_res:
+            result = json.loads(register_res.read().decode("utf-8"))
+            print(f"SV {user.username} dang ky {class_code}: success={result.get('success')} - {result.get('message')}")
+            
+    except urllib.error.HTTPError as e:
+        try:
+            err_data = json.loads(e.read().decode("utf-8"))
+            print(f"SV {user.username} dang ky that bai: {err_data.get('message')} - Chi tiet: {err_data.get('errorr')}")
+        except Exception:
+            print(f"SV {user.username} loi HTTP: {e.code} - {e.reason}")
+    except Exception as e:
+        print(f"SV {user.username} loi he thong: {e}")
 
 def main():
     try:
@@ -53,7 +100,7 @@ def main():
                 text('SELECT "MaLopHP" FROM "LopHocPhan" WHERE "MaCoSo" = \'HOALAC\' LIMIT 1')
             ).fetchone()
         if not row:
-            raise Exception("Không tìm thấy lớp học phần ở HOALAC")
+            raise Exception("Khong tim thay lop hoc phan o HOALAC")
         class_code = row[0]
 
         # 3. Reset DB về trạng thái ban đầu (49/50)
@@ -65,7 +112,7 @@ def main():
         for t in threads: t.join()
 
     except Exception as e:
-        print(f"Lỗi: {e}")
+        print(f"Loi: {e}")
 
 if __name__ == '__main__':
     main()
