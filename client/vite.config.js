@@ -16,9 +16,10 @@ export default defineConfig({
       },
     },
   },
-  server:{
+  server: {
     port: 3000,
-  }
+    host: true,          // Bind 0.0.0.0 — bắt buộc khi chạy trong Docker
+  },
   // server: {
   //   port: 3000,
   //   proxy: {
