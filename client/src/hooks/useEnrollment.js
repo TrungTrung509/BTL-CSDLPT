@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { enrollmentApi } from '@/services/enrollmentApi';
 import { QUERY_KEYS } from './useAuth';
 import { message } from 'antd';
+import { getApiErrorMessage } from '@/utils/errorUtils';
 
 export function useEnrollmentHistoryQuery(maHocKy) {
   return useQuery({
@@ -34,7 +35,8 @@ export function useRegisterEnrollmentMutation() {
       message.success(msg);
     },
     onError: (error) => {
-      message.error(error.message || 'Đăng ký thất bại. Vui lòng thử lại.');
+      const msg = getApiErrorMessage(error, 'Đăng ký thất bại. Vui lòng thử lại.');
+      message.error(msg);
     },
   });
 }
@@ -52,7 +54,8 @@ export function useCancelEnrollmentMutation() {
       message.success('Hủy đăng ký thành công!');
     },
     onError: (error) => {
-      message.error(error.message || 'Hủy đăng ký thất bại. Vui lòng thử lại.');
+      const msg = getApiErrorMessage(error, 'Hủy đăng ký thất bại. Vui lòng thử lại.');
+      message.error(msg);
     },
   });
 }

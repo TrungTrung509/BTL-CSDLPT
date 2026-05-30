@@ -16,9 +16,9 @@ export const QUERY_KEYS = {
   semesters: ['semesters'],
 };
 
-// ============================================================
+
 // useLoginMutation
-// ============================================================
+
 export function useLoginMutation(options = {}) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -62,9 +62,9 @@ export function useLoginMutation(options = {}) {
   });
 }
 
-// ============================================================
+
 // useLogoutMutation
-// ============================================================
+
 export function useLogoutMutation() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -86,9 +86,9 @@ export function useLogoutMutation() {
   });
 }
 
-// ============================================================
+
 // useCurrentUserQuery
-// ============================================================
+
 export function useCurrentUserQuery(options = {}) {
   return useQuery({
     queryKey: QUERY_KEYS.currentUser,

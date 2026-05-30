@@ -33,9 +33,7 @@ class SimpleEnrollmentService:
                     return True
         return False
 
-    # ==========================================================
     # REGISTER hoặc ĐỔI LỚP (Nếu đã đăng ký cùng MaHP thì swap)
-    # ==========================================================
     @staticmethod
     def register_simple(user_id: str, ma_lop_hp: str):
         home_site = get_site_prefix(user_id)
@@ -261,9 +259,9 @@ class SimpleEnrollmentService:
             for db in dbs.values():
                 db.close()
 
-    # ==========================================================
+    
     # HỦY ĐĂNG KÝ
-    # ==========================================================
+    
     @staticmethod
     def cancel_simple(user_id: str, ma_lop_hp: str):
         home_site = get_site_prefix(user_id)

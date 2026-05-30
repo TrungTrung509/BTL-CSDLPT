@@ -16,6 +16,7 @@ import {
   getRankLabel,
   formatDate,
 } from '@/utils/formatters';
+import { getApiErrorMessage } from '@/utils/errorUtils';
 import styles from './TeacherPage.module.scss';
 
 const { Title, Text } = Typography;
@@ -38,7 +39,8 @@ export default function TeacherProfilePage() {
       changePwdForm.resetFields();
     },
     onError: (error) => {
-      message.error(error.message || 'Đổi mật khẩu thất bại');
+      const msg = getApiErrorMessage(error, 'Đổi mật khẩu thất bại. Vui lòng thử lại.');
+      message.error(msg);
     },
   });
 

@@ -17,6 +17,7 @@ import { semesterApi } from '@/services/admin/semesterApi';
 import { formatDate } from '@/utils/formatters';
 import EntityOverviewDashboard from '../components/EntityOverviewDashboard';
 import { useAdminEntityOverview } from '@/hooks/useAdminOverview';
+import { getApiErrorMessage } from '@/utils/errorUtils';
 import styles from './AdminPage.module.scss';
 
 const { Title, Text } = Typography;
@@ -56,7 +57,7 @@ export default function AdminSemestersPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-semesters'] });
       handleCloseModal();
     },
-    onError: (err) => message.error(err.message || 'Tạo thất bại'),
+    onError: (err) => message.error(getApiErrorMessage(err, 'Tạo học kỳ thất bại. Vui lòng thử lại.')),
   });
 
   const updateMutation = useMutation({
@@ -66,7 +67,7 @@ export default function AdminSemestersPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-semesters'] });
       handleCloseModal();
     },
-    onError: (err) => message.error(err.message || 'Cập nhật thất bại'),
+    onError: (err) => message.error(getApiErrorMessage(err, 'Cập nhật học kỳ thất bại. Vui lòng thử lại.')),
   });
 
   const deleteMutation = useMutation({
@@ -75,7 +76,7 @@ export default function AdminSemestersPage() {
       message.success('Xóa học kỳ thành công!');
       queryClient.invalidateQueries({ queryKey: ['admin-semesters'] });
     },
-    onError: (err) => message.error(err.message || 'Xóa thất bại. Học kỳ có thể đang được sử dụng.'),
+    onError: (err) => message.error(getApiErrorMessage(err, 'Xóa học kỳ thất bại. Vui lòng thử lại.')),
   });
 
   const handleOpenEdit = (record) => {

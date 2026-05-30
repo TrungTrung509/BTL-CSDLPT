@@ -162,7 +162,7 @@ export default function MainLayout() {
         </Header>
 
         {/* Main Content */}
-        <Content className={styles.content}>
+        <Content className={`${styles.content} ${collapsed ? styles.contentCollapsed : ''}`}>
           <div className={styles.contentInner}>
             <Outlet />
           </div>
