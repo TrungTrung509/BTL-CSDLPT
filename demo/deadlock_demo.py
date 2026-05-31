@@ -83,7 +83,7 @@ def register_thread(user, class_code):
         # 1. Đăng nhập
         login_data = urllib.parse.urlencode({
             "username": user.username,
-            "password": user.username
+            "password": "123456"
         }).encode("utf-8")
         
         login_req = urllib.request.Request(

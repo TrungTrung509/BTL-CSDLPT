@@ -24,6 +24,8 @@ services:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
       - ../app:/app
+      - ../scripts:/app/scripts:ro
+      - ../search:/app/search:ro
     networks:
       - csdlpt_network
     depends_on:
@@ -39,6 +41,27 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+    restart: unless-stopped
+
+  # FRONTEND - Vite React Dev Server
+
+  frontend:
+    image: node:20-alpine
+    container_name: csdlpt_frontend
+    working_dir: /app
+    command: sh -c "npm install --prefer-offline && npm run dev"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    volumes:
+      - ../client:/app
+      - node_modules_cache:/app/node_modules
+    networks:
+      - csdlpt_network
+    depends_on:
+      backend:
+        condition: service_started
     restart: unless-stopped
 
   # SITE HADONG (Hà Nội) - PUBLISHER
@@ -573,3 +596,4 @@ volumes:
   grafana_data:
   kafka_data:
   kafka_connect_plugins:
+  node_modules_cache:
