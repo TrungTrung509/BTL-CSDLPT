@@ -1,6 +1,5 @@
 import sys
 import os
-import random
 sys.path.insert(0, os.path.dirname(__file__))
 
 from configs.db import engines, Base
@@ -16,18 +15,33 @@ CLASSES_PER_COURSE = 60  # 60 lớp/môn/site → Tổng 180 lớp/site, 900 l�
 
 def seed_database():
     sites = ["CNTT", "CB", "NN", "KT", "DT"]
+
+    # Chuẩn bị toàn bộ 12.000 users trước (để nhân bản cho cả 5 site)
+    all_users = []
+    for site in sites:
+        for i in range(1, 2401):
+            uid = f"SV{site}{i:04d}"
+            all_users.append(User(userId=uid, role="SinhVien"))
+
     for site in sites:
         print(f"[{site}] Đang khởi tạo Schema...")
         Base.metadata.drop_all(bind=engines[site])
         Base.metadata.create_all(bind=engines[site])
+
         with Session(engines[site]) as db:
-            users, students = [], []
+            print(f"[{site}] Bơm dữ liệu...")
+
+            # 1. Bơm tất cả 12.000 users vào bảng nhân bản cục bộ
+            db.bulk_save_objects(all_users)
+
+            # 2. Bơm 2.400 sinh viên thuộc khoa này
+            students = []
             for i in range(1, 2401):
                 uid = f"SV{site}{i:04d}"
-                users.append(User(userId=uid, role="SinhVien"))
                 students.append(SinhVien(MaSV=uid, userId=uid, MaCoSo=site))
-            db.bulk_save_objects(users)
             db.bulk_save_objects(students)
+
+            # 3. Lớp học phần: 3 môn × 60 lớp mỗi môn
             classes = []
             lop_idx = 1
             for course in COURSES:
