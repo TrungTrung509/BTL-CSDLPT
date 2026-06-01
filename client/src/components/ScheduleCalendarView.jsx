@@ -9,12 +9,16 @@
  *   lichHocIndexMap - optional: { [MaLich]: index } to determine period order
  */
 
-import { useMemo } from 'react';
-import { Card, Empty, Skeleton, Tooltip, Tag } from 'antd';
+import { useMemo, useState } from 'react';
+import { Card, Empty, Skeleton, Tooltip, Tag, Select, Button, Space } from 'antd';
 import {
   CalendarOutlined,
   HomeOutlined,
   BookOutlined,
+  LeftOutlined,
+  RightOutlined,
+  ClockCircleOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import {
   DAY_ORDER,
@@ -30,10 +34,145 @@ import {
   formatDateRange,
   formatPeriodLabel,
   getPeriodBadgeColor,
+  formatDate,
+  formatLessonTime,
 } from '@/utils/formatters';
 import styles from './ScheduleCalendar.module.scss';
 
 const TIET_LABEL = 'Tiết';
+
+const LESSON_TIMES = {
+  1: '07:00-07:50',
+  2: '08:00-08:50',
+  3: '09:00-09:50',
+  4: '10:00-10:50',
+  5: '11:00-11:50',
+  6: '13:00-13:50',
+  7: '14:00-14:50',
+  8: '15:00-15:50',
+  9: '16:00-16:50',
+  10: '17:00-17:50',
+  11: '18:00-18:50',
+  12: '19:00-19:50',
+};
+
+// Utility: Parse date string (YYYY-MM-DD or DD/MM/YYYY) to Date object safely
+function parseDate(dateStr) {
+  if (!dateStr) return new Date();
+  if (dateStr instanceof Date) {
+    return isNaN(dateStr.getTime()) ? new Date() : dateStr;
+  }
+  
+  const str = String(dateStr).trim();
+  
+  // Try parsing DD/MM/YYYY format
+  if (str.includes('/')) {
+    const parts = str.split(' ')[0].split('/');
+    if (parts.length === 3) {
+      const d = Number(parts[0]);
+      const m = Number(parts[1]);
+      const y = Number(parts[2]);
+      if (!isNaN(d) && !isNaN(m) && !isNaN(y)) {
+        return new Date(y, m - 1, d);
+      }
+    }
+  }
+
+  // Fallback to standard JS Date parsing
+  const parsed = new Date(str);
+  if (!isNaN(parsed.getTime())) {
+    return parsed;
+  }
+
+  // If still invalid, try extracting YYYY-MM-DD
+  const match = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    const y = Number(match[1]);
+    const m = Number(match[2]);
+    const d = Number(match[3]);
+    return new Date(y, m - 1, d);
+  }
+
+  return new Date();
+}
+
+// Utility: Format Date object to DD/MM/YYYY
+function formatLocalDate(date) {
+  const d = String(date.getDate()).padStart(2, '0');
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const y = date.getFullYear();
+  return `${d}/${m}/${y}`;
+}
+
+// Utility: Format Date to DD/MM
+function formatDateShort(date) {
+  const d = String(date.getDate()).padStart(2, '0');
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  return `${d}/${m}`;
+}
+
+// Utility: Get the Monday of the week for a given Date
+function getMonday(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  // day: 0 (Sun), 1 (Mon), ..., 6 (Sat)
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(d.setDate(diff));
+  monday.setHours(0, 0, 0, 0);
+  return monday;
+}
+
+// Utility: Generate week intervals based on all schedules' start and end dates
+function generateWeeks(schedules) {
+  if (!schedules || schedules.length === 0) return [];
+  
+  let minDate = null;
+  let maxDate = null;
+  
+  schedules.forEach(s => {
+    if (s.NgayBatDau) {
+      const d = parseDate(s.NgayBatDau);
+      if (!isNaN(d.getTime())) {
+        if (!minDate || d < minDate) minDate = d;
+      }
+    }
+    if (s.NgayKetThuc) {
+      const d = parseDate(s.NgayKetThuc);
+      if (!isNaN(d.getTime())) {
+        if (!maxDate || d > maxDate) maxDate = d;
+      }
+    }
+  });
+  
+  if (!minDate) minDate = new Date();
+  if (!maxDate) {
+    maxDate = new Date(minDate);
+    maxDate.setDate(maxDate.getDate() + 15 * 7); // Default 15 weeks
+  }
+  
+  const monday = getMonday(minDate);
+  const weeks = [];
+  let currentMonday = new Date(monday);
+  let weekNum = 1;
+  
+  while (currentMonday <= maxDate || weeks.length === 0) {
+    const sunday = new Date(currentMonday);
+    sunday.setDate(sunday.getDate() + 6);
+    sunday.setHours(23, 59, 59, 999);
+    
+    weeks.push({
+      number: weekNum,
+      startDate: new Date(currentMonday),
+      endDate: sunday,
+      label: `Tuần ${weekNum} [từ ngày ${formatLocalDate(currentMonday)} đến ngày ${formatLocalDate(sunday)}]`
+    });
+    
+    currentMonday.setDate(currentMonday.getDate() + 7);
+    weekNum++;
+  }
+  
+  return weeks;
+}
 
 /**
  * Build the full popover content for a schedule entry.
@@ -67,15 +206,7 @@ function buildScheduleTooltip(enriched, schedule) {
  */
 function ScheduleItemCard({ schedule, classSectionMap, role, blockIndex }) {
   const enriched = enrichScheduleWithClassSection(schedule, classSectionMap);
-  const bgColor = getScheduleBlockColor(enriched.HinhThucHoc, blockIndex);
   const borderColor = getScheduleBlockBorder(enriched.HinhThucHoc, blockIndex);
-
-  // Determine period label from GhiChu or fallback
-  const periodLabel = formatPeriodLabel(schedule, blockIndex);
-  const periodColor = getPeriodBadgeColor(blockIndex);
-
-  // Show date range in block
-  const dateRange = formatDateRange(schedule.NgayBatDau, schedule.NgayKetThuc);
 
   const tooltipContent = buildScheduleTooltip(enriched, schedule);
 
@@ -89,53 +220,35 @@ function ScheduleItemCard({ schedule, classSectionMap, role, blockIndex }) {
       <div
         className={styles.scheduleCard}
         style={{
-          backgroundColor: bgColor,
-          borderLeft: `3px solid ${borderColor}`,
+          backgroundColor: '#fafafa',
+          border: '1px solid #e8e8e8',
+          borderLeft: `4px solid ${borderColor || '#1677ff'}`,
+          padding: '8px 10px',
+          borderRadius: '6px',
         }}
       >
-        {/* Period badge */}
-        <div className={styles.schedulePeriodBadge}>
-          <Tag
-            color={periodColor}
-            style={{ margin: 0, fontSize: 9, lineHeight: 1.2, padding: '1px 4px' }}
-          >
-            {periodLabel}
-          </Tag>
-        </div>
-
         {/* Course name */}
-        <div className={styles.scheduleCardTitle}>
+        <div style={{ fontWeight: 'bold', fontSize: '12px', color: '#262626', marginBottom: '4px', lineHeight: 1.3 }}>
           {enriched.TenHocPhan || enriched.MaLopHP}
         </div>
 
-        {/* Group tag */}
-        <div className={styles.scheduleCardMeta}>
+        {/* Schedule details */}
+        <div style={{ fontSize: '11px', color: '#595959', display: 'flex', flexDirection: 'column', gap: '3px' }}>
           {enriched.TenLopHP && (
-            <span className={styles.scheduleCardTag}>{enriched.TenLopHP}</span>
+            <div>
+              <span style={{ color: '#8c8c8c' }}>Nhóm:</span> {enriched.TenLopHP}
+            </div>
           )}
-        </div>
-
-        {/* Footer: room + slot */}
-        <div className={styles.scheduleCardFooter}>
-          {schedule.TenPhong || schedule.MaPhong ? (
-            <span className={styles.scheduleCardRoom}>
-              <HomeOutlined style={{ fontSize: 10 }} />
-              {' '}{schedule.TenPhong || schedule.MaPhong}
-            </span>
-          ) : (
-            <span className={styles.scheduleCardRoom}>—</span>
-          )}
-          <span className={styles.scheduleCardSlot}>
-            {formatTimeSlot(schedule.TietBatDau, schedule.SoTiet)}
-          </span>
-        </div>
-
-        {/* Date range */}
-        {dateRange && dateRange !== 'Chưa cập nhật' && (
-          <div className={styles.scheduleDateRange}>
-            {dateRange}
+          <div>
+            <span style={{ color: '#8c8c8c' }}>Phòng:</span> <span style={{ fontWeight: 500 }}>{schedule.TenPhong || schedule.MaPhong || '—'}</span>
+            {schedule.ToaNha && <span style={{ color: '#8c8c8c' }}> ({schedule.ToaNha})</span>}
           </div>
-        )}
+          {enriched.TenGiangVien && (
+            <div>
+              <span style={{ color: '#8c8c8c' }}>GV:</span> {enriched.TenGiangVien}
+            </div>
+          )}
+        </div>
       </div>
     </Tooltip>
   );
@@ -171,20 +284,69 @@ export default function ScheduleCalendarView({
   role = 'student',
   isLoading = false,
 }) {
+  const weeks = useMemo(() => generateWeeks(schedules), [schedules]);
+
+  const [selectedWeekIndex, setSelectedWeekIndex] = useState(0);
+  const [prevWeeksKey, setPrevWeeksKey] = useState('');
+  const weeksKey = weeks.map(w => w.label).join('|');
+
+  // Reset selected week index if schedules/weeks change
+  if (weeksKey !== prevWeeksKey) {
+    setPrevWeeksKey(weeksKey);
+    const today = new Date();
+    const index = weeks.findIndex(w => today >= w.startDate && today <= w.endDate);
+    setSelectedWeekIndex(index !== -1 ? index : 0);
+  }
+
+  const activeWeek = weeks[selectedWeekIndex];
+
+  // Filter schedules that run during the selected week
+  const activeSchedules = useMemo(() => {
+    if (!activeWeek) return [];
+    return schedules.filter(s => {
+      if (!s.NgayBatDau || !s.NgayKetThuc) return true;
+      const sStart = parseDate(s.NgayBatDau);
+      const sEnd = parseDate(s.NgayKetThuc);
+      sStart.setHours(0, 0, 0, 0);
+      sEnd.setHours(23, 59, 59, 999);
+      
+      // Calculate the exact date of s.ThuTrongTuan (where 2 is Mon, 8 is Sun) in the selected week
+      const dayOffset = (s.ThuTrongTuan || 2) - 2;
+      const actualDayDate = new Date(activeWeek.startDate);
+      actualDayDate.setDate(actualDayDate.getDate() + dayOffset);
+      actualDayDate.setHours(0, 0, 0, 0);
+      
+      // Check if that specific weekday of the week is within the schedule range
+      return actualDayDate >= sStart && actualDayDate <= sEnd;
+    });
+  }, [schedules, activeWeek]);
+
   const maxSlot = useMemo(() => {
-    if (!schedules.length) return 12;
-    return schedules.reduce((max, s) => {
+    if (!activeSchedules.length) return 12;
+    return activeSchedules.reduce((max, s) => {
       const end = (s.TietBatDau || 1) + (s.SoTiet || 1) - 1;
       return end > max ? end : max;
     }, 12);
-  }, [schedules]);
+  }, [activeSchedules]);
 
   const { slots, grid } = useMemo(
-    () => buildCalendarMatrix(schedules, maxSlot),
-    [schedules, maxSlot]
+    () => buildCalendarMatrix(activeSchedules, maxSlot),
+    [activeSchedules, maxSlot]
   );
 
   const hasData = schedules.length > 0;
+
+  const handlePrevWeek = () => {
+    if (selectedWeekIndex > 0) {
+      setSelectedWeekIndex(selectedWeekIndex - 1);
+    }
+  };
+
+  const handleNextWeek = () => {
+    if (selectedWeekIndex < weeks.length - 1) {
+      setSelectedWeekIndex(selectedWeekIndex + 1);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -204,7 +366,7 @@ export default function ScheduleCalendarView({
           <span>Thời khóa biểu tuần</span>
           {hasData && (
             <span style={{ fontWeight: 400, color: '#8c8c8c', fontSize: 12 }}>
-              ({schedules.length} buổi học)
+              ({schedules.length} buổi học học kỳ)
             </span>
           )}
         </div>
@@ -212,53 +374,110 @@ export default function ScheduleCalendarView({
     >
       {hasData ? (
         <div className={styles.calendarWrapper}>
+          {/* Week Selector Controls */}
+          {weeks.length > 0 && activeWeek && (
+            <div className={styles.weekSelectorRow}>
+              <span style={{ fontWeight: 500, fontSize: '13px' }}>Chọn tuần học:</span>
+              <Button
+                size="middle"
+                icon={<LeftOutlined />}
+                onClick={handlePrevWeek}
+                disabled={selectedWeekIndex === 0}
+              />
+              <Select
+                size="middle"
+                value={selectedWeekIndex}
+                onChange={setSelectedWeekIndex}
+                options={weeks.map((w, idx) => ({
+                  value: idx,
+                  label: w.label,
+                }))}
+                style={{ width: 380 }}
+                popupMatchSelectWidth={false}
+              />
+              <Button
+                size="middle"
+                icon={<RightOutlined />}
+                onClick={handleNextWeek}
+                disabled={selectedWeekIndex === weeks.length - 1}
+              />
+              {activeSchedules.length > 0 ? (
+                <Tag color="processing" style={{ marginLeft: 8 }}>
+                  Tuần này có {activeSchedules.length} buổi học
+                </Tag>
+              ) : (
+                <Tag color="warning" style={{ marginLeft: 8 }}>
+                  Tuần này không có buổi học nào
+                </Tag>
+              )}
+            </div>
+          )}
+
           {/* Grid header */}
           <div className={styles.calendarHeader}>
             <div className={styles.headerCorner}>
               <CalendarOutlined /> Tiết
             </div>
-            {DAY_ORDER.map((thu) => (
-              <div
-                key={thu}
-                className={`${styles.headerCell} ${thu >= 7 ? styles.headerWeekend : ''}`}
-              >
-                <span className={styles.headerDayShort}>{SHORT_DAY_LABELS[thu]}</span>
-                <span className={styles.headerDayFull}>{getDayOfWeekLabel(thu)}</span>
-              </div>
-            ))}
+            {DAY_ORDER.map((thu) => {
+              // Calculate exact date for the header cell based on selected week
+              let dateShortStr = '';
+              if (activeWeek) {
+                const dayOffset = thu - 2; // 2 is Mon -> offset 0
+                const dayDate = new Date(activeWeek.startDate);
+                dayDate.setDate(dayDate.getDate() + dayOffset);
+                dateShortStr = formatDateShort(dayDate);
+              }
+
+              return (
+                <div
+                  key={thu}
+                  className={`${styles.headerCell} ${thu >= 7 ? styles.headerWeekend : ''}`}
+                >
+                  <span className={styles.headerDayShort}>T{thu === 8 ? 'CN' : thu}</span>
+                  <span className={styles.headerDayFull}>
+                    {thu === 8 ? 'Chủ Nhật' : `Thứ ${thu}`} {dateShortStr && `(${dateShortStr})`}
+                  </span>
+                </div>
+              );
+            })}
           </div>
 
           {/* Grid body */}
           <div className={styles.calendarBody}>
-            {slots.map((slot) => (
-              <div key={slot} className={styles.gridRow}>
-                <div className={styles.slotLabel}>
-                  <span className={styles.slotNumber}>{slot}</span>
-                </div>
-                {DAY_ORDER.map((thu) => (
-                  <div
-                    key={`${thu}-${slot}`}
-                    className={`${styles.gridCell} ${thu >= 7 ? styles.weekendCell : ''}`}
-                  >
-                    <CalendarCell
-                      schedules={grid[thu][slot]}
-                      classSectionMap={classSectionMap}
-                      role={role}
-                      maxSlot={maxSlot}
-                      isEmpty={!grid[thu] || grid[thu][slot].length === 0}
-                    />
+            {slots.map((slot) => {
+              const isRowEmpty = DAY_ORDER.every(thu => !grid[thu] || !grid[thu][slot] || grid[thu][slot].length === 0);
+
+              return (
+                <div key={slot} className={`${styles.gridRow} ${isRowEmpty ? styles.gridRowEmpty : ''}`}>
+                  <div className={styles.slotLabel}>
+                    <div className={isRowEmpty ? styles.slotContainerEmpty : styles.slotContainer}>
+                      <span className={styles.slotNumber}>{slot}</span>
+                      <span className={styles.slotTime}>{LESSON_TIMES[slot] || ''}</span>
+                    </div>
                   </div>
-                ))}
-              </div>
-            ))}
+                  {DAY_ORDER.map((thu) => (
+                    <div
+                      key={`${thu}-${slot}`}
+                      className={`${styles.gridCell} ${thu >= 7 ? styles.weekendCell : ''}`}
+                    >
+                      <CalendarCell
+                        schedules={grid[thu][slot]}
+                        classSectionMap={classSectionMap}
+                        role={role}
+                        maxSlot={maxSlot}
+                        isEmpty={!grid[thu] || grid[thu][slot].length === 0}
+                      />
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
           </div>
 
           {/* Legend */}
           <div className={styles.calendarLegend}>
             <span style={{ fontSize: 11, color: '#8c8c8c' }}>
-              Hover vào block để xem chi tiết đầy đủ.
-              Mỗi block = 1 lịch học trong 1 giai đoạn (VD: nửa kỳ đầu / nửa kỳ sau).
-              Cùng lớp có thể có nhiều lịch nếu nửa kỳ đầu và nửa kỳ sau khác nhau.
+              Hover vào block để xem chi tiết đầy đủ. Lịch hiển thị ở trên đã được lọc theo đúng tuần bạn đã chọn.
             </span>
           </div>
         </div>

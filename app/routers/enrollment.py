@@ -121,8 +121,6 @@ def get_my_timetable(
     )
 
 
-<<<<<<< HEAD
-=======
 @router.get("/my-timetable")
 def get_my_timetable_enriched(
     maHocKy: Optional[str] = Query(None),
@@ -143,7 +141,7 @@ def get_my_timetable_enriched(
         status=200,
     )
 
->>>>>>> a7513c0dfc0aeaa5d13aac27bc2bf0f15f8accea
+
 @router.get("/class-students", response_model=List[StudentInClassResponse])
 def get_class_students(
     maLopHP: str = Query(...),

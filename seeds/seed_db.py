@@ -252,10 +252,11 @@ for site, info in BRANCHES.items():
     classrooms_data[site] = []
     for i in range(1, NUM_ROOMS + 1): # 15 rooms
         room_id = f"{info['code']}_{100+i}"
+        toa_part = "A1" if i <= 8 else "B1"
         classrooms_data[site].append({
             "ma_phong": room_id,
-            "ten_phong": f"Phong {100+i} - {info['code']}",
-            "toa_nha": "Toa A1" if i <= 8 else "Toa B1",
+            "ten_phong": f"{100+i}-{toa_part}-{info['code']}",
+            "toa_nha": toa_part,
             "tang": (i - 1) // 5 + 1,
             "suc_chua": 80,
             "loai_phong": "LyThuyet" if i % 2 == 1 else "MayTinh",
@@ -303,7 +304,7 @@ for site, info in BRANCHES.items():
                 "ma_hoc_ky": "HK2-2025",
                 "ma_coso": site,
                 "ma_gv": ma_gv,
-                "ten_lop_hp": f"Lop {ten_hp} - Nhom {nhom_str}",
+                "ten_lop_hp": nhom_str,
                 "si_so_toi_da": si_so_max,
                 "si_so_hien_tai": 0,
                 "hinh_thuc_hoc": "Offline",
