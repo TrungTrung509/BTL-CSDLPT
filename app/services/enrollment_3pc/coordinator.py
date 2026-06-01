@@ -20,25 +20,56 @@ from .domain import Enrollment3PCDomain
 
 
 class Enrollment3PCCoordinator:
+    """
+    Bộ Điều phối Cam kết Ba Pha (Enrollment3PCCoordinator).
+    Chịu trách nhiệm thực thi giao thức cam kết 3 pha (3-Phase Commit) cho các thao tác
+    Đăng ký môn học, Chuyển lớp, và Hủy đăng ký chéo site.
+    Đồng thời chạy luồng tự phục hồi (Recovery) cho các giao dịch bị treo (In-doubt transactions).
+    """
+    
+    # Khoảng thời gian (giây) tối đa để coi một giao dịch bị treo ở pha Prepare là hết hạn (stale)
     RECOVERY_STALE_SECONDS = 30
 
     @staticmethod
     @retry_on_deadlock(max_retries=3)
     def register(user, enroll_in: EnrollmentCreate) -> RegistrationResult:
+        """
+        [Nghiệp vụ Đăng ký mới hoặc Chuyển lớp]
+        Luồng xử lý 3 Pha:
+        1. [Chuẩn bị - Phase 1]:
+           - Đảm bảo tất cả 3 site DB đều đang hoạt động tốt.
+           - Mở các DB sessions liên cơ sở và ghim chúng (pinned).
+           - Phân tích ngữ cảnh: Xác định site lớp học mới (site_new), site của SV (site_home), site cũ (site_old) và khởi tạo Context.
+           - Ghi log kỹ thuật bước "BEGIN".
+           - Kiểm tra điều kiện nghiệp vụ sơ bộ (siêu nhanh) -> Snapshot check.
+           - Xin khóa Advisory Lock phân tán trên các site để tránh tranh chấp transaction.
+           - Tạo dòng trạng thái giao dịch (EnrollmentTransaction) ở mức "INIT" trên các site.
+           - Thực hiện khóa dòng (Row Lock - SELECT FOR UPDATE) trên các bảng lớp học phần ở các site.
+           - Kiểm tra điều kiện sĩ số cuối cùng và đổi trạng thái giao dịch sang "PREPARED".
+        2. [Báo trước cam kết - Phase 2]:
+           - Điều phối viên gửi lệnh chuyển trạng thái giao dịch sang "PRECOMMIT" trên tất cả các site.
+        3. [Cam kết thực tế - Phase 3]:
+           - Gọi `_commit_register` để ghi nhận nghiệp vụ thực tế (chèn đăng ký mới, xóa lớp cũ nếu đổi lớp).
+           - Nếu có site con bị sập ở bước này: Trả về kết quả Success nhưng báo hệ thống sẽ Recovery sau (In-doubt state).
+           - Nếu tất cả thành công: Đổi trạng thái giao dịch sang "COMMITTED", ghi log thành công, giải phóng khóa và đóng sessions.
+        """
+        # Bước 1.1: Đảm bảo các site DB đều online
         Enrollment3PCDB.ensure_sites_alive(
             SessionLocals.keys(),
             detail="Không thể đăng ký học phần khi một cơ sở đang offline",
         )
 
+        # Mở và giữ các connection tới các site để chuẩn bị giao dịch phân tán
         sessions, connections = Enrollment3PCDB.open_pinned_sessions(SessionLocals.keys())
         acquired_locks: list[tuple[str, int]] = []
         ctx: Enrollment3PCContext | None = None
 
         ma_sv = enroll_in.MaSV if hasattr(enroll_in, 'MaSV') else user.userId
-        txn_id = Enrollment3PCCoordinator._new_txn_id()
-        site_new = "HADONG" # Default site để ghi log nếu chưa tìm thấy site thực tế
+        txn_id = Enrollment3PCCoordinator._new_txn_id() # Tạo ID giao dịch duy nhất
+        site_new = "HADONG" # Site mặc định ghi log nếu chưa phân tích được context
         
         try:
+            # Bước 1.2: Xác định phạm vi site lớp mới và site sv từ token
             site_new, _, section_new = Enrollment3PCDomain.find_section_context(sessions, enroll_in.MaLopHP)
             site_home = Enrollment3PCDB.normalize_site(user.MaCoSo)
             if site_home not in sessions:
@@ -47,6 +78,7 @@ class Enrollment3PCCoordinator:
                     detail=f"Mã cơ sở không hợp lệ: {site_home}",
                 )
 
+            # Xác định xem sinh viên có đăng ký cũ (đổi lớp) ở site nào không
             existing_enrollment, site_old = Enrollment3PCDomain.find_existing_enrollment(
                 sessions,
                 user.userId,
@@ -54,6 +86,7 @@ class Enrollment3PCCoordinator:
                 section_new.MaHocKy,
             )
 
+            # Khởi tạo đối tượng Context lưu thông tin luồng giao dịch 3PC
             ctx = Enrollment3PCCoordinator._build_register_context(
                 txn_id=txn_id,
                 user_id=user.userId,
@@ -67,37 +100,50 @@ class Enrollment3PCCoordinator:
                 lock_sites=list(sessions.keys()),
             )
 
-
+            # Ghi log kỹ thuật: Bắt đầu giao dịch 3PC
             Enrollment3PCCoordinator._log_3pc_step(site_new, ctx.txn_id, ctx.target_ma_lop_hp, ma_sv, "BEGIN", "Bắt đầu giao dịch 3PC", "DANG_CHAY")
 
+            # Bước 2. Kiểm tra điều kiện nghiệp vụ sơ bộ (chưa khóa dữ liệu)
             Enrollment3PCCoordinator._log_3pc_step(site_new, ctx.txn_id, ctx.target_ma_lop_hp, ma_sv, "KIEM_TRA_SO_BO", "Đang xác thực điều kiện đăng ký sơ bộ", "DANG_CHAY")
             Enrollment3PCDomain.snapshot_check_eligibility(ctx, sessions)
 
+            # Bước 3. Khóa tài nguyên phân tán (Advisory Locks)
             Enrollment3PCCoordinator._log_3pc_step(site_new, ctx.txn_id, ctx.target_ma_lop_hp, ma_sv, "KHOA_PHAN_TAN", "Đang lấy Advisory Lock phân tán trên tất cả site", "DANG_CHAY")
             acquired_locks = Enrollment3PCDB.acquire_locks(ctx, sessions)
 
+            # Tạo bản ghi trạng thái giao dịch 3PC (EnrollmentTransaction) ở trạng thái INIT
             EnrollmentTransactionRepo.create_or_reset_rows(ctx, sessions)
 
+            # Khóa dòng dữ liệu (Row Lock) lớp học phần trên database để kiểm tra sĩ số cuối cùng
             Enrollment3PCCoordinator._log_3pc_step(site_new, ctx.txn_id, ctx.target_ma_lop_hp, ma_sv, "KHOA_LOP_HP_DB", "Đang thực hiện Row Lock các lớp học phần", "DANG_CHAY")
             locked_section = Enrollment3PCDomain.prepare_lock_rows(ctx, sessions)
 
+            # Xác thực sĩ số cuối cùng của lớp học phần
             Enrollment3PCCoordinator._log_3pc_step(site_new, ctx.txn_id, ctx.target_ma_lop_hp, ma_sv, "KIEM_TRA_SI_SO_CUOI", "Đang xác thực sĩ số và trạng thái cuối cùng", "DANG_CHAY")
             Enrollment3PCDomain.prepare_validate(locked_section)
+            
+            # Kết thúc Pha 1 (Prepare) -> Chuyển trạng thái sang PREPARED
             EnrollmentTransactionRepo.set_state(
                 ctx,
                 sessions,
                 EnrollmentTransactionState.PREPARED,
                 "Tất cả participant đã hoàn tất prepare",
             )
+            
+            # Khởi động Pha 2 (Pre-commit) -> Chuyển trạng thái sang PRECOMMIT
             EnrollmentTransactionRepo.set_state(
                 ctx,
                 sessions,
                 EnrollmentTransactionState.PRECOMMIT,
                 "Coordinator đã chuyển sang pha pre-commit",
             )
+            
+            # Khởi động Pha 3 (Commit) -> Thực thi ghi cơ sở dữ liệu nghiệp vụ
             Enrollment3PCCoordinator._log_3pc_step(site_new, ctx.txn_id, ctx.target_ma_lop_hp, ma_sv, "INSERT", "Bắt đầu ghi vào CSDL", "DANG_CHAY")
 
             enrollment_id, failed_sites = Enrollment3PCCoordinator._commit_register(ctx, sessions)
+            
+            # Trường hợp có site con bị sập trong pha Commit -> Trả về Success nhưng sẽ tự phục hồi sau
             if failed_sites:
                 return RegistrationResult(
                     MaLopHP=ctx.target_ma_lop_hp,
@@ -111,6 +157,7 @@ class Enrollment3PCCoordinator:
                     old_ma_lop_hp=ctx.old_ma_lop_hp,
                 )
 
+            # Nếu tất cả site commit nghiệp vụ thành công -> Chuyển trạng thái giao dịch sang COMMITTED
             EnrollmentTransactionRepo.set_state(
                 ctx,
                 sessions,
@@ -118,6 +165,7 @@ class Enrollment3PCCoordinator:
                 "Tất cả participant đã commit thành công",
             )
             
+            # Tính toán sĩ số lớp học phần mới để ghi log nghiệp vụ chi tiết
             try:
                 target_sec = sessions[ctx.site_new].query(CourseSection).filter(CourseSection.MaLopHP == ctx.target_ma_lop_hp).first()
                 new_sz = target_sec.SiSoHienTai if target_sec else 1
@@ -133,6 +181,7 @@ class Enrollment3PCCoordinator:
             except Exception:
                 log_detail = "Đăng ký/Đổi lớp thành công."
                 
+            # Ghi nhận log thao tác hoàn thành
             Enrollment3PCCoordinator._log_3pc_step(site_new, ctx.txn_id, ctx.target_ma_lop_hp, ma_sv, "COMMIT", log_detail, "THANH_CONG")
 
             return RegistrationResult(
@@ -149,13 +198,14 @@ class Enrollment3PCCoordinator:
                 or "bị chiếm" in exc.detail
             )
 
-            # Luôn cập nhật bước đang chạy sang THAT_BAI trước
+            # Cập nhật trạng thái bước hiện tại sang THẤT BẠI
             Enrollment3PCCoordinator._fail_current_3pc_step(site_new, txn_id, exc.detail)
 
             if should_retry:
-                # Không mark_aborted vì sẽ retry bằng txn_id mới
+                # Gặp lỗi tranh chấp lock thì ném lên để hàm retry_on_deadlock thử lại giao dịch khác
                 raise
 
+            # Hủy bỏ giao dịch 3PC trên các site (Aborted)
             if ctx is not None:
                 EnrollmentTransactionRepo.mark_aborted(ctx, sessions, exc.detail)
 
@@ -165,6 +215,7 @@ class Enrollment3PCCoordinator:
                 message=exc.detail,
             )
         except Exception as exc:
+            # Xử lý khi gặp lỗi deadlock của Database
             if isinstance(exc, (OperationalError, InternalError)):
                 err_msg = str(exc).lower()
                 if "deadlock detected" in err_msg or "40p01" in err_msg:
@@ -172,7 +223,7 @@ class Enrollment3PCCoordinator:
             if ctx is not None:
                 EnrollmentTransactionRepo.mark_aborted(ctx, sessions, str(exc))
             
-            # Cập nhật bước hiện tại sang THAT_BAI
+            # Cập nhật bước hiện tại sang THẤT BẠI
             Enrollment3PCCoordinator._fail_current_3pc_step(site_new, txn_id, str(exc))
 
             return RegistrationResult(
@@ -181,12 +232,21 @@ class Enrollment3PCCoordinator:
                 message=str(exc),
             )
         finally:
+            # Giải phóng tất cả Advisory Locks và đóng các DB Sessions
             Enrollment3PCDB.release_locks(sessions, acquired_locks)
             Enrollment3PCDB.close_pinned_sessions(sessions, connections)
 
     @staticmethod
     @retry_on_deadlock(max_retries=3)
     def cancel(user_id: str, ma_lop_hp: str, site_home: str) -> None:
+        """
+        [Nghiệp vụ Hủy đăng ký học phần]
+        Tương tự luồng đăng ký học phần, luồng Hủy đăng ký cũng chạy giao thức 3 pha:
+        - Prepare: Ping site, mở session, lấy Advisory Lock, chèn transaction logs ở trạng thái INIT, Row Lock dòng đăng ký.
+        - Pre-commit: coordinator gửi lệnh chuyển sang trạng thái PRECOMMIT.
+        - Commit: Xóa dòng đăng ký nghiệp vụ trong DB con (`_commit_cancel`), hoàn lại sĩ số cho lớp.
+        - Kết thúc: Chuyển trạng thái transaction sang COMMITTED và đóng session.
+        """
         normalized_home = Enrollment3PCDB.normalize_site(site_home)
         alive_sites = [site for site in SessionLocals if Enrollment3PCDB.is_site_alive(site)]
         sessions, connections = Enrollment3PCDB.open_pinned_sessions(alive_sites)
@@ -194,6 +254,7 @@ class Enrollment3PCCoordinator:
         ctx: Enrollment3PCContext | None = None
 
         try:
+            # 1. Tìm thông tin đăng ký học phần cũ của sinh viên
             enrollment, site_target = Enrollment3PCDomain.find_enrollment_by_class(
                 sessions,
                 user_id,
@@ -210,12 +271,14 @@ class Enrollment3PCCoordinator:
                     detail="Không tìm thấy thông tin đăng ký",
                 )
 
+            # Ràng buộc: các site liên quan phải online
             required_sites = {site_target, normalized_home}
             Enrollment3PCDB.ensure_sites_alive(
                 required_sites,
                 detail="Không thể hủy đăng ký khi cơ sở liên quan đang offline",
             )
 
+            # Xác định lớp học phần đích cần hủy
             target_section = sessions[site_target].query(CourseSection).filter(
                 CourseSection.MaLopHP == enrollment.MaLopHP
             ).first()
@@ -225,6 +288,7 @@ class Enrollment3PCCoordinator:
                     detail=f"Không tìm thấy lớp học phần: {ma_lop_hp.upper()}",
                 )
 
+            # Khởi tạo Context cho luồng Hủy đăng ký
             ctx = Enrollment3PCContext(
                 txn_id=Enrollment3PCCoordinator._new_txn_id(),
                 coordinator_site=normalized_home,
@@ -243,6 +307,7 @@ class Enrollment3PCCoordinator:
 
             Enrollment3PCCoordinator._log_3pc_step(ctx.site_new, ctx.txn_id, ctx.target_ma_lop_hp, user_id, "BEGIN", "Bắt đầu giao dịch hủy đăng ký", "DANG_CHAY")
 
+            # Giai đoạn 1: Prepare (Khóa Advisory Lock, khởi tạo Transaction log, Row lock)
             Enrollment3PCCoordinator._log_3pc_step(ctx.site_new, ctx.txn_id, ctx.target_ma_lop_hp, user_id, "KHOA_PHAN_TAN", "Đang lấy Advisory Lock phân tán để hủy đăng ký", "DANG_CHAY")
             acquired_locks = Enrollment3PCDB.acquire_locks(ctx, sessions)
 
@@ -250,12 +315,15 @@ class Enrollment3PCCoordinator:
 
             Enrollment3PCCoordinator._log_3pc_step(ctx.site_new, ctx.txn_id, ctx.target_ma_lop_hp, user_id, "KHOA_LOP_HP_DB", "Đang thực hiện Row Lock bản ghi để hủy", "DANG_CHAY")
             Enrollment3PCDomain.prepare_cancel(ctx, sessions)
+            
             EnrollmentTransactionRepo.set_state(
                 ctx,
                 sessions,
                 EnrollmentTransactionState.PREPARED,
                 "Tất cả participant đã hoàn tất prepare",
             )
+            
+            # Giai đoạn 2: Pre-commit
             EnrollmentTransactionRepo.set_state(
                 ctx,
                 sessions,
@@ -263,6 +331,7 @@ class Enrollment3PCCoordinator:
                 "Coordinator đã chuyển sang pha pre-commit",
             )
 
+            # Giai đoạn 3: Commit (Xóa bản ghi đăng ký nghiệp vụ)
             Enrollment3PCCoordinator._log_3pc_step(ctx.site_new, ctx.txn_id, ctx.target_ma_lop_hp, user_id, "INSERT", "Bắt đầu xóa dữ liệu khỏi CSDL", "DANG_CHAY")
             _, failed_sites = Enrollment3PCCoordinator._commit_cancel(ctx, sessions)
             if failed_sites:
@@ -275,6 +344,7 @@ class Enrollment3PCCoordinator:
                 "Tất cả participant đã commit thành công",
             )
             
+            # Tính toán lại sĩ số sau khi hủy thành công để ghi log nghiệp vụ
             try:
                 target_sec = sessions[ctx.site_new].query(CourseSection).filter(CourseSection.MaLopHP == ctx.target_ma_lop_hp).first()
                 new_sz = target_sec.SiSoHienTai if target_sec else 0
@@ -288,7 +358,6 @@ class Enrollment3PCCoordinator:
         except Exception as exc:
             if ctx is not None:
                 EnrollmentTransactionRepo.mark_aborted(ctx, sessions, "Hủy đăng ký thất bại")
-                # Cập nhật bước hiện tại sang THAT_BAI
                 Enrollment3PCCoordinator._fail_current_3pc_step(ctx.site_new, ctx.txn_id, str(exc))
 
             raise
@@ -298,15 +367,26 @@ class Enrollment3PCCoordinator:
 
     @staticmethod
     def recover_in_doubt_transactions() -> dict[str, int]:
+        """
+        [Tiến trình chạy ngầm tự động Recovery giao dịch phân tán]
+        Định kỳ quét các giao dịch 3PC bị treo (In-doubt transactions).
+        - Nếu giao dịch bị kẹt sau pha PRECOMMIT: Ép commit bù trên toàn bộ các site tham gia.
+        - Nếu giao dịch hết hạn (stale) trước pha PRECOMMIT: Ép hủy bỏ (ABORT) giao dịch trên các site con.
+        Trả về: Số giao dịch đã tự động commit bù hoặc tự động abort thành công.
+        """
+        # Xác định mốc thời gian quá hạn (30 giây trước)
         cutoff = datetime.utcnow() - timedelta(seconds=Enrollment3PCCoordinator.RECOVERY_STALE_SECONDS)
         pending_commit, stale_abort = EnrollmentTransactionRepo.collect_recovery_candidates(cutoff)
 
         committed = 0
         aborted = 0
+        
+        # 1. Ép Commit các giao dịch bị kẹt ở pha Pre-commit
         for txn_id in sorted(pending_commit):
             if Enrollment3PCCoordinator._recover_precommit_transaction(txn_id):
                 committed += 1
 
+        # 2. Ép Abort các giao dịch hết hạn ở pha Prepare
         for txn_id in sorted(stale_abort):
             if Enrollment3PCCoordinator._abort_transaction_records(txn_id, force=False):
                 aborted += 1
@@ -321,6 +401,10 @@ class Enrollment3PCCoordinator:
         ctx: Enrollment3PCContext,
         sessions,
     ) -> tuple[int | None, list[str]]:
+        """
+        [Hàm nội bộ] Ra lệnh commit nghiệp vụ đăng ký/đổi lớp ở các site tham gia.
+        Trả về: ID bản ghi đăng ký mới và danh sách các site bị lỗi commit (nếu có).
+        """
         enrollment_id: int | None = None
         failed_sites: list[str] = []
 
@@ -340,6 +424,9 @@ class Enrollment3PCCoordinator:
         ctx: Enrollment3PCContext,
         sessions,
     ) -> tuple[None, list[str]]:
+        """
+        [Hàm nội bộ] Ra lệnh commit nghiệp vụ hủy đăng ký lớp học ở các site con.
+        """
         failed_sites: list[str] = []
         for site in ctx.participant_sites:
             try:
@@ -351,12 +438,23 @@ class Enrollment3PCCoordinator:
 
     @staticmethod
     def _recover_precommit_transaction(txn_id: str) -> bool:
+        """
+        [Hàm nội bộ] Phục hồi và ép commit giao dịch ở trạng thái PRECOMMIT.
+        Yêu cầu tất cả các site liên quan phải online. Thực hiện:
+        - Xin khóa Advisory Lock phân tán.
+        - Ghi đè thay đổi dữ liệu nghiệp vụ ở các site con.
+        - Chuyển đổi trạng thái giao dịch sang COMMITTED.
+        - Ghi nhật ký phục hồi (Recovery Log) thành công vào bảng NhatKyPhucHoi.
+        """
         ctx = EnrollmentTransactionRepo.load_context(txn_id)
         if ctx is None:
             return False
 
+        # Nếu giao dịch đã bị đánh dấu ABORTED từ trước, thực hiện hủy bỏ
         if EnrollmentTransactionRepo.has_state(txn_id, EnrollmentTransactionState.ABORTED):
             return Enrollment3PCCoordinator._abort_transaction_records(txn_id, force=True)
+            
+        # Đảm bảo các site liên quan đều online để recovery commit đồng bộ
         if not all(Enrollment3PCDB.is_site_alive(site) for site in ctx.participant_sites):
             return False
 
@@ -370,6 +468,8 @@ class Enrollment3PCCoordinator:
                 except Exception:
                     sessions[site].rollback()
                     return False
+            
+            # Cập nhật trạng thái giao dịch 3PC sang COMMITTED
             EnrollmentTransactionRepo.set_state(
                 ctx,
                 sessions,
@@ -377,7 +477,7 @@ class Enrollment3PCCoordinator:
                 "Recovery đã hoàn tất commit cho tất cả participant",
             )
             
-            # Ghi log recovery vào bảng NhatKyPhucHoi
+            # Ghi log phục hồi kỹ thuật vào bảng NhatKyPhucHoi của coordinator site
             with SessionLocals[ctx.coordinator_site]() as db:
                 RecoveryLogRepo.append_recovery_log(
                     db,
@@ -391,14 +491,17 @@ class Enrollment3PCCoordinator:
                 )
 
             return True
-
-
         finally:
             Enrollment3PCDB.release_locks(sessions, acquired_locks)
             Enrollment3PCDB.close_pinned_sessions(sessions, connections)
 
     @staticmethod
     def _abort_transaction_records(txn_id: str, force: bool) -> bool:
+        """
+        [Hàm nội bộ] Phục hồi và ép hủy bỏ (Abort) các giao dịch hết hạn (Timeout).
+        Cập nhật trạng thái của giao dịch tại các site con còn sống sang ABORTED.
+        Ghi nhật ký phục hồi thành công vào bảng NhatKyPhucHoi.
+        """
         ctx = EnrollmentTransactionRepo.load_context(txn_id)
         if ctx is None:
             return False
@@ -416,15 +519,18 @@ class Enrollment3PCCoordinator:
                 if row is None:
                     continue
                 if row.State == EnrollmentTransactionState.PRECOMMIT and not force:
+                    # Giao dịch đã đi vào Pre-commit thì không được tự ý Abort trừ khi bị ép buộc
                     return False
                 if row.State == EnrollmentTransactionState.COMMITTED:
+                    # Giao dịch đã commit thì giữ nguyên
                     continue
 
+                # Hủy bỏ giao dịch 3PC tại site con này
                 row.State = EnrollmentTransactionState.ABORTED
                 row.Message = "Recovery đã abort giao dịch do bị trễ ở pha prepare"
                 session.commit()
 
-            # Ghi log recovery vào bảng NhatKyPhucHoi
+            # Ghi log phục hồi kỹ thuật vào bảng NhatKyPhucHoi
             with SessionLocals[ctx.coordinator_site]() as db:
                 RecoveryLogRepo.append_recovery_log(
                     db,
@@ -438,11 +544,8 @@ class Enrollment3PCCoordinator:
                 )
 
             return True
-
-
         finally:
             Enrollment3PCDB.close_pinned_sessions(sessions, connections)
-
 
     @staticmethod
     def _build_register_context(
@@ -458,6 +561,9 @@ class Enrollment3PCCoordinator:
         existing_enrollment,
         lock_sites: list[str],
     ) -> Enrollment3PCContext:
+        """
+        [Hàm nội bộ] Khởi tạo đối tượng Context lưu trữ ngữ cảnh giao dịch 3PC.
+        """
         return Enrollment3PCContext(
             txn_id=txn_id,
             coordinator_site=site_home,
@@ -477,13 +583,18 @@ class Enrollment3PCCoordinator:
 
     @staticmethod
     def _new_txn_id() -> str:
+        """
+        [Hàm nội bộ] Sinh mã định danh giao dịch phân tán ngẫu nhiên dạng UUID.
+        """
         return uuid4().hex
 
     @staticmethod
     def _log_3pc_step(site: str, tx_id: str, ma_lop_hp: str, ma_sv: str | None, buoc: str, chi_tiet: str, trang_thai: str):
         """
-        Ghi log vào bảng NhatKyThaoTac sử dụng kết nối trực tiếp (Direct Execution)
-        để đảm bảo AUTOCOMMIT và không bị ảnh hưởng bởi lỗi của Session chính.
+        [Hàm nội bộ] Ghi log hoạt động nghiệp vụ vào bảng NhatKyThaoTac.
+        *Đặc điểm kỹ thuật đặc biệt:* Sử dụng kết nối thô độc lập (Direct Connection)
+        với cơ chế AUTOCOMMIT để bản ghi log được commit ngay lập tức xuống DB.
+        Giúp lưu giữ thông tin chi tiết từng bước kể cả khi giao dịch nghiệp vụ chính bị rollback.
         """
         try:
             engine = engines.get(site.upper())
@@ -491,7 +602,6 @@ class Enrollment3PCCoordinator:
                 print(f"CRITICAL: Engine not found for site {site}")
                 return
 
-            # Sử dụng kết nối trực tiếp với isolation_level AUTOCOMMIT
             with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
                 query = text("""
                     INSERT INTO "NhatKyThaoTac" 
@@ -508,7 +618,6 @@ class Enrollment3PCCoordinator:
                     "status": trang_thai,
                     "now": datetime.utcnow()
                 })
-                
         except Exception as e:
             print(f"CRITICAL: Failed to write log to {site} via Direct Connection: {e}")
             pass
@@ -516,9 +625,8 @@ class Enrollment3PCCoordinator:
     @staticmethod
     def _fail_current_3pc_step(site: str, txn_id: str, error_detail: str) -> None:
         """
-        Cập nhật bước đang chạy gần nhất (MAX ID) của txn_id sang THAT_BAI.
-        Thay vì insert thêm một dòng 'FAILED', ta UPDATE trực tiếp bước
-        đang DANG_CHAY để log rõ ràng bước nào bị lỗi.
+        [Hàm nội bộ] Cập nhật bước đang chạy gần nhất (MAX ID) của txn_id sang trạng thái THAT_BAI.
+        Được gọi khi có lỗi phát sinh trong quá trình chạy 3PC để cập nhật vết lỗi chính xác vào log.
         """
         try:
             engine = engines.get(site.upper())

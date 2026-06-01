@@ -43,6 +43,23 @@ export const teacherClassSectionApi = {
   },
 
   /**
+   * GET /class-sections/my-teaching/schedules
+   * Returns: flattened schedule entries for all sections this teacher teaches
+   * Each entry has MaLich, MaLopHP, TenLopHP, MaHP, TenHP, SoTinChi, MaHocKy,
+   * MaCoSo, HinhThucHoc, MaGV, TenGiangVien, MaPhong, TenPhong, ToaNha,
+   * ThuTrongTuan, TietBatDau, SoTiet, NgayBatDau, NgayKetThuc, GhiChu
+   */
+  getMyTeachingSchedules: async () => {
+    const response = await apiClient.get('/class-sections/my-teaching/schedules');
+    // apiClient unwraps: response.data = { status, success, message, data }
+    const payload = response.data;
+    if (payload && payload.data !== undefined) {
+      return payload.data;
+    }
+    return payload;
+  },
+
+  /**
    * GET /class-sections/{maLopHP}
    */
   getDetail: async (maLopHP) => {

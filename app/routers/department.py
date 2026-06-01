@@ -5,7 +5,7 @@ from configs.db import get_db
 from enums.user_role import UserRole
 from models.Users import User
 from security import require_roles
-from schemas.Department import DepartmentCreate, DepartmentResponse
+from schemas.Department import DepartmentCreate, DepartmentUpdate, DepartmentResponse
 from schemas.api_response import success_response, error_response
 from services.DepartmentService import DepartmentService
 
@@ -52,4 +52,49 @@ async def get_all_departments(
             message=e.detail,
             status=e.status_code,
             error_code="FETCH_DEPARTMENTS_FAILED"
+        )
+
+
+@router.put("/{MaKhoa}")
+async def update_department(
+    MaKhoa: str,
+    dept_in: DepartmentUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.Admin))
+):
+    """Cập nhật thông tin khoa (Admin only)"""
+    try:
+        dept = await DepartmentService.update_department(db, MaKhoa, dept_in)
+        return success_response(
+            data=DepartmentResponse.model_validate(dept).model_dump(),
+            message=f"Cập nhật khoa '{MaKhoa}' thành công",
+            status=200
+        )
+    except HTTPException as e:
+        return error_response(
+            message=e.detail,
+            status=e.status_code,
+            error_code="UPDATE_DEPARTMENT_FAILED"
+        )
+
+
+@router.delete("/{MaKhoa}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_department(
+    MaKhoa: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.Admin))
+):
+    """Xóa khoa (Admin only)"""
+    try:
+        await DepartmentService.delete_department(db, MaKhoa, current_user)
+        return success_response(
+            data=None,
+            message=f"Xóa khoa '{MaKhoa}' thành công",
+            status=status.HTTP_204_NO_CONTENT
+        )
+    except HTTPException as e:
+        return error_response(
+            message=e.detail,
+            status=e.status_code,
+            error_code="DELETE_DEPARTMENT_FAILED"
         )

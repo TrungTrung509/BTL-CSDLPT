@@ -1,10 +1,11 @@
 /**
  * Teacher Schedule Page - View teaching schedule
- * Shows schedule based on teacher's assigned class sections
+ * Shows schedule based on teacher's assigned class sections.
+ * Fetches ONLY the teacher's own sections — no fetching all schedules.
  */
 
 import { useState } from 'react';
-import { Card, Table, Typography, Space, Tag, Empty, Skeleton, Button, Row, Col, Segmented } from 'antd';
+import { Card, Table, Typography, Space, Tag, Empty, Button, Row, Col, Segmented } from 'antd';
 import {
   CalendarOutlined,
   BarsOutlined,
@@ -12,9 +13,10 @@ import {
   HomeOutlined,
   BookOutlined,
   ReloadOutlined,
+  BankOutlined,
 } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import { teacherClassSectionApi, scheduleApi } from '@/services/teacherApi';
+import { teacherClassSectionApi } from '@/services/teacherApi';
 import ScheduleCalendarView from '@/components/ScheduleCalendarView';
 import {
   getDayOfWeekLabel,
@@ -30,34 +32,54 @@ const THU_ORDER = [2, 3, 4, 5, 6, 7, 8];
 export default function TeacherSchedulePage() {
   const [viewMode, setViewMode] = useState('list');
 
-  const { data: mySectionsResp, isLoading: sectionsLoading } = useQuery({
+  // Fetch my teaching sections — each section contains nested LichHoc[]
+  const { data: sectionsResp, isLoading, isError, refetch } = useQuery({
     queryKey: ['teacher', 'my-sections'],
     queryFn: teacherClassSectionApi.getMyTeaching,
     staleTime: 2 * 60 * 1000,
   });
 
-  const mySections = Array.isArray(mySectionsResp)
-    ? mySectionsResp
-    : (mySectionsResp?.items || []);
+  // Flatten LichHoc from each section into row-per-schedule entries
+  const sections = Array.isArray(sectionsResp) ? sectionsResp : (sectionsResp?.items || []);
+  const scheduleRows = sections.flatMap((sec) =>
+    (sec.LichHoc || []).map((sch) => ({
+      ...sch,
+      MaLopHP: sec.MaLopHP,
+      TenLopHP: sec.TenLopHP,
+      MaHP: sec.MaHocPhan || sec.MaHP,
+      TenHP: sec.TenHocPhan,
+      SoTinChi: sec.SoTinChi,
+      MaHocKy: sec.MaHocKy,
+      MaCoSo: sec.MaCoSo,
+      TenCoSo: sec.TenCoSo,
+      MaGV: sec.MaGV,
+      TenGiangVien: sec.TenGiangVien,
+      HinhThucHoc: sec.HinhThucHoc,
+      key: `${sec.MaLopHP}-${sch.MaLich}`,
+    }))
+  );
 
-  const myMaLopHPs = mySections.map((s) => s.MaLopHP);
-
-  const { data: schedulesResp, isLoading: scheduleLoading } = useQuery({
-    queryKey: ['teacher', 'all-schedules'],
-    queryFn: scheduleApi.getAll,
-    staleTime: 2 * 60 * 1000,
-  });
-
-  const schedules = Array.isArray(schedulesResp)
-    ? schedulesResp
-    : (schedulesResp?.items || []);
-
-  const mySchedules = schedules.filter((s) => myMaLopHPs.includes(s.MaLopHP));
-
+  // Build classSectionMap for calendar enrichment
   const classSectionMap = {};
-  mySections.forEach((cs) => {
-    if (cs.MaLopHP) classSectionMap[cs.MaLopHP] = cs;
+  sections.forEach((sec) => {
+    classSectionMap[sec.MaLopHP] = {
+      MaLopHP: sec.MaLopHP,
+      MaHocPhan: sec.MaHocPhan || sec.MaHP,
+      TenHocPhan: sec.TenHocPhan,
+      TenLopHP: sec.TenLopHP,
+      MaCoSo: sec.MaCoSo,
+      TenCoSo: sec.TenCoSo,
+      MaGV: sec.MaGV,
+      TenGiangVien: sec.TenGiangVien,
+      HinhThucHoc: sec.HinhThucHoc,
+    };
   });
+
+  const sortedSchedules = [...scheduleRows].sort(
+    (a, b) =>
+      (a.ThuTrongTuan || 0) - (b.ThuTrongTuan || 0) ||
+      (a.TietBatDau || 0) - (b.TietBatDau || 0)
+  );
 
   const scheduleColumns = [
     {
@@ -84,38 +106,51 @@ export default function TeacherSchedulePage() {
     },
     {
       title: 'Tên học phần',
-      key: 'TenHocPhan',
+      dataIndex: 'TenHP',
+      key: 'TenHP',
       ellipsis: true,
-      render: (_, record) => {
-        const cs = classSectionMap[record.MaLopHP];
-        return cs?.TenHocPhan || record.MaLopHP || '—';
-      },
+      render: (v) => v || '—',
     },
     {
       title: 'Nhóm',
+      dataIndex: 'TenLopHP',
       key: 'TenLopHP',
       width: 80,
-      render: (_, record) => {
-        const cs = classSectionMap[record.MaLopHP];
-        return cs?.TenLopHP || '—';
-      },
+      render: (v) => v || '—',
+    },
+    {
+      title: 'Cơ sở',
+      dataIndex: 'TenCoSo',
+      key: 'TenCoSo',
+      width: 130,
+      render: (v, record) => (
+        <Space size={4}>
+          <BankOutlined style={{ color: '#595959', fontSize: 12 }} />
+          <Text>{v || record.MaCoSo}</Text>
+        </Space>
+      ),
     },
     {
       title: 'Phòng',
-      dataIndex: 'MaPhong',
-      key: 'MaPhong',
-      width: 100,
-      render: (phong) => (
+      dataIndex: 'TenPhong',
+      key: 'TenPhong',
+      width: 110,
+      render: (v, record) => (
         <Space size={4}>
           <HomeOutlined style={{ color: '#595959', fontSize: 12 }} />
-          <Text>{phong || '—'}</Text>
+          <Text>{v || record.MaPhong || '—'}</Text>
+          {record.ToaNha && (
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              ({record.ToaNha})
+            </Text>
+          )}
         </Space>
       ),
     },
     {
       title: 'Tiết',
       key: 'tiet',
-      width: 120,
+      width: 100,
       render: (_, record) => (
         <Space size={4}>
           <ClockCircleOutlined style={{ color: '#595959', fontSize: 12 }} />
@@ -139,9 +174,7 @@ export default function TeacherSchedulePage() {
     },
   ];
 
-  const sortedSchedules = [...mySchedules].sort((a, b) =>
-    (a.ThuTrongTuan || 0) - (b.ThuTrongTuan || 0)
-  );
+  const isEmpty = !isLoading && sortedSchedules.length === 0;
 
   return (
     <div className={styles.page}>
@@ -152,6 +185,15 @@ export default function TeacherSchedulePage() {
             Lịch giảng dạy dựa trên các lớp học phần bạn phụ trách.
           </Text>
         </div>
+        <Space>
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={() => refetch()}
+            loading={isLoading}
+          >
+            Làm mới
+          </Button>
+        </Space>
       </div>
 
       {/* View Toggle */}
@@ -173,7 +215,7 @@ export default function TeacherSchedulePage() {
               label: (
                 <Space size={4}>
                   <CalendarOutlined />
-                  <span>Lịch</span>
+                  <span>Thời khóa biểu</span>
                 </Space>
               ),
               value: 'calendar',
@@ -181,6 +223,25 @@ export default function TeacherSchedulePage() {
           ]}
         />
       </div>
+
+      {/* Summary stats */}
+      {!isLoading && !isEmpty && (
+        <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+          {[
+            { label: 'Lớp phụ trách', value: sections.length, color: '#722ed1' },
+            { label: 'Tổng buổi dạy', value: sortedSchedules.length, color: '#52c41a' },
+          ].map((stat, i) => (
+            <Col xs={12} md={6} key={i}>
+              <Card size="small" bodyStyle={{ padding: '12px 16px' }}>
+                <Text type="secondary" style={{ fontSize: 12 }}>{stat.label}</Text>
+                <Text strong style={{ fontSize: 24, color: stat.color, display: 'block' }}>
+                  {stat.value}
+                </Text>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      )}
 
       {/* ── LIST VIEW ─────────────────────────────────────── */}
       {viewMode === 'list' && (
@@ -190,31 +251,18 @@ export default function TeacherSchedulePage() {
               <Space>
                 <CalendarOutlined style={{ color: '#722ed1' }} />
                 Lịch dạy cá nhân
-                {!scheduleLoading && (
+                {!isLoading && !isEmpty && (
                   <Tag color="purple">{sortedSchedules.length} buổi dạy</Tag>
                 )}
               </Space>
             }
-            extra={
-              <Button icon={<ReloadOutlined />}>Làm mới</Button>
-            }
           >
-            {scheduleLoading || sectionsLoading ? (
-              <Skeleton active paragraph={{ rows: 6 }} />
-            ) : sortedSchedules.length > 0 ? (
-              <Table
-                columns={scheduleColumns}
-                dataSource={sortedSchedules}
-                rowKey="MaLich"
-                pagination={{
-                  pageSize: 15,
-                  showSizeChanger: true,
-                  showTotal: (total, range) => `${range[0]}-${range[1]} trong ${total}`,
-                }}
-                scroll={{ x: 900 }}
-                size="middle"
+            {isError ? (
+              <Empty
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description={<Text type="danger">Không thể tải lịch dạy. Vui lòng thử lại.</Text>}
               />
-            ) : (
+            ) : !isLoading && isEmpty ? (
               <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
                 description={
@@ -223,16 +271,34 @@ export default function TeacherSchedulePage() {
                   </span>
                 }
               />
+            ) : (
+              <Table
+                columns={scheduleColumns}
+                dataSource={sortedSchedules}
+                rowKey="key"
+                loading={isLoading}
+                pagination={{
+                  pageSize: 15,
+                  showSizeChanger: true,
+                  showTotal: (total, range) => `${range[0]}-${range[1]} trong ${total}`,
+                }}
+                scroll={{ x: 900 }}
+                size="middle"
+              />
             )}
           </Card>
 
-          {sortedSchedules.length > 0 && (
-            <Card title={
-              <Space>
-                <BookOutlined style={{ color: '#722ed1' }} />
-                Thống kê theo thứ
-              </Space>
-            }>
+          {/* Per-day breakdown */}
+          {!isLoading && !isEmpty && (
+            <Card
+              title={
+                <Space>
+                  <BookOutlined style={{ color: '#722ed1' }} />
+                  Thống kê theo thứ
+                </Space>
+              }
+              style={{ marginTop: 16 }}
+            >
               <Row gutter={[12, 12]}>
                 {THU_ORDER.map((thu) => {
                   const count = sortedSchedules.filter((s) => s.ThuTrongTuan === thu).length;
@@ -259,10 +325,10 @@ export default function TeacherSchedulePage() {
       {/* ── CALENDAR VIEW ─────────────────────────────────── */}
       {viewMode === 'calendar' && (
         <ScheduleCalendarView
-          schedules={mySchedules}
+          schedules={sortedSchedules}
           classSectionMap={classSectionMap}
           role="teacher"
-          isLoading={scheduleLoading || sectionsLoading}
+          isLoading={isLoading}
         />
       )}
     </div>

@@ -1,10 +1,11 @@
 /**
  * Student Schedule Page - View personal class schedule
- * Shows schedule based on student's enrolled class sections
+ * Fetches ONLY enrolled class sections + schedules for the current student.
+ * Supports three view modes: list, calendar grid, and course summary.
  */
 
 import { useState } from 'react';
-import { Card, Table, Typography, Space, Tag, Empty, Skeleton, Button, Row, Col, Segmented } from 'antd';
+import { Card, Table, Typography, Space, Tag, Empty, Button, Row, Col, Segmented } from 'antd';
 import {
   CalendarOutlined,
   BarsOutlined,
@@ -12,10 +13,14 @@ import {
   HomeOutlined,
   BookOutlined,
   ReloadOutlined,
+  BankOutlined,
+  TeamOutlined,
+  UnorderedListOutlined,
 } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import { studentEnrollmentApi, studentClassSectionApi, scheduleApi } from '@/services/studentApi';
+import { studentEnrollmentApi } from '@/services/studentApi';
 import ScheduleCalendarView from '@/components/ScheduleCalendarView';
+import CourseScheduleSummary from '@/components/CourseScheduleSummary';
 import {
   getDayOfWeekLabel,
   formatTimeSlot,
@@ -29,48 +34,61 @@ const THU_ORDER = [2, 3, 4, 5, 6, 7, 8];
 
 export default function StudentSchedulePage() {
   const [viewMode, setViewMode] = useState('list');
+  const [maHocKy, setMaHocKy] = useState(undefined);
 
-  const { data: enrollmentsResp, isLoading: enrollLoading } = useQuery({
-    queryKey: ['student', 'enrollments'],
-    queryFn: () => studentEnrollmentApi.getHistory(),
-    staleTime: 2 * 60 * 1000,
+  const { data: timetableItems = [], isLoading, isError, refetch } = useQuery({
+    queryKey: ['student', 'timetable', maHocKy],
+    queryFn: () => studentEnrollmentApi.getTimetable(maHocKy ? { maHocKy } : {}),
+    staleTime: 30 * 1000,
   });
 
-  const enrollments = Array.isArray(enrollmentsResp) ? enrollmentsResp : [];
-
-  const enrolledMaLopHPs = enrollments
-    .filter((e) => e.TrangThaiDangKy === 'DaDangKy')
-    .map((e) => e.MaLopHP);
-
-  const { data: schedulesResp, isLoading: scheduleLoading } = useQuery({
-    queryKey: ['student', 'all-schedules'],
-    queryFn: scheduleApi.getAll,
-    staleTime: 2 * 60 * 1000,
-  });
-
-  const schedules = Array.isArray(schedulesResp)
-    ? schedulesResp
-    : (schedulesResp?.items || []);
-
-  const { data: classSectionsResp } = useQuery({
-    queryKey: ['student', 'class-sections'],
-    queryFn: () => studentClassSectionApi.getAvailable(),
-    staleTime: 2 * 60 * 1000,
-  });
-
-  const classSections = Array.isArray(classSectionsResp)
-    ? classSectionsResp
-    : (classSectionsResp?.items || []);
-
-  const mySchedules = schedules.filter((s) =>
-    enrolledMaLopHPs.includes(s.MaLopHP)
+  // ── Flatten schedules for list view ──────────────────────────────
+  const scheduleRows = timetableItems.flatMap((item) =>
+    (item.LichHoc || []).map((sch) => ({
+      ...sch,
+      MaLopHP: item.MaLopHP,
+      TenLopHP: item.TenLopHP,
+      MaHP: item.MaHP,
+      TenHP: item.TenHP,
+      SoTinChi: item.SoTinChi,
+      MaHocKy: item.MaHocKy,
+      MaCoSo: item.MaCoSo,
+      TenCoSo: item.TenCoSo,
+      MaGV: item.MaGV,
+      TenGiangVien: item.TenGiangVien,
+      TrangThaiDangKy: item.TrangThaiDangKy,
+      // Study form — passed through for color coding in calendar
+      HinhThucHoc: item.HinhThucHoc,
+      key: `${item.MaLopHP}-${sch.MaLich}`,
+    }))
   );
 
+  const sortedRows = [...scheduleRows].sort(
+    (a, b) =>
+      (a.ThuTrongTuan || 0) - (b.ThuTrongTuan || 0) ||
+      (a.TietBatDau || 0) - (b.TietBatDau || 0)
+  );
+
+  // ── Build classSectionMap for calendar view ──────────────────────
+  // scheduleRows already contain all class-section fields (MaHP, TenHP,
+  // TenLopHP, MaCoSo, TenCoSo, MaGV, TenGiangVien, HinhThucHoc),
+  // so we build a map MaLopHP -> enrichment object.
   const classSectionMap = {};
-  classSections.forEach((cs) => {
-    if (cs.MaLopHP) classSectionMap[cs.MaLopHP] = cs;
+  timetableItems.forEach((item) => {
+    classSectionMap[item.MaLopHP] = {
+      MaLopHP: item.MaLopHP,
+      MaHocPhan: item.MaHP,
+      TenHocPhan: item.TenHP,
+      TenLopHP: item.TenLopHP,
+      MaCoSo: item.MaCoSo,
+      TenCoSo: item.TenCoSo,
+      MaGV: item.MaGV,
+      TenGiangVien: item.TenGiangVien,
+      HinhThucHoc: item.HinhThucHoc,
+    };
   });
 
+  // ── Table columns ────────────────────────────────────────────────
   const scheduleColumns = [
     {
       title: 'Thứ',
@@ -92,36 +110,57 @@ export default function StudentSchedulePage() {
       title: 'Mã lớp HP',
       dataIndex: 'MaLopHP',
       key: 'MaLopHP',
-      width: 130,
+      width: 150,
       render: (code) => <Text code style={{ fontSize: 12 }}>{code}</Text>,
     },
     {
       title: 'Tên học phần',
-      key: 'TenHocPhan',
+      dataIndex: 'TenHP',
+      key: 'TenHP',
       ellipsis: true,
-      render: (_, record) => {
-        const cs = classSectionMap[record.MaLopHP];
-        return cs?.TenHocPhan || record.MaLopHP || '—';
-      },
+      render: (v) => v || '—',
     },
     {
       title: 'Nhóm',
+      dataIndex: 'TenLopHP',
       key: 'TenLopHP',
       width: 80,
-      render: (_, record) => {
-        const cs = classSectionMap[record.MaLopHP];
-        return cs?.TenLopHP || '—';
-      },
+      render: (v) => v || '—',
+    },
+    {
+      title: 'Cơ sở',
+      dataIndex: 'TenCoSo',
+      key: 'TenCoSo',
+      width: 130,
+      render: (v, record) => (
+        <Space size={4}>
+          <BankOutlined style={{ color: '#595959', fontSize: 12 }} />
+          <Text>{v || record.MaCoSo}</Text>
+        </Space>
+      ),
+    },
+    {
+      title: 'Giảng viên',
+      dataIndex: 'TenGiangVien',
+      key: 'TenGiangVien',
+      width: 150,
+      ellipsis: true,
+      render: (v) => v || '—',
     },
     {
       title: 'Phòng',
-      dataIndex: 'MaPhong',
-      key: 'MaPhong',
-      width: 100,
-      render: (phong) => (
+      dataIndex: 'TenPhong',
+      key: 'TenPhong',
+      width: 120,
+      render: (v, record) => (
         <Space size={4}>
           <HomeOutlined style={{ color: '#595959', fontSize: 12 }} />
-          <Text>{phong || '—'}</Text>
+          <Text>{v || record.MaPhong || '—'}</Text>
+          {record.ToaNha && (
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              ({record.ToaNha})
+            </Text>
+          )}
         </Space>
       ),
     },
@@ -132,9 +171,7 @@ export default function StudentSchedulePage() {
       render: (_, record) => (
         <Space size={4}>
           <ClockCircleOutlined style={{ color: '#595959', fontSize: 12 }} />
-          <Text>
-            {formatTimeSlot(record.TietBatDau, record.SoTiet)}
-          </Text>
+          <Text>{formatTimeSlot(record.TietBatDau, record.SoTiet)}</Text>
         </Space>
       ),
     },
@@ -154,9 +191,12 @@ export default function StudentSchedulePage() {
     },
   ];
 
-  const sortedSchedules = [...mySchedules].sort((a, b) =>
-    (a.ThuTrongTuan || 0) - (b.ThuTrongTuan || 0)
+  // ── Summary stats ────────────────────────────────────────────────
+  const totalTinChi = timetableItems.reduce(
+    (s, item) => s + (item.SoTinChi || 0), 0
   );
+
+  const isEmpty = !isLoading && sortedRows.length === 0;
 
   return (
     <div className={styles.page}>
@@ -167,9 +207,18 @@ export default function StudentSchedulePage() {
             Lịch học cá nhân dựa trên các lớp học phần đã đăng ký.
           </Text>
         </div>
+        <Space>
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={() => refetch()}
+            loading={isLoading}
+          >
+            Làm mới
+          </Button>
+        </Space>
       </div>
 
-      {/* View Toggle */}
+      {/* View mode toggle */}
       <div className={styles.viewToggle}>
         <Segmented
           value={viewMode}
@@ -188,14 +237,48 @@ export default function StudentSchedulePage() {
               label: (
                 <Space size={4}>
                   <CalendarOutlined />
-                  <span>Lịch</span>
+                  <span>Thời khóa biểu</span>
                 </Space>
               ),
               value: 'calendar',
             },
+            {
+              label: (
+                <Space size={4}>
+                  <UnorderedListOutlined />
+                  <span>Theo học phần</span>
+                </Space>
+              ),
+              value: 'course',
+            },
           ]}
         />
       </div>
+
+      {/* ── Summary cards ─────────────────────────────────── */}
+      {!isLoading && !isEmpty && (
+        <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+          {[
+            { label: 'Lớp đã đăng ký', value: timetableItems.length, icon: <BookOutlined />, color: '#1677ff' },
+            { label: 'Tổng buổi học', value: sortedRows.length, icon: <CalendarOutlined />, color: '#52c41a' },
+            { label: 'Tổng tín chỉ', value: totalTinChi, icon: <TeamOutlined />, color: '#fa8c16' },
+          ].map((stat, i) => (
+            <Col xs={8} key={i}>
+              <Card size="small" bodyStyle={{ padding: '12px 16px' }}>
+                <Space direction="vertical" size={2} style={{ width: '100%' }}>
+                  <Space>
+                    <span style={{ color: stat.color }}>{stat.icon}</span>
+                    <Text type="secondary" style={{ fontSize: 12 }}>{stat.label}</Text>
+                  </Space>
+                  <Text strong style={{ fontSize: 24, color: stat.color }}>
+                    {stat.value}
+                  </Text>
+                </Space>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      )}
 
       {/* ── LIST VIEW ─────────────────────────────────────── */}
       {viewMode === 'list' && (
@@ -205,55 +288,58 @@ export default function StudentSchedulePage() {
               <Space>
                 <CalendarOutlined style={{ color: '#1677ff' }} />
                 Lịch học cá nhân
-                {!scheduleLoading && (
-                  <Tag color="blue">{sortedSchedules.length} buổi học</Tag>
+                {!isLoading && !isEmpty && (
+                  <Tag color="blue">{sortedRows.length} buổi học</Tag>
                 )}
               </Space>
             }
-            extra={
-              <Space>
-                <Button icon={<ReloadOutlined />}>Làm mới</Button>
-              </Space>
-            }
           >
-            {scheduleLoading || enrollLoading ? (
-              <Skeleton active paragraph={{ rows: 6 }} />
-            ) : sortedSchedules.length > 0 ? (
+            {isError ? (
+              <Empty
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description={<Text type="danger">Không thể tải lịch học. Vui lòng thử lại.</Text>}
+              />
+            ) : !isLoading && isEmpty ? (
+              <Empty
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description={
+                  <span>
+                    Chưa có lịch học.{' '}
+                    <a href="/student/class-sections">Đăng ký lớp học phần</a> để xem lịch.
+                  </span>
+                }
+              />
+            ) : (
               <Table
                 columns={scheduleColumns}
-                dataSource={sortedSchedules}
-                rowKey="MaLich"
+                dataSource={sortedRows}
+                rowKey="key"
+                loading={isLoading}
                 pagination={{
                   pageSize: 15,
                   showSizeChanger: true,
                   showTotal: (total, range) => `${range[0]}-${range[1]} trong ${total}`,
                 }}
-                scroll={{ x: 900 }}
+                scroll={{ x: 1100 }}
                 size="middle"
-              />
-            ) : (
-              <Empty
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description={
-                  <span>
-                    Chưa có lịch học. Vui lòng{' '}
-                    <a href="/student/class-sections">đăng ký lớp học phần</a> trước.
-                  </span>
-                }
               />
             )}
           </Card>
 
-          {sortedSchedules.length > 0 && (
-            <Card title={
-              <Space>
-                <BookOutlined style={{ color: '#1677ff' }} />
-                Thống kê theo thứ
-              </Space>
-            }>
+          {/* Per-day breakdown */}
+          {!isLoading && !isEmpty && (
+            <Card
+              title={
+                <Space>
+                  <BookOutlined style={{ color: '#1677ff' }} />
+                  Thống kê theo thứ
+                </Space>
+              }
+              style={{ marginTop: 16 }}
+            >
               <Row gutter={[12, 12]}>
                 {THU_ORDER.map((thu) => {
-                  const count = sortedSchedules.filter((s) => s.ThuTrongTuan === thu).length;
+                  const count = sortedRows.filter((s) => s.ThuTrongTuan === thu).length;
                   return (
                     <Col xs={12} sm={8} md={6} lg={3} key={thu}>
                       <Card size="small" bodyStyle={{ padding: '12px' }}>
@@ -277,11 +363,30 @@ export default function StudentSchedulePage() {
       {/* ── CALENDAR VIEW ─────────────────────────────────── */}
       {viewMode === 'calendar' && (
         <ScheduleCalendarView
-          schedules={mySchedules}
+          schedules={sortedRows}
           classSectionMap={classSectionMap}
           role="student"
-          isLoading={scheduleLoading || enrollLoading}
+          isLoading={isLoading}
         />
+      )}
+
+      {/* ── COURSE SUMMARY VIEW ──────────────────────────────── */}
+      {viewMode === 'course' && (
+        <>
+          {isError ? (
+            <Card>
+              <Empty
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description={<Text type="danger">Không thể tải lịch học. Vui lòng thử lại.</Text>}
+              />
+            </Card>
+          ) : (
+            <CourseScheduleSummary
+              items={timetableItems}
+              isLoading={isLoading}
+            />
+          )}
+        </>
       )}
     </div>
   );
