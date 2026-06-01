@@ -7,6 +7,9 @@ from schemas.Enrollment import EnrollmentCreate
 from enums.user_role import UserRole
 from fastapi import HTTPException
 
+NUM_WORKERS = 8
+
+
 class UserMock:
     def __init__(self, userId: str, MaCoSo: str, username: str, role: str):
         self.userId = userId
@@ -17,10 +20,10 @@ class UserMock:
         except ValueError:
             self.role = UserRole.SinhVien
 
+
 class KafkaWorkerService:
-    consumer: AIOKafkaConsumer = None
     producer: AIOKafkaProducer = None
-    worker_task: asyncio.Task = None
+    worker_tasks: list[asyncio.Task] = []
     semaphore: asyncio.Semaphore = None
     _started: bool = False
 
@@ -29,26 +32,19 @@ class KafkaWorkerService:
         if cls._started:
             return
 
-        cls.semaphore = asyncio.Semaphore(30)
-
-        cls.consumer = AIOKafkaConsumer(
-            "registration_requests",
-            bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
-            group_id="registration_worker_group",
-            value_deserializer=lambda v: json.loads(v.decode("utf-8")),
-            auto_offset_reset="latest"
-        )
-        await cls.consumer.start()
-
+        cls.semaphore = asyncio.Semaphore(20)
         cls.producer = AIOKafkaProducer(
             bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
-            value_serializer=lambda v: json.dumps(v).encode("utf-8")
+            value_serializer=lambda v: json.dumps(v).encode("utf-8"),
         )
         await cls.producer.start()
 
         cls._started = True
-        cls.worker_task = asyncio.create_task(cls._consume_and_process())
-        print("KafkaWorkerService started successfully with concurrency limit = 15.")
+        cls.worker_tasks = [
+            asyncio.create_task(cls._worker_loop(i), name=f"kafka-worker-{i}")
+            for i in range(NUM_WORKERS)
+        ]
+        print(f"KafkaWorkerService started with {NUM_WORKERS} workers.")
 
     @classmethod
     async def stop(cls):
@@ -56,79 +52,70 @@ class KafkaWorkerService:
             return
 
         cls._started = False
-        if cls.worker_task:
-            cls.worker_task.cancel()
-            try:
-                await cls.worker_task
-            except asyncio.CancelledError:
-                pass
+        for task in cls.worker_tasks:
+            task.cancel()
 
-        if cls.consumer:
-            await cls.consumer.stop()
+        results = await asyncio.gather(*cls.worker_tasks, return_exceptions=True)
+        for result in results:
+            if isinstance(result, Exception) and not isinstance(result, asyncio.CancelledError):
+                print(f"Worker shutdown error: {result}")
+
+        cls.worker_tasks = []
         if cls.producer:
             await cls.producer.stop()
 
-        print("KafkaWorkerService stopped.")
-
     @classmethod
-    async def _consume_and_process(cls):
+    async def _worker_loop(cls, worker_id: int):
+        """Each worker has its own consumer in the same group so Kafka
+        distributes partitions across them automatically."""
+        consumer = AIOKafkaConsumer(
+            "registration_requests",
+            bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
+            group_id="registration_worker_group",
+            value_deserializer=lambda v: json.loads(v.decode("utf-8")),
+            auto_offset_reset="latest",
+        )
+        await consumer.start()
         try:
-            async for msg in cls.consumer:
+            async for msg in consumer:
                 payload = msg.value
                 correlation_id = payload.get("correlation_id")
-                user_data = payload.get("user", {})
-                enroll_in_data = payload.get("enroll_in", {})
-
                 if not correlation_id:
                     continue
-
-                asyncio.create_task(cls._process_single_request(correlation_id, user_data, enroll_in_data))
+                asyncio.create_task(cls._handle(correlation_id, payload))
         except asyncio.CancelledError:
             pass
         except Exception as e:
-            print(f"Error in KafkaWorkerService consumer loop: {e}")
+            print(f"[Worker-{worker_id}] Consumer loop crashed: {e}")
+        finally:
+            try:
+                await consumer.stop()
+            except Exception:
+                pass
 
     @classmethod
-    async def _process_single_request(cls, correlation_id: str, user_data: dict, enroll_in_data: dict):
-        try:
-            # Reconstruct request objects
-            user_mock = UserMock(
-                userId=user_data.get("userId"),
-                MaCoSo=user_data.get("MaCoSo"),
-                username=user_data.get("username", ""),
-                role=user_data.get("role", "SinhVien")
-            )
-            enroll_in = EnrollmentCreate(**enroll_in_data)
+    async def _handle(cls, correlation_id: str, payload: dict):
+        user_data = payload.get("user", {})
+        enroll_in_data = payload.get("enroll_in", {})
+        ma_lop = enroll_in_data.get("MaLopHP")
 
-            # Wait for our turn in the semaphore, then run registration in a worker thread
+        try:
+            user = UserMock(**{
+                "userId": user_data.get("userId"),
+                "MaCoSo": user_data.get("MaCoSo"),
+                "username": user_data.get("username", ""),
+                "role": user_data.get("role", "SinhVien"),
+            })
+            enroll_in = EnrollmentCreate(**enroll_in_data)
             async with cls.semaphore:
-                result = await asyncio.to_thread(EnrollmentService.register, user_mock, enroll_in)
-            
+                result = await asyncio.to_thread(EnrollmentService.register, user, enroll_in)
             result_dict = result.model_dump()
         except HTTPException as exc:
-            result_dict = {
-                "MaLopHP": enroll_in_data.get("MaLopHP"),
-                "status": "Failed",
-                "message": exc.detail,
-                "error_code": "REGISTRATION_HTTP_ERROR",
-                "reasons": [exc.detail]
-            }
+            result_dict = {"MaLopHP": ma_lop, "status": "Failed", "message": exc.detail, "error_code": "REGISTRATION_HTTP_ERROR", "reasons": [exc.detail]}
         except Exception as exc:
-            result_dict = {
-                "MaLopHP": enroll_in_data.get("MaLopHP"),
-                "status": "Failed",
-                "message": f"System error: {str(exc)}",
-                "error_code": "REGISTRATION_SYSTEM_ERROR",
-                "reasons": [str(exc)]
-            }
-
-        # Send response back to registration_replies
-        response_payload = {
-            "correlation_id": correlation_id,
-            "result": result_dict
-        }
+            result_dict = {"MaLopHP": ma_lop, "status": "Failed","message": f"System error: {exc}", "error_code": "REGISTRATION_SYSTEM_ERROR","reasons": [str(exc)]}
 
         try:
-            await cls.producer.send_and_wait("registration_replies", response_payload)
+            await cls.producer.send_and_wait("registration_replies", {"correlation_id": correlation_id, "result": result_dict})
         except Exception as e:
-            print(f"Failed to publish registration reply for {correlation_id}: {e}")
+            print(f"Failed to publish reply for {correlation_id}: {e}")

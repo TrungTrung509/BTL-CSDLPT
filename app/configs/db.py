@@ -8,8 +8,8 @@ from configs.config import HADONG_URL, HOALAC_URL, NGOCTRUC_URL
 # Cấu hình kết nối database với các tham số tối ưu cho failover và hiệu suất
 ENGINE_KWARGS = {
     "pool_pre_ping": True,
-    "pool_size": 30,
-    "max_overflow": 15,
+    "pool_size": 20,
+    "max_overflow": 5,
 }
 
 # Đối với PostgreSQL, thêm tham số connect_timeout để nhanh chóng phát hiện khi cơ sở dữ liệu không phản hồi

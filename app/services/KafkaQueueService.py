@@ -20,7 +20,8 @@ class KafkaQueueService:
         
         cls.producer = AIOKafkaProducer(
             bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
-            value_serializer=lambda v: json.dumps(v).encode("utf-8")
+            value_serializer=lambda v: json.dumps(v).encode("utf-8"),
+            key_serializer=lambda k: k.encode("utf-8") if k else None,
         )
         await cls.producer.start()
 
@@ -93,7 +94,8 @@ class KafkaQueueService:
         }
 
         try:
-            partition_key = enroll_in.MaLopHP.encode("utf-8")
+        
+            partition_key = enroll_in.MaLopHP or correlation_id
             await cls.producer.send_and_wait("registration_requests", payload, key=partition_key)
             # Wait for response
             result_dict = await asyncio.wait_for(fut, timeout=timeout)
