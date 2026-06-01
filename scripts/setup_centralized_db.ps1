@@ -1,5 +1,6 @@
 
 # SETUP CENTRALIZED DATABASE
+# Chạy script này sau khi container postgres_centralized đã chạy
 
 $ErrorActionPreference = "Stop"
 $ProjectRoot = "e:\2.PTIT\DangKiHocPhan\BTL-CSDLPT"
@@ -10,7 +11,7 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
 # Step 1: Start container
-Write-Host "[1/6] Starting postgres_centralized container..." -ForegroundColor Yellow
+Write-Host "[1/5] Starting postgres_centralized container..." -ForegroundColor Yellow
 docker compose -f "$ProjectRoot\docker\docker-compose.yml" up -d postgres_centralized
 
 # Wait for container to be ready
@@ -31,28 +32,23 @@ if ($Waited -ge $MaxWait) {
     exit 1
 }
 
-# Step 2: Drop and recreate schema
-Write-Host "[2/6] Dropping old schema (if exists)..." -ForegroundColor Yellow
-docker exec csdlpt_centralized psql -U csdlpt_user -d csdlpt_centralized -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;" 2>$null
+# Step 2: Drop and recreate schema, then enable dblink
+Write-Host "[2/5] Dropping old schema and enabling dblink..." -ForegroundColor Yellow
+docker exec csdlpt_centralized psql -U csdlpt_user -d csdlpt_centralized -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public; CREATE EXTENSION IF NOT EXISTS dblink;"
 
 # Step 3: Create schema
-Write-Host "[3/6] Creating centralized schema..." -ForegroundColor Yellow
+Write-Host "[3/5] Creating centralized schema..." -ForegroundColor Yellow
 docker cp "$ProjectRoot\db\centralized\01_centralized_schema.sql" csdlpt_centralized:/tmp/centralized_schema.sql
 docker exec csdlpt_centralized psql -U csdlpt_user -d csdlpt_centralized -f /tmp/centralized_schema.sql
 
-# Step 4: Enable dblink extension
-Write-Host "[4/6] Enabling dblink extension..." -ForegroundColor Yellow
-docker exec csdlpt_centralized psql -U csdlpt_user -d csdlpt_centralized -c "CREATE EXTENSION IF NOT EXISTS dblink;"
-
-# Step 5: Import data
-Write-Host "[5/6] Importing data from 3 sites..." -ForegroundColor Yellow
+# Step 4: Import data from 3 sites
+Write-Host "[4/5] Importing data from 3 sites..." -ForegroundColor Yellow
 docker cp "$ProjectRoot\db\centralized\02_import_data.sql" csdlpt_centralized:/tmp/import_data.sql
 docker exec csdlpt_centralized psql -U csdlpt_user -d csdlpt_centralized -f /tmp/import_data.sql
 
-# Step 6: Fix ReplicationOutbox column type and re-import
-Write-Host "[6/6] Fixing ReplicationOutbox column type..." -ForegroundColor Yellow
-docker cp "$ProjectRoot\scripts\fix_replicationoutbox.sql" csdlpt_centralized:/tmp/fix.sql
-docker exec csdlpt_centralized psql -U csdlpt_user -d csdlpt_centralized -f /tmp/fix.sql
+# Step 5: Show summary
+Write-Host "[5/5] Verifying data..." -ForegroundColor Yellow
+docker exec csdlpt_centralized psql -U csdlpt_user -d csdlpt_centralized -c "SELECT 'SinhVien' AS tbl, COUNT(*) FROM \"SinhVien\" UNION ALL SELECT 'GiangVien', COUNT(*) FROM \"GiangVien\" UNION ALL SELECT 'PhongHoc', COUNT(*) FROM \"PhongHoc\" UNION ALL SELECT 'LopHocPhan', COUNT(*) FROM \"LopHocPhan\" UNION ALL SELECT 'LichHoc', COUNT(*) FROM \"LichHoc\" UNION ALL SELECT 'DangKy', COUNT(*) FROM \"DangKy\";"
 
 Write-Host ""
 Write-Host "  CENTRALIZED DATABASE SETUP COMPLETE" -ForegroundColor Green

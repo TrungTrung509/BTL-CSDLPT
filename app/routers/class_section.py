@@ -34,6 +34,26 @@ async def get_my_teaching_sections(
         )
 
 
+@router.get("/my-teaching/schedules")
+async def get_my_teaching_schedules(
+    current_user: User = Depends(require_roles(UserRole.GiangVien)),
+):
+    """Lấy tất cả lịch học của các lớp giảng viên đang phụ trách."""
+    try:
+        schedules = ClassSectionService.get_my_teaching_schedules(current_user)
+        return success_response(
+            data=schedules,
+            message=f"Lấy lịch dạy thành công ({len(schedules)} buổi)",
+            status=200,
+        )
+    except HTTPException as e:
+        return error_response(
+            message=e.detail,
+            status=e.status_code,
+            error_code="FETCH_TEACHING_SCHEDULES_FAILED",
+        )
+
+
 @router.get("/")
 async def get_all_class_sections(
     keyword: Optional[str] = Query(None, description="Tìm theo mã hoặc tên lớp HP"),

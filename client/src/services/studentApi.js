@@ -56,16 +56,31 @@ export const studentClassSectionApi = {
 };
 
 /**
- * GET /enrollments/history
+ * GET /enrollments/my-timetable
  * Query: maHocKy?
- * Returns: EnrollmentHistoryResponse[]
- * EnrollmentHistoryResponse: { MaDangKy, MaSV, MaLopHP, TenLopHP, TenHocPhan,
- *   MaHocKy, NgayDangKy, TrangThaiDangKy, MaCoSo }
+ * Returns: success_response { data: StudentTimetableItem[] }
+ * StudentTimetableItem: {
+ *   MaLopHP, TenLopHP, MaHP, TenHP, SoTinChi, MaHocKy,
+ *   MaCoSo, TenCoSo, MaGV, TenGiangVien, TrangThaiDangKy,
+ *   LichHoc: [{ MaLich, ThuTrongTuan, TietBatDau, SoTiet, MaPhong,
+ *               TenPhong, ToaNha, NgayBatDau, NgayKetThuc, GhiChu }]
+ * }
  */
 export const studentEnrollmentApi = {
   getHistory: async (params = {}) => {
     const response = await apiClient.get('/enrollments/history', { params });
     return response.data;
+  },
+
+  getTimetable: async (params = {}) => {
+    const response = await apiClient.get('/enrollments/my-timetable', { params });
+    // apiClient unwraps: response.data = { status, success, message, data }
+    // backend returns success_response so data is in response.data.data
+    const payload = response.data;
+    if (payload && payload.data !== undefined) {
+      return payload.data;
+    }
+    return payload;
   },
 
   register: async ({ MaLopHP }) => {

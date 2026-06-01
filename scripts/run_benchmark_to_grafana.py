@@ -68,20 +68,36 @@ BENCHMARK_QUERIES = [
     },
     {
         "code": "Q3",
-        "name": "Thống kê số lớp học phần theo cơ sở",
+        "name": "Thống kê tỉ lệ lấp đầy lớp học phần toàn trường",
         "type": "Global",
         "used_fdw": True,
         "centralized_sql": """
-            SELECT "MaCoSo", COUNT(*) AS "TongLopHP"
-            FROM "LopHocPhan"
-            GROUP BY "MaCoSo"
-            ORDER BY "MaCoSo";
+            SELECT
+            lhp."MaCoSo",
+            COUNT(*) AS "TongLop",
+            SUM(lhp."SiSoHienTai") AS "TongSV_DK",
+            SUM(lhp."SiSoToiDa") AS "TongSucChua",
+            ROUND(
+                SUM(lhp."SiSoHienTai")::NUMERIC / NULLIF(SUM(lhp."SiSoToiDa"), 0) * 100,
+                2
+            ) AS "TyLeLopDay_Percent"
+            FROM "LopHocPhan" lhp
+            GROUP BY lhp."MaCoSo"
+            ORDER BY lhp."MaCoSo";
         """,
         "distributed_sql": """
-            SELECT "MaCoSo", COUNT(*) AS "TongLopHP"
-            FROM "vw_lophocphan_toantruong"
-            GROUP BY "MaCoSo"
-            ORDER BY "MaCoSo";
+            SELECT
+            lhp."MaCoSo",
+            COUNT(*) AS "TongLop",
+            SUM(lhp."SiSoHienTai") AS "TongSV_DK",
+            SUM(lhp."SiSoToiDa") AS "TongSucChua",
+            ROUND(
+                SUM(lhp."SiSoHienTai")::NUMERIC / NULLIF(SUM(lhp."SiSoToiDa"), 0) * 100,
+                2
+            ) AS "TyLeLopDay_Percent"
+            FROM "vw_lophocphan_toantruong" lhp
+            GROUP BY lhp."MaCoSo"
+            ORDER BY lhp."MaCoSo";
         """,
     },
     {
