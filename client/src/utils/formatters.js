@@ -345,3 +345,83 @@ export function buildSchedulePopoverItem(item) {
 
   return { thuLabel, weekdayColor, timeRange, tietLabel, phong, ghiChu };
 }
+
+/**
+ * Format a date value to dd/MM/yyyy
+ * @param {string|Date} value - ISO date string or Date
+ * @returns {string} formatted date or fallback
+ */
+export function formatScheduleDate(value) {
+  if (!value) return 'Chưa cập nhật';
+  try {
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return 'Chưa cập nhật';
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  } catch {
+    return 'Chưa cập nhật';
+  }
+}
+
+/**
+ * Format a date range from two values.
+ * @param {string|Date} start
+ * @param {string|Date} end
+ * @returns {string} e.g. "15/08/2025 - 30/09/2025"
+ */
+export function formatDateRange(start, end) {
+  const s = formatScheduleDate(start);
+  const e = formatScheduleDate(end);
+  if (s === 'Chưa cập nhật' && e === 'Chưa cập nhật') return 'Chưa cập nhật';
+  if (s === 'Chưa cập nhật') return `Từ ${e}`;
+  if (e === 'Chưa cập nhật') return `Từ ${s}`;
+  return `${s} – ${e}`;
+}
+
+/**
+ * Determine the period label for a schedule entry.
+ * Priority: GhiChu if present and meaningful, else "Giai đoạn {index+1}".
+ * @param {object} schedule - LichHoc entry
+ * @param {number} index - position in LichHoc array (0-based)
+ * @returns {string} period label
+ */
+export function formatPeriodLabel(schedule, index) {
+  const ghiChu = schedule.GhiChu;
+  if (ghiChu && ghiChu.trim()) {
+    const lower = ghiChu.toLowerCase();
+    // Match "nua ky dau", "nua ky sau", "ky dau", "ky sau", "dau ky", "sau ky"
+    if (lower.includes('dau') && !lower.includes('sau')) {
+      return 'Nửa kỳ đầu';
+    }
+    if (lower.includes('sau')) {
+      return 'Nửa kỳ sau';
+    }
+    // Return the GhiChu as-is if it doesn't match known patterns
+    return ghiChu.trim();
+  }
+  return `Giai đoạn ${index + 1}`;
+}
+
+/**
+ * Get a CSS color for period badge (alternate between two shades).
+ * @param {number} index - schedule position in LichHoc array
+ * @returns {string} CSS color
+ */
+export function getPeriodBadgeColor(index) {
+  // Alternate between green-ish and blue-ish to distinguish periods
+  return index === 0 ? '#52c41a' : '#1677ff';
+}
+
+/**
+ * Format lesson range string: "Tiết 1-3"
+ * @param {number} tietBatDau
+ * @param {number} soTiet
+ * @returns {string}
+ */
+export function formatLessonRange(tietBatDau, soTiet) {
+  if (!tietBatDau) return '—';
+  const end = soTiet ? tietBatDau + soTiet - 1 : tietBatDau;
+  return `Tiết ${tietBatDau}–${end}`;
+}

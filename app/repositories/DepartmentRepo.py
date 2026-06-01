@@ -16,3 +16,14 @@ class DepartmentRepo:
         db.commit()
         db.refresh(dept)
         return dept
+
+    @staticmethod
+    def update(db: Session, dept: Departments) -> Departments:
+        db.commit()
+        db.refresh(dept)
+        return dept
+
+    @staticmethod
+    def delete(db: Session, dept: Departments) -> None:
+        db.delete(dept)
+        db.commit()

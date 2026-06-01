@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from models.Users import User
 from models.Departments import Departments
-from schemas.Department import DepartmentCreate
+from schemas.Department import DepartmentCreate, DepartmentUpdate
 from repositories.DepartmentRepo import DepartmentRepo
 from enums.user_role import UserRole
 
@@ -38,14 +38,25 @@ class DepartmentService:
     async def get_department_by_id(db: Session, MaKhoa: str):
         return db.query(Departments).filter(Departments.MaKhoa == MaKhoa).first()
     @staticmethod
-    async def update_department(db: Session, MaKhoa: str, dept_in: DepartmentCreate):
+    async def update_department(db: Session, MaKhoa: str, dept_in: DepartmentUpdate):
         db_dept = db.query(Departments).filter(Departments.MaKhoa == MaKhoa).first()
         if not db_dept:
             raise HTTPException(status_code=404, detail="Department not found")
-        db_dept.TenKhoa = dept_in.TenKhoa
-        db_dept.MoTa = dept_in.MoTa
-        db_dept.NgayThanhLap = dept_in.NgayThanhLap
-        db_dept.TrangThai = dept_in.TrangThai
-        db.commit()
-        db.refresh(db_dept)
-        return db_dept
+        update_data = dept_in.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            if hasattr(db_dept, field):
+                setattr(db_dept, field, value)
+        return DepartmentRepo.update(db, db_dept)
+
+    @staticmethod
+    async def delete_department(db: Session, MaKhoa: str, current_user: User):
+        if current_user.role != UserRole.Admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only Admin can delete departments"
+            )
+        db_dept = db.query(Departments).filter(Departments.MaKhoa == MaKhoa).first()
+        if not db_dept:
+            raise HTTPException(status_code=404, detail="Department not found")
+        DepartmentRepo.delete(db, db_dept)
+        return True
