@@ -5,7 +5,7 @@
  */
 
 import { useState } from 'react';
-import { Card, Table, Typography, Space, Tag, Empty, Button, Row, Col, Segmented } from 'antd';
+import { Card, Table, Typography, Space, Tag, Empty, Button, Row, Col, Segmented, Divider } from 'antd';
 import {
   CalendarOutlined,
   BarsOutlined,
@@ -88,43 +88,36 @@ export default function StudentSchedulePage() {
     };
   });
 
+  // Sort timetable items by course name
+  const sortedTimetableItems = [...timetableItems].sort((a, b) =>
+    (a.TenHP || '').localeCompare(b.TenHP || '')
+  );
+
   // ── Table columns ────────────────────────────────────────────────
   const scheduleColumns = [
-    {
-      title: 'Thứ',
-      dataIndex: 'ThuTrongTuan',
-      key: 'ThuTrongTuan',
-      width: 100,
-      render: (thu) => {
-        const label = getDayOfWeekLabel(thu);
-        const isWeekend = thu >= 7;
-        return (
-          <Tag color={isWeekend ? 'orange' : 'blue'} style={{ minWidth: 80, textAlign: 'center' }}>
-            {label}
-          </Tag>
-        );
-      },
-      sorter: (a, b) => (a.ThuTrongTuan || 0) - (b.ThuTrongTuan || 0),
-    },
     {
       title: 'Mã lớp HP',
       dataIndex: 'MaLopHP',
       key: 'MaLopHP',
-      width: 150,
+      width: 140,
       render: (code) => <Text code style={{ fontSize: 12 }}>{code}</Text>,
     },
     {
       title: 'Tên học phần',
       dataIndex: 'TenHP',
       key: 'TenHP',
-      ellipsis: true,
-      render: (v) => v || '—',
+      render: (v, record) => (
+        <Space direction="vertical" size={0}>
+          <Text strong style={{ fontSize: 14 }}>{v || '—'}</Text>
+          <Text type="secondary" style={{ fontSize: 12 }}>Mã HP: {record.MaHP} • {record.SoTinChi} tín chỉ</Text>
+        </Space>
+      ),
     },
     {
       title: 'Nhóm',
       dataIndex: 'TenLopHP',
       key: 'TenLopHP',
-      width: 80,
+      width: 100,
       render: (v) => v || '—',
     },
     {
@@ -148,46 +141,58 @@ export default function StudentSchedulePage() {
       render: (v) => v || '—',
     },
     {
-      title: 'Phòng',
-      dataIndex: 'TenPhong',
-      key: 'TenPhong',
-      width: 120,
-      render: (v, record) => (
-        <Space size={4}>
-          <HomeOutlined style={{ color: '#595959', fontSize: 12 }} />
-          <Text>{v || record.MaPhong || '—'}</Text>
-          {record.ToaNha && (
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              ({record.ToaNha})
-            </Text>
-          )}
-        </Space>
-      ),
-    },
-    {
-      title: 'Tiết',
-      key: 'tiet',
-      width: 120,
-      render: (_, record) => (
-        <Space size={4}>
-          <ClockCircleOutlined style={{ color: '#595959', fontSize: 12 }} />
-          <Text>{formatTimeSlot(record.TietBatDau, record.SoTiet)}</Text>
-        </Space>
-      ),
-    },
-    {
-      title: 'Ngày bắt đầu',
-      dataIndex: 'NgayBatDau',
-      key: 'NgayBatDau',
-      width: 120,
-      render: (date) => formatDate(date),
-    },
-    {
-      title: 'Ngày kết thúc',
-      dataIndex: 'NgayKetThuc',
-      key: 'NgayKetThuc',
-      width: 120,
-      render: (date) => formatDate(date),
+      title: 'Lịch học chi tiết',
+      dataIndex: 'LichHoc',
+      key: 'LichHoc',
+      render: (lichHoc) => {
+        if (!lichHoc || !lichHoc.length) {
+          return <Text type="secondary">—</Text>;
+        }
+        // Sắp xếp lịch học theo thứ tự thứ trong tuần để hiển thị trực quan
+        const sortedLich = [...lichHoc].sort((a, b) => (a.ThuTrongTuan || 0) - (b.ThuTrongTuan || 0));
+        return (
+          <Space direction="vertical" size={8} style={{ width: '100%', padding: '4px 0' }}>
+            {sortedLich.map((sch, index) => {
+              const thuLabel = getDayOfWeekLabel(sch.ThuTrongTuan);
+              const isWeekend = sch.ThuTrongTuan >= 7;
+              return (
+                <div
+                  key={sch.MaLich || index}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                    padding: '6px 12px',
+                    backgroundColor: '#fafafa',
+                    borderRadius: '6px',
+                    border: '1px solid #f0f0f0',
+                    borderLeft: '3px solid #1677ff',
+                  }}
+                >
+                  <Space size={12} wrap>
+                    <Tag color={isWeekend ? 'orange' : 'blue'} style={{ minWidth: 65, textAlign: 'center', margin: 0 }}>
+                      {thuLabel}
+                    </Tag>
+                    <Text strong style={{ fontSize: 13 }}>
+                      <ClockCircleOutlined style={{ marginRight: 4, color: '#8c8c8c' }} />
+                      {formatTimeSlot(sch.TietBatDau, sch.SoTiet)}
+                    </Text>
+                    <Text style={{ fontSize: 13 }}>
+                      <HomeOutlined style={{ marginRight: 4, color: '#8c8c8c' }} />
+                      {sch.TenPhong || sch.MaPhong || '—'}
+                      {sch.ToaNha && <Text type="secondary" style={{ fontSize: 12 }}> ({sch.ToaNha})</Text>}
+                    </Text>
+                  </Space>
+                  <div style={{ fontSize: 11, color: '#8c8c8c', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <CalendarOutlined style={{ fontSize: 11 }} />
+                    <span>Thời gian: {formatDate(sch.NgayBatDau)} - {formatDate(sch.NgayKetThuc)}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </Space>
+        );
+      },
     },
   ];
 
@@ -218,8 +223,8 @@ export default function StudentSchedulePage() {
         </Space>
       </div>
 
-      {/* View mode toggle */}
-      <div className={styles.viewToggle}>
+      {/* Controls & Stats inline row */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px', backgroundColor: '#fff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #f0f0f0' }}>
         <Segmented
           value={viewMode}
           onChange={setViewMode}
@@ -253,32 +258,29 @@ export default function StudentSchedulePage() {
             },
           ]}
         />
-      </div>
 
-      {/* ── Summary cards ─────────────────────────────────── */}
-      {!isLoading && !isEmpty && (
-        <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
-          {[
-            { label: 'Lớp đã đăng ký', value: timetableItems.length, icon: <BookOutlined />, color: '#1677ff' },
-            { label: 'Tổng buổi học', value: sortedRows.length, icon: <CalendarOutlined />, color: '#52c41a' },
-            { label: 'Tổng tín chỉ', value: totalTinChi, icon: <TeamOutlined />, color: '#fa8c16' },
-          ].map((stat, i) => (
-            <Col xs={8} key={i}>
-              <Card size="small" bodyStyle={{ padding: '12px 16px' }}>
-                <Space direction="vertical" size={2} style={{ width: '100%' }}>
-                  <Space>
-                    <span style={{ color: stat.color }}>{stat.icon}</span>
-                    <Text type="secondary" style={{ fontSize: 12 }}>{stat.label}</Text>
-                  </Space>
-                  <Text strong style={{ fontSize: 24, color: stat.color }}>
-                    {stat.value}
-                  </Text>
-                </Space>
-              </Card>
-            </Col>
-          ))}
-        </Row>
-      )}
+        {!isLoading && !isEmpty && (
+          <Space size={16} align="center" style={{ flexWrap: 'wrap' }}>
+            <Space size={6}>
+              <BookOutlined style={{ color: '#1677ff' }} />
+              <Text type="secondary" style={{ fontSize: '13px' }}>Lớp:</Text>
+              <Text strong style={{ color: '#1677ff', fontSize: '14px' }}>{timetableItems.length}</Text>
+            </Space>
+            <Divider type="vertical" style={{ margin: 0 }} />
+            <Space size={6}>
+              <CalendarOutlined style={{ color: '#52c41a' }} />
+              <Text type="secondary" style={{ fontSize: '13px' }}>Buổi học:</Text>
+              <Text strong style={{ color: '#52c41a', fontSize: '14px' }}>{sortedRows.length}</Text>
+            </Space>
+            <Divider type="vertical" style={{ margin: 0 }} />
+            <Space size={6}>
+              <TeamOutlined style={{ color: '#fa8c16' }} />
+              <Text type="secondary" style={{ fontSize: '13px' }}>Tín chỉ:</Text>
+              <Text strong style={{ color: '#fa8c16', fontSize: '14px' }}>{totalTinChi}</Text>
+            </Space>
+          </Space>
+        )}
+      </div>
 
       {/* ── LIST VIEW ─────────────────────────────────────── */}
       {viewMode === 'list' && (
@@ -312,11 +314,11 @@ export default function StudentSchedulePage() {
             ) : (
               <Table
                 columns={scheduleColumns}
-                dataSource={sortedRows}
-                rowKey="key"
+                dataSource={sortedTimetableItems}
+                rowKey="MaLopHP"
                 loading={isLoading}
                 pagination={{
-                  pageSize: 15,
+                  pageSize: 10,
                   showSizeChanger: true,
                   showTotal: (total, range) => `${range[0]}-${range[1]} trong ${total}`,
                 }}

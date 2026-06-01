@@ -20,7 +20,6 @@ import {
   MenuUnfoldOutlined,
   SettingOutlined,
   ClusterOutlined,
-  SwapOutlined,
   ExclamationCircleOutlined,
 } from '@ant-design/icons';
 import { useLogoutMutation } from '@/hooks/useAuth';
@@ -92,11 +91,6 @@ const menuItems = [
     key: 'system-group',
     label: 'HỆ THỐNG',
     type: 'group',
-  },
-  {
-    key: '/admin/replication',
-    icon: <SwapOutlined />,
-    label: 'Replication',
   },
   {
     key: '/admin/failover',
