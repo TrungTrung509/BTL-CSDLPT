@@ -52,6 +52,37 @@ class ScheduleResponse(BaseModel):
     NgayKetThuc: Optional[datetime] = None
     GhiChu: Optional[str] = None
 
+class StudentTimetableLichHoc(BaseModel):
+    MaLich: str
+    ThuTrongTuan: int
+    TietBatDau: int
+    SoTiet: int
+    MaPhong: Optional[str] = None
+    TenPhong: Optional[str] = None
+    ToaNha: Optional[str] = None
+    NgayBatDau: Optional[datetime] = None
+    NgayKetThuc: Optional[datetime] = None
+    GhiChu: Optional[str] = None
+
+class StudentTimetableItem(BaseModel):
+    MaLopHP: str
+    TenLopHP: Optional[str] = None
+    MaHP: str
+    TenHP: Optional[str] = None
+    SoTinChi: Optional[int] = None
+    MaHocKy: str
+    MaCoSo: str
+    TenCoSo: Optional[str] = None
+    MaGV: Optional[str] = None
+    TenGiangVien: Optional[str] = None
+    TrangThaiDangKy: str
+    HinhThucHoc: Optional[str] = None
+    LichHoc: List[StudentTimetableLichHoc] = Field(default_factory=list)
+
+class StudentTimetableResponse(BaseModel):
+    maHocKy: Optional[str] = None
+    items: List[StudentTimetableItem] = Field(default_factory=list)
+
 class StudentInClassResponse(BaseModel):
     MaSV: str
     Ho: str

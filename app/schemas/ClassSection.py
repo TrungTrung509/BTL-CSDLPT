@@ -34,6 +34,7 @@ class ScheduleUpdate(BaseModel):
 class ScheduleResponse(ScheduleBase):
     MaLopHP: str
     TenPhong: Optional[str] = None
+    ToaNha: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

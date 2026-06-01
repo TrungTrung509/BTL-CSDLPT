@@ -15,6 +15,7 @@ from models.Semesters import Semester
 from models.Students import Student
 from models.Teachers import Teacher
 from models.Users import User
+from models.Branches import Branch
 from enums.types import StudyForm
 from enums.status import (
     ClassSectionStatus, 
@@ -181,6 +182,71 @@ class ClassSectionService:
                 for section in sections
             ]
             return items, len(items)
+        finally:
+            session.close()
+
+    @staticmethod
+    def get_my_teaching_schedules(current_user: User) -> list[dict]:
+        """
+        Lấy tất cả lịch học của các lớp giảng viên đang phụ trách.
+        Trả về danh sách schedule đã flatten (mỗi lịch 1 bản ghi) kèm thông tin lớp.
+        """
+        ClassSectionService._ensure_roles(current_user, UserRole.GiangVien)
+        site = ClassSectionService._normalize_site(current_user.MaCoSo)
+        session = ClassSectionService._open_session_for_site(site)
+
+        try:
+            teacher = ClassSectionService._get_teacher_by_user(session, current_user.userId)
+            sections = (
+                ClassSectionRepo.base_query(session)
+                .filter(CourseSection.MaGV == teacher.MaGV)
+                .all()
+            )
+
+            section_ids = [s.MaLopHP for s in sections]
+            if not section_ids:
+                return []
+
+            # Batch load schedules + rooms + course info
+            rows = (
+                session.query(Schedule, Classroom, CourseSection, Course, Teacher, Branch)
+                .join(Classroom, Schedule.MaPhong == Classroom.MaPhong, isouter=True)
+                .join(CourseSection, Schedule.MaLopHP == CourseSection.MaLopHP)
+                .join(Course, CourseSection.MaHP == Course.MaHocPhan)
+                .join(Teacher, CourseSection.MaGV == Teacher.MaGV, isouter=True)
+                .join(Branch, CourseSection.MaCoSo == Branch.MaCoSo, isouter=True)
+                .filter(Schedule.MaLopHP.in_(section_ids))
+                .order_by(Schedule.ThuTrongTuan.asc(), Schedule.TietBatDau.asc())
+                .all()
+            )
+
+            result = []
+            for schedule, room, section, course, teacher_obj, branch in rows:
+                ten_gv = ClassSectionService._format_teacher_name(teacher_obj) if teacher_obj else None
+                result.append({
+                    "MaLich": schedule.MaLich,
+                    "MaLopHP": schedule.MaLopHP,
+                    "TenLopHP": section.TenLopHP,
+                    "MaHP": course.MaHocPhan,
+                    "TenHP": course.TenHocPhan,
+                    "SoTinChi": course.SoTinChi,
+                    "MaHocKy": section.MaHocKy,
+                    "MaCoSo": section.MaCoSo,
+                    "TenCoSo": branch.TenCoSo if branch else section.MaCoSo,
+                    "HinhThucHoc": section.HinhThucHoc.value if hasattr(section.HinhThucHoc, 'value') else str(section.HinhThucHoc),
+                    "MaGV": section.MaGV,
+                    "TenGiangVien": ten_gv,
+                    "MaPhong": schedule.MaPhong,
+                    "TenPhong": room.TenPhong if room else None,
+                    "ToaNha": room.ToaNha if room else None,
+                    "ThuTrongTuan": schedule.ThuTrongTuan,
+                    "TietBatDau": schedule.TietBatDau,
+                    "SoTiet": schedule.SoTiet,
+                    "NgayBatDau": schedule.NgayBatDau,
+                    "NgayKetThuc": schedule.NgayKetThuc,
+                    "GhiChu": schedule.GhiChu,
+                })
+            return result
         finally:
             session.close()
 
@@ -587,6 +653,7 @@ class ClassSectionService:
             MaLopHP=schedule.MaLopHP,
             MaPhong=schedule.MaPhong,
             TenPhong=room.TenPhong if room else None,
+            ToaNha=room.ToaNha if room else None,
             ThuTrongTuan=schedule.ThuTrongTuan,
             TietBatDau=schedule.TietBatDau,
             SoTiet=schedule.SoTiet,

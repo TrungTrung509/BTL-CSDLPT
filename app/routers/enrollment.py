@@ -8,7 +8,8 @@ from schemas.Enrollment import (
     EnrollmentHistoryResponse,
     ScheduleResponse,
     StudentInClassResponse,
-    SwapEnrollmentRequest
+    SwapEnrollmentRequest,
+    StudentTimetableItem,
 )
 from schemas.api_response import error_response, success_response
 from security import get_current_active_user
@@ -93,6 +94,27 @@ def get_my_timetable(
         current_user.userId,
         current_user.MaCoSo,
         maHocKy
+    )
+
+
+@router.get("/my-timetable")
+def get_my_timetable_enriched(
+    maHocKy: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Lấy thời khóa biểu sinh viên với đầy đủ thông tin lớp, phòng, giảng viên."""
+    if current_user.role != UserRole.SinhVien:
+        raise HTTPException(status_code=403, detail="Chỉ sinh viên mới có thời khóa biểu.")
+
+    items = EnrollmentService.get_student_timetable_enriched(
+        current_user.userId,
+        current_user.MaCoSo,
+        maHocKy
+    )
+    return success_response(
+        data=items,
+        message=f"Lấy thời khóa biểu thành công (tổng: {len(items)} lớp)",
+        status=200,
     )
 
 @router.get("/class-students", response_model=List[StudentInClassResponse])
