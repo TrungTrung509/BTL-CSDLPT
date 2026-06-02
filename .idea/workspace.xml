@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="9b3df678-1889-47cd-bec1-cd87b9f6663d" name="Changes" comment="feat: đăng ký lịch học">
+      <change beforePath="$PROJECT_DIR$/app/enums/status.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/enums/status.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/services/EnrollmentService.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/services/EnrollmentService.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/services/enrollment_3pc/coordinator.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/services/enrollment_3pc/coordinator.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/services/enrollment_3pc/domain.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/services/enrollment_3pc/domain.py" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;TrungTrung509&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/TrungTrung509/BTL-CSDLPT.git&quot;,
+    &quot;accountId&quot;: &quot;7564e5bf-29c6-48d8-9685-dfa48bc16a3f&quot;
+  }
+}</component>
+  <component name="McpProjectServerCommands">
+    <commands />
+    <urls />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 4
+}</component>
+  <component name="ProjectId" id="3CB9RMzySpYDjt1JfXbQd8RsBtM" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ASKED_SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;Trung&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/HocTap/CSDLPT/BTL-CSDLPT&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;
+  }
+}</component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\HocTap\CSDLPT\BTL-CSDLPT\app\configs" />
+      <recent name="C:\HocTap\CSDLPT\BTL-CSDLPT\app\config" />
+    </key>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-python-sdk-ca5e2b39c7df-6e1f45a539f7-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-253.29346.308" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="9b3df678-1889-47cd-bec1-cd87b9f6663d" name="Changes" comment="" />
+      <created>1775848086998</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1775848086998</updated>
+    </task>
+    <task id="LOCAL-00001" summary="feat: cấu hình alembic cho 3 database hadong, hoalac, ngoctruc">
+      <option name="closed" value="true" />
+      <created>1776456210315</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1776456210315</updated>
+    </task>
+    <task id="LOCAL-00002" summary="feat: đăng ký lịch học">
+      <option name="closed" value="true" />
+      <created>1776584193992</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1776584193992</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
+    <servers />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="feat: cấu hình alembic cho 3 database hadong, hoalac, ngoctruc" />
+    <MESSAGE value="feat: đăng ký lịch học" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat: đăng ký lịch học" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/app/models/Users.py</url>
+          <option name="timeStamp" value="1" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
+</project>
