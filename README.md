@@ -3,20 +3,6 @@
 > **Bài tập lớn môn Cơ sở Dữ liệu Phân Tán**
 > Hệ thống quản lý và đăng ký học phần trực tuyến theo mô hình **cơ sở dữ liệu phân tán** nhiều site, ứng dụng giao thức **Three-Phase Commit (3PC)**, **replication** và **failover** tự động.
 
----
-
-## 📑 Mục Lục
-
-- [Tổng quan hệ thống](#-tổng-quan-hệ-thống)
-- [Kiến trúc phân tán](#-kiến-trúc-phân-tán)
-- [Công nghệ sử dụng](#-công-nghệ-sử-dụng)
-- [Cấu trúc thư mục](#-cấu-trúc-thư-mục)
-- [API Endpoints](#-api-endpoints)
-- [Các tính năng nổi bật](#-các-tính-năng-nổi-bật)
-- [Benchmark & Monitoring](#-benchmark--monitoring)
-
----
-
 ## 🌐 Tổng Quan Hệ Thống
 
 Hệ thống mô phỏng **Học viện Bưu chính Viễn thông (PTIT)** với 3 cơ sở đào tạo, mỗi cơ sở vận hành một **node PostgreSQL độc lập**. Sinh viên thuộc bất kỳ cơ sở nào đều có thể đăng ký lớp học phần tại cơ sở khác thông qua giao dịch phân tán.
@@ -59,50 +45,50 @@ Flow xử lý từ request đến commit thành công, đảm bảo nhất quán
 
 ## Tóm tắt các bước
 
-### 1. Định tuyến hàng đợi (Kafka)
+1. Định tuyến hàng đợi (Kafka)
 - Dùng `key = MaLopHP` → cùng lớp vào cùng partition → xử lý FIFO, tránh race condition.
 
-### 2. Giới hạn tải (asyncio.Semaphore)
+2. Giới hạn tải (asyncio.Semaphore)
 - Mỗi worker dùng `Semaphore(20)` → tối đa 20 giao dịch 3PC đồng thời, bảo vệ connection pool.
 
-### 3. Tự động thử lại khi deadlock (`@retry_on_deadlock`)
+3. Tự động thử lại khi deadlock (`@retry_on_deadlock`)
 - Bọc coordinator, thử lại tối đa 3 lần với exponential backoff nếu gặp deadlock (`40P01`) hoặc `409 Conflict`.
 
-### 4. Kiểm tra site hoạt động
+4. Kiểm tra site hoạt động
 - Ping nhanh các site → nếu offline → dừng ngay (`503 Service Unavailable`).
 
-### 5. Ghim kết nối (`open_pinned_sessions`)
+5. Ghim kết nối (`open_pinned_sessions`)
 - Giữ cố định connection/session đến các site DB.
 
-### 6. Kiểm tra sơ bộ (snapshot check)
+6. Kiểm tra sơ bộ (snapshot check)
 - Đọc nhanh (không khóa) kiểm tra: đã đăng ký chưa, lớp mở, đủ chỗ, trùng lịch/học phần → fail-fast.
 
-### 7. Khóa phân tán (Advisory Locks)
+7. Khóa phân tán (Advisory Locks)
 - Dùng `pg_try_advisory_lock` trên các site:
   - `user-semester` (tránh đồng thời cùng sinh viên)
   - `section` (lớp mới/cũ)
 - Sắp xếp khóa theo thứ tự alphabet để tránh deadlock. Bận → giải phóng + báo `409 Conflict`.
 
-### 8. Khởi tạo log giao dịch (INIT)
+8. Khởi tạo log giao dịch (INIT)
 - Tạo bản ghi `EnrollmentTransaction` với trạng thái `INIT` trên tất cả site.
 
-### 9. Khóa dòng (`SELECT FOR UPDATE`)
+9. Khóa dòng (`SELECT FOR UPDATE`)
 - Khóa cứng dòng `LopHocPhan` tại site lớp mới (và cũ nếu đổi lớp).
 
-### 10. Kiểm tra sĩ số cuối (prepare_validate)
+10. Kiểm tra sĩ số cuối (prepare_validate)
 - Refresh dữ liệu sau khóa → double-check `SiSoHienTai < SiSoToiDa` → nếu đầy thì abort.
 
-### 11. Prepare thành công (PREPARED)
+11. Prepare thành công (PREPARED)
 - Chuyển trạng thái giao dịch thành `PREPARED` trên tất cả site.
 
-### 12. Điểm không thể quay lui (PRECOMMIT)
+12. Điểm không thể quay lui (PRECOMMIT)
 - Chuyển sang `PRECOMMIT` → bắt buộc commit sau đó (Auto Recovery sẽ xử lý nếu lỗi).
 
-### 13. Commit nghiệp vụ (COMMITTED)
+13. Commit nghiệp vụ (COMMITTED)
 - Ghi `DangKy`, cập nhật sĩ số, cross-site link, chuyển trạng thái thành `COMMITTED`.
 - Ghi log `NhatKyThaoTac` bằng kết nối AUTOCOMMIT riêng (luôn lưu).
 
-### 14. Giải phóng tài nguyên
+14. Giải phóng tài nguyên
 - Mở khóa Advisory Locks, đóng session/connection trả về pool.
 
 ---
@@ -376,13 +362,6 @@ Ba config Alembic riêng biệt (`alembic_HADONG`, `alembic_NGOCTRUC`, `alembic_
 # Khởi động với profile benchmark
 cd RESULTS/docker
 docker compose --profile benchmark up -d k6
-```
-
-Cấu hình qua biến môi trường trong `.env`:
-```env
-BENCH_VUS=10              # Số virtual users
-BENCH_ITERATIONS=100      # Số lần lặp
-BENCH_TARGET_SITE=HADONG  # Site benchmark
 ```
 
 ### Benchmark so sánh phân tán theo khoa và theo cơ sở
