@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import {
   Card, Table, Button, Space, Tag, Typography, Modal, Form, Input, Select, Popconfirm,
-  message, Drawer, Descriptions, Empty, Tabs
+  message, Drawer, Descriptions, Empty, Tabs, Row, Col
 } from 'antd';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, ReloadOutlined,
@@ -13,6 +13,7 @@ import {
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { courseApi } from '@/services/admin/courseApi';
+import { departmentApi, departmentKeys } from '@/services/admin/departmentApi';
 import EntityOverviewDashboard from '../components/EntityOverviewDashboard';
 import { useAdminEntityOverview } from '@/hooks/useAdminOverview';
 import { getApiErrorMessage } from '@/utils/errorUtils';
@@ -34,6 +35,15 @@ export default function AdminCoursesPage() {
   const [filters, setFilters] = useState({ keyword: '' });
   const [activeTab, setActiveTab] = useState('overview');
   const queryClient = useQueryClient();
+
+  // ── Query: Departments (for dropdown)
+  const { data: deptData } = useQuery({
+    queryKey: departmentKeys.list(),
+    queryFn: departmentApi.getAll,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+  const departments = Array.isArray(deptData) ? deptData : [];
 
   // ── Overview query
   const { data: overviewData, isLoading: isOverviewLoading, isError: isOverviewError, refetch: refetchOverview } =
@@ -120,6 +130,16 @@ export default function AdminCoursesPage() {
       dataIndex: 'TenHocPhan',
       key: 'TenHocPhan',
       ellipsis: true,
+    },
+    {
+      title: 'Khoa',
+      dataIndex: 'MaKhoa',
+      key: 'MaKhoa',
+      width: 120,
+      render: (v) => {
+        const d = departments.find((d) => d.MaKhoa === v);
+        return <Text type="secondary">{d ? `${d.MaKhoa} - ${d.TenKhoa}` : v || '—'}</Text>;
+      },
     },
     {
       title: 'Số TC',
@@ -252,9 +272,24 @@ export default function AdminCoursesPage() {
           <Form.Item name="TenHocPhan" label="Tên học phần" rules={[{ required: true, message: 'Vui lòng nhập tên' }]}>
             <Input placeholder="VD: Nhập môn Công nghệ phần mềm" maxLength={200} />
           </Form.Item>
-          <Form.Item name="SoTinChi" label="Số tín chỉ">
+          <Form.Item name="MaKhoa" label="Khoa" rules={[{ required: true, message: 'Vui lòng chọn khoa' }]}>
+            <Select placeholder="Chọn khoa" allowClear showSearch optionFilterProp="children" options={departments.map((d) => ({ label: `${d.MaKhoa} - ${d.TenKhoa}`, value: d.MaKhoa }))} />
+          </Form.Item>
+          <Form.Item name="SoTinChi" label="Số tín chỉ" rules={[{ required: true, message: 'Vui lòng nhập số tín chỉ' }]}>
             <Input type="number" placeholder="VD: 3" min={1} max={10} />
           </Form.Item>
+          <Row gutter={12}>
+            <Col span={12}>
+              <Form.Item name="SoTietLyThuyet" label="Số tiết lý thuyết" rules={[{ required: true, message: 'Nhập số tiết LT' }]}>
+                <Input type="number" placeholder="VD: 30" min={0} max={120} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="SoTietThucHanh" label="Số tiết thực hành" rules={[{ required: true, message: 'Nhập số tiết TH' }]}>
+                <Input type="number" placeholder="VD: 15" min={0} max={120} />
+              </Form.Item>
+            </Col>
+          </Row>
           <Form.Item name="LoaiHocPhan" label="Loại học phần">
             <Select placeholder="Chọn loại" allowClear>
               {TYPE_OPTIONS.map((o) => <Select.Option key={o.value} value={o.value}>{o.label}</Select.Option>)}
@@ -286,7 +321,15 @@ export default function AdminCoursesPage() {
           <Descriptions column={1} bordered size="small">
             <Descriptions.Item label="Mã HP"><Text strong code>{detailRecord.MaHocPhan}</Text></Descriptions.Item>
             <Descriptions.Item label="Tên học phần">{detailRecord.TenHocPhan}</Descriptions.Item>
+            <Descriptions.Item label="Khoa">
+              {(() => {
+                const d = departments.find((d) => d.MaKhoa === detailRecord.MaKhoa);
+                return d ? `${d.MaKhoa} - ${d.TenKhoa}` : detailRecord.MaKhoa || '—';
+              })()}
+            </Descriptions.Item>
             <Descriptions.Item label="Số tín chỉ">{detailRecord.SoTinChi || '—'}</Descriptions.Item>
+            <Descriptions.Item label="Số tiết lý thuyết">{detailRecord.SoTietLyThuyet ?? '—'}</Descriptions.Item>
+            <Descriptions.Item label="Số tiết thực hành">{detailRecord.SoTietThucHanh ?? '—'}</Descriptions.Item>
             <Descriptions.Item label="Loại">
               {detailRecord.LoaiHocPhan ? (
                 <Tag color={detailRecord.LoaiHocPhan === 'BatBuoc' ? 'blue' : 'green'}>
