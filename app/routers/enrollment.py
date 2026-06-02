@@ -140,6 +140,11 @@ def get_my_timetable_enriched(
         message=f"Lấy thời khóa biểu thành công (tổng: {len(items)} lớp)",
         status=200,
     )
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> 95eb37706a2a7468cd3b8d48ea772512594020d6
 @router.get("/class-students", response_model=List[StudentInClassResponse])
 def get_class_students(
     maLopHP: str = Query(...),
