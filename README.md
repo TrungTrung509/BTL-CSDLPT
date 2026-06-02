@@ -29,18 +29,83 @@ Hệ thống mô phỏng **Học viện Bưu chính Viễn thông (PTIT)** với
 | `NGOCTRUC` | Ngọc Trục | `NT` | `5433` | ngoctruc.ptit.edu.vn |
 | `HOALAC` | Hòa Lạc | `HL` | `5434` | hoalac.ptit.edu.vn |
 
-### Luồng đăng ký học phần
+### 1. Luồng Đăng Ký Học Phần & Kiểm Soát Đồng Thời
 
 ```
-Sinh viên → REST API → Kafka Queue → 3PC Coordinator
-                                         ↓
-                              [Can Commit?] → [Pre-Commit] → [Do Commit]
-                                         ↓              ↓           ↓
-                                     Coordinator   Site A      Site B/C
+SV POST /enrollments/register
+  → Kafka publish (key=MaLopHP, 8 partitions, timeout 10s)
+  → Worker (8 coroutines, Semaphore(20))
+  → Enrollment3PCCoordinator [@retry_on_deadlock x3]
+      [Pha 1] Chuẩn bị (Prepare Phase):
+          [0] Kiểm tra trạng thái các site (ensure_sites_alive), Ghim kết nối (open_pinned_sessions)
+          [1] Lớp L6 - Snapshot Check
+          [2] Lớp L3 - pg_try_advisory_lock
+          [3] Khởi tạo log giao dịch (INIT)
+          [4] Lớp L4 - SELECT FOR UPDATE
+          [5] Kiểm tra sĩ số cuối cùng
+      [Pha 1] Trạng thái PREPARED
+      [Pha 2] Báo trước cam kết (Pre-commit Phase): [Pha 2] Trạng thái PRECOMMIT (Điểm không thể quay đầu).
+      [Pha 3] Cam kết thực tế (Commit Phase): [Pha 3] Ghi DB nghiệp vụ & COMMIT thực tế.
+Giải phóng tài nguyên (Finally): FINALLY - Giải phóng tài nguyên (Nhả lock và đóng session).
+  → reply → HTTP response
 ```
+
+**Trạng thái 3PC:** `INIT` → `PREPARED` → **`PRECOMMIT`** → `COMMITTED` / `ABORTED`
+- Crash sau PRECOMMIT → Recovery loop ép commit (mỗi 10s)
+- Crash trước PRECOMMIT, stale > 30s → Recovery loop ép abort
+# Kiểm soát đồng thời đăng ký học phần (3PC)
+
+Flow xử lý từ request đến commit thành công, đảm bảo nhất quán phân tán.
+
+## Tóm tắt các bước
+
+### 1. Định tuyến hàng đợi (Kafka)
+- Dùng `key = MaLopHP` → cùng lớp vào cùng partition → xử lý FIFO, tránh race condition.
+
+### 2. Giới hạn tải (asyncio.Semaphore)
+- Mỗi worker dùng `Semaphore(20)` → tối đa 20 giao dịch 3PC đồng thời, bảo vệ connection pool.
+
+### 3. Tự động thử lại khi deadlock (`@retry_on_deadlock`)
+- Bọc coordinator, thử lại tối đa 3 lần với exponential backoff nếu gặp deadlock (`40P01`) hoặc `409 Conflict`.
+
+### 4. Kiểm tra site hoạt động
+- Ping nhanh các site → nếu offline → dừng ngay (`503 Service Unavailable`).
+
+### 5. Ghim kết nối (`open_pinned_sessions`)
+- Giữ cố định connection/session đến các site DB.
+
+### 6. Kiểm tra sơ bộ (snapshot check)
+- Đọc nhanh (không khóa) kiểm tra: đã đăng ký chưa, lớp mở, đủ chỗ, trùng lịch/học phần → fail-fast.
+
+### 7. Khóa phân tán (Advisory Locks)
+- Dùng `pg_try_advisory_lock` trên các site:
+  - `user-semester` (tránh đồng thời cùng sinh viên)
+  - `section` (lớp mới/cũ)
+- Sắp xếp khóa theo thứ tự alphabet để tránh deadlock. Bận → giải phóng + báo `409 Conflict`.
+
+### 8. Khởi tạo log giao dịch (INIT)
+- Tạo bản ghi `EnrollmentTransaction` với trạng thái `INIT` trên tất cả site.
+
+### 9. Khóa dòng (`SELECT FOR UPDATE`)
+- Khóa cứng dòng `LopHocPhan` tại site lớp mới (và cũ nếu đổi lớp).
+
+### 10. Kiểm tra sĩ số cuối (prepare_validate)
+- Refresh dữ liệu sau khóa → double-check `SiSoHienTai < SiSoToiDa` → nếu đầy thì abort.
+
+### 11. Prepare thành công (PREPARED)
+- Chuyển trạng thái giao dịch thành `PREPARED` trên tất cả site.
+
+### 12. Điểm không thể quay lui (PRECOMMIT)
+- Chuyển sang `PRECOMMIT` → bắt buộc commit sau đó (Auto Recovery sẽ xử lý nếu lỗi).
+
+### 13. Commit nghiệp vụ (COMMITTED)
+- Ghi `DangKy`, cập nhật sĩ số, cross-site link, chuyển trạng thái thành `COMMITTED`.
+- Ghi log `NhatKyThaoTac` bằng kết nối AUTOCOMMIT riêng (luôn lưu).
+
+### 14. Giải phóng tài nguyên
+- Mở khóa Advisory Locks, đóng session/connection trả về pool.
 
 ---
-
 ## 🏗️ Kiến Trúc Phân Tán
 
 ```
@@ -84,49 +149,6 @@ Sinh viên → REST API → Kafka Queue → 3PC Coordinator
 │  cAdvisor (8085)  →  Kafka UI (8090)                           │
 └────────────────────────────────────────────────────────────────┘
 ```
-
----
-
-## 🛠️ Công Nghệ Sử Dụng
-
-### Backend
-| Thư viện | Phiên bản | Mục đích |
-|----------|-----------|----------|
-| `FastAPI` | 0.135.3 | REST API framework |
-| `SQLAlchemy` | 2.0.49 | ORM multi-engine |
-| `Alembic` | 1.18.4 | Database migration |
-| `aiokafka` | 0.12.0 | Kafka async producer/consumer |
-| `Elasticsearch` | ≥ 8.0.0 | Full-text search |
-| `psycopg2-binary` | 2.9.11 | PostgreSQL driver |
-| `python-jose` | 3.5.0 | JWT authentication |
-| `passlib` + `bcrypt` | — | Password hashing |
-| `prometheus-client` | 0.23.1 | Metrics exposition |
-| `uvicorn` | 0.44.0 | ASGI server |
-
-### Frontend
-| Thư viện | Phiên bản | Mục đích |
-|----------|-----------|----------|
-| `React` | 18.3.1 | UI framework |
-| `Vite` | 5.4.8 | Build tool |
-| `Ant Design` | 5.21.2 | Component library |
-| `TanStack Query` | 5.56.2 | Server state management |
-| `React Router` | 6.26.2 | Client-side routing |
-| `Axios` | 1.7.7 | HTTP client |
-
-### Infrastructure
-| Dịch vụ | Image | Mục đích |
-|---------|-------|----------|
-| PostgreSQL | `postgres:15-alpine` | Distributed databases (×3 sites + centralized) |
-| Redis | `redis:7-alpine` | Cache layer |
-| Apache Kafka | `apache/kafka:3.7.0` (KRaft) | Message broker |
-| Elasticsearch | `8.11.0` | Search engine |
-| Kibana | `8.11.0` | ES dashboard |
-| Prometheus | `v3.5.0` | Metrics collection |
-| Grafana | `12.1.1` | Metrics visualization |
-| cAdvisor | `0.56.2` | Container metrics |
-| Kafka UI | `provectuslabs/kafka-ui` | Kafka management |
-| Kafka Connect | `confluentinc/cp-kafka-connect:7.5.0` | Debezium CDC |
-| k6 | `grafana/k6` | Load testing |
 
 ---
 
@@ -275,6 +297,7 @@ Tất cả endpoint có thể xem đầy đủ tại **Swagger UI**: http://loca
 |------|------|-------|
 | `HocPhan` (Courses) | **Replicated** | Replicate lên cả 3 sites qua Outbox Pattern |
 | `HocKy` (Semesters) | **Replicated** | Đồng bộ học kỳ trên toàn hệ thống |
+| `Users` (Users) | **Replicated** | Mỗi site chứa toàn bộ user của cả hệ thống |
 | `SinhVien` (Students) | **Partitioned** | Mỗi site chỉ chứa SV của cơ sở đó |
 | `GiangVien` (Teachers) | **Partitioned** | Mỗi site chỉ chứa GV của cơ sở đó |
 | `LopHocPhan` (ClassSections) | **Partitioned** | Lớp thuộc site nào quản lý ở site đó |
