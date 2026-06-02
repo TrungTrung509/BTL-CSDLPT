@@ -37,8 +37,8 @@ class Enrollment3PCDomain:
                 detail=f"Lớp đang ở trạng thái: {target_section.TrangThaiLop}",
             )
 
-        # Kiểm tra sĩ số sơ bộ
-        active_count = ClassSectionRepo.count_active_enrollments(target_session, target_section.MaLopHP)
+        # Kiểm tra sĩ số sơ bộ (sử dụng thuộc tính SiSoHienTai trực tiếp trên LopHocPhan)
+        active_count = target_section.SiSoHienTai
         if active_count >= target_section.SiSoToiDa:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
