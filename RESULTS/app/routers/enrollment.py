@@ -141,7 +141,6 @@ def get_my_timetable_enriched(
         status=200,
     )
 
-
 @router.get("/class-students", response_model=List[StudentInClassResponse])
 def get_class_students(
     maLopHP: str = Query(...),

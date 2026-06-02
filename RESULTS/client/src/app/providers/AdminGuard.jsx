@@ -1,10 +1,6 @@
 /**
  * Admin Guard - Protects admin routes for Admin role only.
-<<<<<<< Updated upstream
  * Redirects non-Admins based on their role.
-=======
- * Redirects non-Admins to /dashboard.
->>>>>>> Stashed changes
  */
 
 import { Navigate } from 'react-router-dom';
