@@ -121,14 +121,15 @@ function StatusBadge({ status, label, count, index }) {
   );
 }
 
-function ExtraRow({ label, count, percentage }) {
+function ExtraRow({ statKey, label, count, percentage }) {
   if (!count && count !== 0) return null;
+  const isRate = statKey === 'avg_fill_rate' || label.toLowerCase().includes('tỷ lệ') || label.toLowerCase().includes('rate');
   return (
     <div className={styles.extraItem}>
       <Text type="secondary">{label}</Text>
       <div className={styles.extraRight}>
         <Text strong style={{ fontSize: 14, color: '#262626' }}>
-          {typeof count === 'number' && count > 100 ? `${count}%` : count.toLocaleString()}
+          {isRate ? `${count}%` : count.toLocaleString()}
         </Text>
         {percentage != null && (
           <Progress
@@ -348,6 +349,7 @@ export default function EntityOverviewDashboard({ entity, data, loading, error, 
               {data.extra.map((e, i) => (
                 <ExtraRow
                   key={e.key || i}
+                  statKey={e.key}
                   label={e.label}
                   count={e.count}
                   percentage={e.percentage}

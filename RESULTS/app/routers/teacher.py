@@ -40,7 +40,7 @@ async def get_all_teachers(
             TrangThai=trangThai,
             keyword=keyword,
         )
-        teachers, total = TeacherManagementService.get_all_teachers(
+        teachers, total, status_counts = TeacherManagementService.get_all_teachers(
             db, filters, skip, limit
         )
         return success_response(
@@ -49,6 +49,7 @@ async def get_all_teachers(
                 "total": total,
                 "skip": skip,
                 "limit": limit,
+                "stats": status_counts,
             },
             message=f"Lấy danh sách giảng viên thành công (tổng: {total})",
             status=200,

@@ -113,6 +113,7 @@ export default function AdminStudentsPage() {
     select: (res) => ({
       items: res.items || [],
       total: res.total || 0,
+      stats: res.stats || {},
     }),
     keepPreviousData: true,
   });
@@ -250,13 +251,13 @@ export default function AdminStudentsPage() {
     setFilters((f) => ({ ...f, page, pageSize: pageSize ?? f.pageSize }));
   };
 
-  // ── Statistics from data
+  // ── Statistics from data (Backend returns stats: { DangHoc, BaoLuu, ThoiHoc, TotNghiep })
   const stats = {
-    total:     students.length,
-    active:    students.filter((t) => t.TrangThai === 'DangHoc').length,
-    reserved:  students.filter((t) => t.TrangThai === 'BaoLuu').length,
-    dropped:   students.filter((t) => t.TrangThai === 'ThoiHoc').length,
-    graduated: students.filter((t) => t.TrangThai === 'TotNghiep').length,
+    total:     total,
+    active:    data?.stats?.DangHoc ?? 0,
+    reserved:  data?.stats?.BaoLuu ?? 0,
+    dropped:   data?.stats?.ThoiHoc ?? 0,
+    graduated: data?.stats?.TotNghiep ?? 0,
   };
 
   // ── Table columns

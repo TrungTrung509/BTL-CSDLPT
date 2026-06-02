@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import List, Optional, Tuple
 
 from fastapi import HTTPException, status
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from sqlalchemy.orm import Session
 
 from configs.db import SessionLocals
@@ -34,7 +34,7 @@ class TeacherManagementService:
     @staticmethod
     def get_all_teachers(
         db: Session, filters: Optional[TeacherFilter] = None, skip: int = 0, limit: int = 20
-    ) -> Tuple[List[Teacher], int]:
+    ) -> Tuple[List[Teacher], int, dict]:
         """Lấy danh sách giảng viên với filter."""
         query = db.query(Teacher)
         if filters:
@@ -57,7 +57,29 @@ class TeacherManagementService:
         total = query.count()
         teachers = query.offset(offset).limit(limit).all()
 
-        return teachers, total
+        # Calculate stats based on filters, excluding TrangThai filter
+        stats_query = db.query(Teacher.TrangThai, func.count(Teacher.MaGV))
+        if filters:
+            if filters.MaCoSo:
+                stats_query = stats_query.filter(Teacher.MaCoSo == filters.MaCoSo.upper())
+            if filters.MaKhoa:
+                stats_query = stats_query.filter(Teacher.MaKhoa == filters.MaKhoa.upper())
+            if filters.keyword:
+                keyword = f"%{filters.keyword}%"
+                stats_query = stats_query.filter(
+                    or_(
+                        Teacher.MaGV.ilike(keyword),
+                        Teacher.Ho.ilike(keyword),
+                        Teacher.Ten.ilike(keyword),
+                    )
+                )
+        stats_rows = stats_query.group_by(Teacher.TrangThai).all()
+        status_counts = {
+            (r[0].value if hasattr(r[0], "value") else str(r[0])): r[1]
+            for r in stats_rows
+        }
+
+        return teachers, total, status_counts
 
     @staticmethod
     def get_teacher_by_magv(db: Session, ma_gv: str) -> Optional[Teacher]:

@@ -41,13 +41,14 @@ async def get_all_students(
             TrangThai=trangThai,
             keyword=keyword,
         )
-        students, total = StudentManagementService.get_all_students(db, filters, skip, limit)
+        students, total, status_counts = StudentManagementService.get_all_students(db, filters, skip, limit)
         return success_response(
             data={
                 "items": [StudentResponse.model_validate(item).model_dump() for item in students],
                 "total": total,
                 "skip": skip,
                 "limit": limit,
+                "stats": status_counts,
             },
             message=f"Lay danh sach sinh vien thanh cong (tong: {total})",
             status=200,

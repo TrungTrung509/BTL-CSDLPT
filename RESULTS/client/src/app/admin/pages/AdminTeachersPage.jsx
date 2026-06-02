@@ -131,6 +131,7 @@ export default function AdminTeachersPage() {
     select: (res) => ({
       items: res.items || [],
       total: res.total || 0,
+      stats: res.stats || {},
     }),
     keepPreviousData: true,
   });
@@ -270,12 +271,12 @@ export default function AdminTeachersPage() {
     setFilters((f) => ({ ...f, page, pageSize: pageSize ?? f.pageSize }));
   };
 
-  // ── Statistics from data
+  // ── Statistics from data (Backend returns stats: { DangCongTac, TamNghi, NghiViec })
   const stats = {
-    total:       teachers.length,
-    active:       teachers.filter((t) => t.TrangThai === 'DangCongTac').length,
-    suspended:    teachers.filter((t) => t.TrangThai === 'TamNghi').length,
-    retired:      teachers.filter((t) => t.TrangThai === 'NghiViec').length,
+    total:       total,
+    active:       data?.stats?.DangCongTac ?? 0,
+    suspended:    data?.stats?.TamNghi ?? 0,
+    retired:      data?.stats?.NghiViec ?? 0,
   };
 
   // ── Table columns
