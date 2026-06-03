@@ -46,7 +46,8 @@ docker compose up -d postgres_hadong postgres_ngoctruc postgres_hoalac redis kaf
 
 ### 2. Thiết lập FDW & Distributed Views (Tự động hoặc Thủ công)
 - **Tự động**: Container `fdw_setup` sẽ tự chạy script liên kết 3 site PostgreSQL và tạo sẵn các view liên site ngay khi các database sẵn sàng.
-- **Thủ công (Nếu muốn thiết lập lại từ thư mục `RESULTS/docker`)**:
+  *(Lưu ý: Đôi khi trong quá trình khởi động đồng thời, container `fdw_setup` có thể chạy và kết thúc trước khi các DB khởi tạo xong dẫn đến FDW/View chưa được tạo thành công. Khi đó, bạn có thể đợi toàn bộ hệ thống chạy xong rồi chạy lại riêng container này bằng lệnh: `docker compose up fdw_setup`, hoặc thực hiện chạy thủ công bằng tay theo hướng dẫn bên dưới).*
+- **Thủ công (Nếu muốn thiết lập lại hoặc tự cấu hình từ thư mục `RESULTS/docker`)**:
   
   * **Trên Windows PowerShell**:
     - **Site Hà Đông (`HADONG`)**:
