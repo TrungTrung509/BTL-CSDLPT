@@ -213,7 +213,7 @@ services:
   fdw_setup:
     image: postgres:15-alpine
     container_name: csdlpt_fdw_setup
-    command: ["sh", "/scripts/setup-fdw.sh"]
+    command: ["sh", "-c", "tr -d '\\r' < /scripts/setup-fdw.sh > /tmp/setup-fdw.sh && sh /tmp/setup-fdw.sh"]
     environment:
       HADONG_DB: ${HADONG_DB:-csdlpt_hadong}
       HADONG_USER: ${HADONG_USER:-csdlpt_user}
@@ -569,7 +569,7 @@ services:
       - ../scripts/setup_debezium_connectors.sh:/setup.sh
     # Cài curl và chạy script. Truyền 'kafka-connect' làm host để script gọi đúng API trong mạng Docker.
     entrypoint:
-      ["sh", "-c", "apk add --no-cache curl jq && sh /setup.sh kafka-connect"]
+      ["sh", "-c", "apk add --no-cache curl jq && tr -d '\\r' < /setup.sh > /tmp/setup.sh && sh /tmp/setup.sh kafka-connect"]
     networks:
       - csdlpt_network
     depends_on:
