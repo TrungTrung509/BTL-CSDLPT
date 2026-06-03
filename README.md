@@ -3,6 +3,210 @@
 > **Bài tập lớn môn Cơ sở Dữ liệu Phân Tán**
 > Hệ thống quản lý và đăng ký học phần trực tuyến theo mô hình **cơ sở dữ liệu phân tán** nhiều site, ứng dụng giao thức **Three-Phase Commit (3PC)**, **replication** và **failover** tự động.
 
+## 🚀 Hướng Dẫn Cài Đặt và Chạy Hệ Thống
+
+### 📋 Yêu cầu hệ thống (Prerequisites)
+Để khởi chạy hệ thống, máy tính của bạn cần được cài đặt sẵn:
+- **Docker** & **Docker Compose**
+- **Node.js 18+** hoặc **Node.js 20 LTS** (nếu muốn chạy các lệnh build bên ngoài)
+- **Python 3.10+** (để chạy script seeding dữ liệu)
+
+---
+
+### 🛠️ Bước 1: Cấu hình biến môi trường
+1. Di chuyển vào thư mục cấu hình Docker của dự án:
+   ```bash
+   cd RESULTS/docker
+   ```
+2. Tạo file cấu hình môi trường `.env` từ file mẫu:
+   - Trên **Linux/Mac**:
+     ```bash
+     cp env.example .env
+     ```
+   - Trên **Windows (cmd/PowerShell)**:
+     ```powershell
+     copy env.example .env
+     ```
+3. *(Tùy chọn)* Mở file `.env` và điều chỉnh các thông số (như cổng `PORT`, tài khoản, mật khẩu) nếu máy bạn bị trùng cổng. Các cổng mặc định gồm:
+   - `HADONG_PORT=5432`, `NGOCTRUC_PORT=5433`, `HOALAC_PORT=5434`
+   - `FRONTEND_PORT=3000`, `BACKEND_PORT=8000`
+   - `GRAFANA_PORT=3001`, `KAFKA_UI_PORT=8090`, `KIBANA_PORT=5601`
+
+---
+
+## ⚡ PHIÊN BẢN 1: Chạy Tối Ưu (Khuyên Dùng Để Test Nghiệp Vụ & Đỡ Nặng Máy)
+Phiên bản này chỉ khởi chạy các dịch vụ **cốt lõi** phục vụ luồng nghiệp vụ đăng ký tín chỉ 3PC và FDW liên site, loại bỏ hoàn toàn các dịch vụ giám sát nặng nề (giúp tiết kiệm **4-6 GB RAM** và khởi động nhanh gấp 3 lần).
+
+### 1. Khởi động các container cốt lõi
+Chạy lệnh chỉ định chính xác các service cần thiết:
+```bash
+docker compose up -d postgres_hadong postgres_ngoctruc postgres_hoalac redis kafka kafka-topic-init fdw_setup backend frontend elasticsearch
+```
+*Lưu ý: Lệnh này sẽ bỏ qua toàn bộ Monitoring Stack (Prometheus, Grafana, các Exporter), Kibana, Kafka Connect, và Centralized Benchmark DB.*
+
+### 2. Thiết lập FDW & Distributed Views (Tự động hoặc Thủ công)
+- **Tự động**: Container `fdw_setup` sẽ tự chạy script liên kết 3 site PostgreSQL và tạo sẵn các view liên site ngay khi các database sẵn sàng.
+- **Thủ công (Nếu muốn thiết lập lại từ thư mục `RESULTS/docker`)**:
+  
+  * **Trên Windows PowerShell**:
+    - **Site Hà Đông (`HADONG`)**:
+      ```powershell
+      Get-Content ..\sql\fdw\01_hadong_fdw.sql | docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong
+      Get-Content ..\sql\views\01_hadong_distributed_views.sql | docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong
+      ```
+    - **Site Ngọc Trục (`NGOCTRUC`)**:
+      ```powershell
+      Get-Content ..\sql\fdw\02_ngoctruc_fdw.sql | docker exec -i csdlpt_ngoctruc psql -U csdlpt_user -d csdlpt_ngoctruc
+      Get-Content ..\sql\views\02_ngoctruc_distributed_views.sql | docker exec -i csdlpt_ngoctruc psql -U csdlpt_user -d csdlpt_ngoctruc
+      ```
+    - **Site Hòa Lạc (`HOALAC`)**:
+      ```powershell
+      Get-Content ..\sql\fdw\03_hoalac_fdw.sql | docker exec -i csdlpt_hoalac psql -U csdlpt_user -d csdlpt_hoalac
+      Get-Content ..\sql\views\03_hoalac_distributed_views.sql | docker exec -i csdlpt_hoalac psql -U csdlpt_user -d csdlpt_hoalac
+      ```
+
+  * **Trên Linux / Mac / Git Bash / Windows CMD**:
+    - **Site Hà Đông (`HADONG`)**:
+      ```bash
+      docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong < ../sql/fdw/01_hadong_fdw.sql
+      docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong < ../sql/views/01_hadong_distributed_views.sql
+      ```
+    - **Site Ngọc Trục (`NGOCTRUC`)**:
+      ```bash
+      docker exec -i csdlpt_ngoctruc psql -U csdlpt_user -d csdlpt_ngoctruc < ../sql/fdw/02_ngoctruc_fdw.sql
+      docker exec -i csdlpt_ngoctruc psql -U csdlpt_user -d csdlpt_ngoctruc < ../sql/views/02_ngoctruc_distributed_views.sql
+      ```
+    - **Site Hòa Lạc (`HOALAC`)**:
+      ```bash
+      docker exec -i csdlpt_hoalac psql -U csdlpt_user -d csdlpt_hoalac < ../sql/fdw/03_hoalac_fdw.sql
+      docker exec -i csdlpt_hoalac psql -U csdlpt_user -d csdlpt_hoalac < ../sql/views/03_hoalac_distributed_views.sql
+      ```
+
+### 3. Thiết lập Logical Replication cho các bảng dùng chung
+Cấu hình replication đồng bộ dữ liệu dùng chung (`CoSo`, `Khoa`, `HocKy`) từ site master Hà Đông sang các site subscriber (Chạy từ thư mục `RESULTS/docker`):
+
+- **Tạo Publication trên site HADONG**:
+  * *Trên Windows PowerShell*:
+    ```powershell
+    Get-Content ..\sql\replication\01_setup_publisher.sql | docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong
+    ```
+  * *Trên Linux/Mac/CMD*:
+    ```bash
+    docker exec -i csdlpt_hadong psql -U csdlpt_user -d csdlpt_hadong < ../sql/replication/01_setup_publisher.sql
+    ```
+
+- **Tạo Subscription trên site NGOCTRUC**:
+  * *Trên Windows PowerShell*:
+    ```powershell
+    Get-Content ..\sql\replication\02_setup_subscribers.sql | docker exec -i csdlpt_ngoctruc psql -U csdlpt_user -d csdlpt_ngoctruc
+    ```
+  * *Trên Linux/Mac/CMD*:
+    ```bash
+    docker exec -i csdlpt_ngoctruc psql -U csdlpt_user -d csdlpt_ngoctruc < ../sql/replication/02_setup_subscribers.sql
+    ```
+
+- **Tạo Subscription trên site HOALAC**:
+  * *Trên Windows PowerShell*:
+    ```powershell
+    Get-Content ..\sql\replication\03_setup_subscriber_hoalac.sql | docker exec -i csdlpt_hoalac psql -U csdlpt_user -d csdlpt_hoalac
+    ```
+  * *Trên Linux/Mac/CMD*:
+    ```bash
+    docker exec -i csdlpt_hoalac psql -U csdlpt_user -d csdlpt_hoalac < ../sql/replication/03_setup_subscriber_hoalac.sql
+    ```
+
+### 4. Khởi tạo dữ liệu mẫu (Seeding)
+Tạo tự động 700 Sinh viên, 40 Giảng viên, 15 Lớp học phần cho từng site và đồng bộ sang Elasticsearch:
+1. Di chuyển vào thư mục seeds:
+   ```bash
+   cd RESULTS/seeds
+   ```
+2. Cài đặt dependency & Chạy script seeding:
+   ```bash
+   pip install -r requirements.txt
+   python seed_db.py
+   ```
+
+### 5. Địa chỉ truy cập các dịch vụ ở Phiên bản 1
+Sau khi khởi chạy thành công các dịch vụ ở Phiên bản 1, bạn có thể kiểm tra và truy cập qua các địa chỉ sau:
+- **Giao diện Client (Frontend)**: [http://localhost:3000](http://localhost:3000)
+  *Sử dụng các tài khoản test mặc định sau để đăng nhập:*
+  * 🔑 **Quyền Admin**: `admin` / mật khẩu `admin123` (site Hà Đông)
+  * 🎓 **Quyền Sinh viên** (mật khẩu chung: `123456`):
+    - Site Hà Đông: `SVHD26CNTT001` (hoặc `002`, `003`...)
+    - Site Hòa Lạc: `SVHL26CNTT001` (hoặc `002`, `003`...)
+    - Site Ngọc Trục: `SVNT26CNTT001` (hoặc `002`, `003`...)
+  * 👨‍🏫 **Quyền Giảng viên** (mật khẩu chung: `123456`):
+    - Site Hà Đông: `GVHD26CNTT001` (hoặc `002`...)
+    - Site Hòa Lạc: `GVHL26CNTT001` (hoặc `002`...)
+    - Site Ngọc Trục: `GVNT26CNTT001` (hoặc `002`...)
+- **Tài liệu API (Backend Swagger)**: [http://localhost:8000/docs](http://localhost:8000/docs) (để thử các API endpoints).
+- **Quản lý Apache Kafka UI**: [http://localhost:8090](http://localhost:8090) (để theo dõi luồng request gửi vào Kafka).
+- **Elasticsearch Health**: [http://localhost:9200](http://localhost:9200) (kiểm tra trạng thái tìm kiếm học phần).
+- **Kết nối Cơ sở dữ liệu (PostgreSQL) qua pgAdmin / DBeaver / Navicat**:
+  - **Thông tin đăng nhập chung**:
+    * **Host (Địa chỉ)**: `localhost` (hoặc `127.0.0.1`)
+    * **Username (Tài khoản)**: `csdlpt_user`
+    * **Password (Mật khẩu)**: `csdlpt_pass`
+  - **Thông tin kết nối từng Site**:
+    * 🏫 **Site Hà Đông**: Cổng `5432` | Database Name (Tên CSDL): `csdlpt_hadong`
+    * 🏫 **Site Ngọc Trục**: Cổng `5433` | Database Name (Tên CSDL): `csdlpt_ngoctruc`
+    * 🏫 **Site Hòa Lạc**: Cổng `5434` | Database Name (Tên CSDL): `csdlpt_hoalac`
+
+---
+
+## 🌟 PHIÊN BẢN 2: Chạy Đầy Đủ (Full Stack - Bao gồm Monitoring, Logging & Benchmark)
+Chạy phiên bản này nếu bạn cần kiểm tra toàn bộ luồng, đo hiệu năng thông qua k6, xem biểu đồ trực quan hóa dữ liệu trên Grafana hoặc truy vết nhật ký đồng bộ trên Kibana.
+
+### 1. Khởi động toàn bộ các dịch vụ (20+ Container)
+```bash
+docker compose up -d
+```
+Docker Compose sẽ khởi chạy toàn bộ ứng dụng cùng với:
+- **Monitoring Stack**: Prometheus, Grafana, cAdvisor, các DB Exporter.
+- **Logging & Sync**: Kibana, Kafka Connect (Debezium capturing `NhatKyThaoTac`), Kafka Connect Setup.
+- **Centralized DB**: Cơ sở dữ liệu tập trung phục vụ so sánh hiệu năng với phân tán.
+
+### 2. Cấu hình FDW, View & Logical Replication
+Thực hiện chạy toàn bộ các bước thiết lập liên kết site, tạo View phân tán toàn trường và Logical Replication y hệt như ở **Phiên bản 1** (các script `/sql/fdw/`, `/sql/views/`, và `/sql/replication/` ở trên).
+
+### 3. Khởi tạo dữ liệu mẫu (Seeding)
+Chạy script seeding tại thư mục `RESULTS/seeds` để nạp dữ liệu mẫu và đồng bộ Elasticsearch:
+```bash
+cd RESULTS/seeds
+pip install -r requirements.txt
+python seed_db.py
+```
+
+### 4. Khởi chạy thử nghiệm Benchmark (k6)
+Để thực hiện benchmark so sánh tải giữa phân tán và tập trung:
+- Chạy benchmark qua k6 container:
+  ```bash
+  cd RESULTS/docker
+  docker compose --profile benchmark up -d k6
+  ```
+- Hoặc chạy script so sánh hiệu năng trực tiếp:
+  ```bash
+  cd RESULTS/Benchmark
+  ./run.ps1
+  ```
+
+---
+
+### 🚪 Địa Chỉ Truy Cập Các Giao Diện Hệ Thống
+Sau khi hoàn tất khởi chạy các dịch vụ, các cổng kết nối sẵn sàng như sau:
+
+| Thành phần / Giao diện | Địa chỉ URL truy cập | Ghi chú |
+| :--- | :--- | :--- |
+| **Ứng dụng Client (Frontend)** | [http://localhost:3000](http://localhost:3000) | Giao diện đăng ký học phần |
+| **Tài liệu API (Swagger Backend)** | [http://localhost:8000/docs](http://localhost:8000/docs) | Kiểm thử trực tiếp API |
+| **Quản lý Apache Kafka UI** | [http://localhost:8090](http://localhost:8090) | Theo dõi các Topic và Consumer Group |
+| **Grafana Dashboard** | [http://localhost:3001](http://localhost:3001) | Đo đạc Latency, RAM, Connection (admin / admin123) |
+| **Kibana Log Viewer** | [http://localhost:5601](http://localhost:5601) | Xem log ghi nhận từ Debezium |
+| **Elasticsearch Health** | [http://localhost:9200](http://localhost:9200) | Elasticsearch search engine |
+
+---
+
 ## 🌐 Tổng Quan Hệ Thống
 
 Hệ thống mô phỏng **Học viện Bưu chính Viễn thông (PTIT)** với 3 cơ sở đào tạo, mỗi cơ sở vận hành một **node PostgreSQL độc lập**. Sinh viên thuộc bất kỳ cơ sở nào đều có thể đăng ký lớp học phần tại cơ sở khác thông qua giao dịch phân tán.
