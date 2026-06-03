@@ -15,6 +15,15 @@ bcrypt.hashpw = safe_hashpw
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'app'))
 
+# Tự động nạp các biến môi trường khi chạy local ngoài Docker
+from dotenv import load_dotenv
+app_env_path = os.path.join(os.path.dirname(__file__), '..', 'app', '.env')
+app_example_env_path = os.path.join(os.path.dirname(__file__), '..', 'app', '.example.env')
+if os.path.exists(app_env_path):
+    load_dotenv(app_env_path)
+elif os.path.exists(app_example_env_path):
+    load_dotenv(app_example_env_path)
+
 from configs.db import engines
 from configs.config import pwd_context
 from sqlalchemy import text
